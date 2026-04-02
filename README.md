@@ -1,1 +1,2 @@
-
+- Theo dõi cấu hình CI/CD: https://vercel.com/vietcuong2004s-projects/datn-tludoc
+- Link live: https://datn-tludoc.vercel.app/
