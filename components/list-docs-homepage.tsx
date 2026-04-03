@@ -3,46 +3,16 @@ import Image from "next/image"
 import { Download, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { getHomepageDocuments } from "@/lib/repositories"
 
 interface ListDocsHomepageProps {
   title: string
 }
 
-export function ListDocsHomepage({ title }: ListDocsHomepageProps) {
-  const documents = [
-    {
-      id: 1,
-      title: "Tuyển chọn những bài luận văn phát triển sản phẩm du lịch mang tính thực tiễn cao",
-      date: "08-5-2024",
-      views: 1250,
-      downloads: 320,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 2,
-      title: "Hướng dẫn làm đồ án hệ thống cung cấp điện cho xưởng cơ khí MỚI NHẤT 2020",
-      date: "07-8-2024",
-      views: 980,
-      downloads: 245,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 3,
-      title: "Top 10 tài liệu trắc nghiệm được lý có đáp án - Top Báo Cáo Thực Tập Tốt Nhất",
-      date: "15-10-2024",
-      views: 1560,
-      downloads: 410,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 4,
-      title: "Tổng hợp 10 tài liệu về thực tập động cơ hay nhất - Top Báo Cáo Thực Tập Tốt Nhất",
-      date: "10-3-2024",
-      views: 890,
-      downloads: 210,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-  ]
+export async function ListDocsHomepage({ title }: ListDocsHomepageProps) {
+  const normalizedTitle = title.toLowerCase()
+  const mode = normalizedTitle.includes("nổi bật") ? "featured" : normalizedTitle.includes("mới") ? "latest" : "popular"
+  const documents = await getHomepageDocuments(mode, 8)
 
   return (
     <section className="py-8">
@@ -80,6 +50,12 @@ export function ListDocsHomepage({ title }: ListDocsHomepageProps) {
           </Card>
         ))}
       </div>
+
+      {documents.length === 0 && (
+        <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          Chưa có tài liệu nào trong cơ sở dữ liệu cho danh mục này.
+        </div>
+      )}
     </section>
   )
 }

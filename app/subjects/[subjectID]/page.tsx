@@ -1,84 +1,59 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { notFound } from "next/navigation"
 import { ArrowLeft, BookOpen, Calendar, Filter } from "lucide-react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
 import { ListDocsSubject } from "@/components/list-docs-subject"
+import { getDocumentsBySubjectCode, getSubjectByCode } from "@/lib/repositories"
 import { getCourseByCode } from "@/lib/curriculum"
 
 type SubjectPageProps = {
   params: Promise<{ subjectID: string }>
 }
 
-function buildDocuments(subjectID: string, subjectName: string) {
-  return [
-    {
-      id: 1,
-      title: `${subjectID} - Bộ đề cương và câu hỏi trọng tâm cho ${subjectName}`,
-      date: "08-5-2024",
-      views: 1250,
-      downloads: 320,
-      rating: 4.7,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 2,
-      title: `${subjectID} - Bài tập và hướng dẫn tự học ${subjectName}`,
-      date: "07-8-2024",
-      views: 980,
-      downloads: 245,
-      rating: 4.4,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 3,
-      title: `${subjectID} - Slide bài giảng tổng hợp ${subjectName}`,
-      date: "15-10-2024",
-      views: 1560,
-      downloads: 410,
-      rating: 4.8,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-    {
-      id: 4,
-      title: `${subjectID} - Tài liệu ôn thi ${subjectName} có đáp án`,
-      date: "10-3-2024",
-      views: 890,
-      downloads: 210,
-      rating: 4.2,
-      image: "/placeholder.svg?height=200&width=300",
-    },
-  ]
-}
-
 export async function generateMetadata({ params }: SubjectPageProps): Promise<Metadata> {
   const resolvedParams = await params
-  const subjectData = getCourseByCode(resolvedParams.subjectID)
-
-  if (!subjectData) {
-    return {
-      title: "Tài liệu môn học",
-    }
-  }
+  const normalizedCode = resolvedParams.subjectID.toUpperCase()
+  const dbSubjectData = await getSubjectByCode(resolvedParams.subjectID)
+  const curriculumSubjectData = getCourseByCode(resolvedParams.subjectID)
+  const subjectData = dbSubjectData
+    ? { code: dbSubjectData.code, name: dbSubjectData.name }
+    : curriculumSubjectData
+      ? { code: curriculumSubjectData.course.code, name: curriculumSubjectData.course.name }
+      : { code: normalizedCode, name: "Môn học chưa có trong danh mục" }
 
   return {
-    title: `Tài liệu của môn ${subjectData.course.code} - ${subjectData.course.name}`,
-    description: `Danh sách tài liệu, bài giảng và đề cương cho môn ${subjectData.course.name}.`,
+    title: `Tài liệu của môn ${subjectData.code} - ${subjectData.name}`,
+    description: `Danh sách tài liệu, bài giảng và đề cương cho môn ${subjectData.name}.`,
   }
 }
 
 export default async function SubjectDocumentsPage({ params }: SubjectPageProps) {
   const resolvedParams = await params
-  const subjectData = getCourseByCode(resolvedParams.subjectID)
+  const normalizedCode = resolvedParams.subjectID.toUpperCase()
+  const dbSubjectData = await getSubjectByCode(resolvedParams.subjectID)
+  const curriculumSubjectData = getCourseByCode(resolvedParams.subjectID)
 
-  if (!subjectData) {
-    notFound()
-  }
+  const subjectData = dbSubjectData
+    ? {
+        code: dbSubjectData.code,
+        name: dbSubjectData.name,
+        groupName: dbSubjectData.groupName,
+      }
+    : curriculumSubjectData
+      ? {
+          code: curriculumSubjectData.course.code,
+          name: curriculumSubjectData.course.name,
+          groupName: curriculumSubjectData.group.group,
+        }
+      : {
+          code: normalizedCode,
+          name: "Môn học chưa có trong danh mục",
+          groupName: "Khác",
+        }
 
-  const { course, group } = subjectData
-  const documents = buildDocuments(course.code, course.name)
+  const documents = await getDocumentsBySubjectCode(subjectData.code)
 
   return (
     <>
@@ -91,7 +66,9 @@ export default async function SubjectDocumentsPage({ params }: SubjectPageProps)
               Quay lại trang chủ
             </Link>
 
-            <Badge className="rounded-full bg-blue-100 px-3 py-1 text-blue-900 hover:bg-blue-100">{group.group}</Badge>
+            <Badge className="rounded-full bg-blue-100 px-3 py-1 text-blue-900 hover:bg-blue-100">
+              {subjectData.groupName}
+            </Badge>
           </div>
 
           <section className="relative overflow-hidden rounded-[2rem] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(30,64,175,0.16),_transparent_34%),linear-gradient(135deg,_#eff6ff_0%,_#ffffff_45%,_#f8fbff_100%)] px-6 py-8 shadow-[0_18px_50px_-25px_rgba(15,23,42,0.35)] md:px-8 md:py-10">
@@ -102,11 +79,11 @@ export default async function SubjectDocumentsPage({ params }: SubjectPageProps)
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-2 text-sm font-semibold text-blue-900 shadow-sm backdrop-blur">
                   <BookOpen className="h-4 w-4" />
-                  Tài liệu của môn {course.code}
+                  Tài liệu của môn {subjectData.code}
                 </div>
                 <div>
                   <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-slate-950 md:text-5xl">
-                    Tài liệu của môn {course.code} - {course.name}
+                    Tài liệu của môn {subjectData.code} - {subjectData.name}
                   </h1>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
                     Tổng hợp tài liệu học tập, slide bài giảng, đề cương và bộ câu hỏi ôn thi dành riêng cho môn học này.
@@ -136,18 +113,18 @@ export default async function SubjectDocumentsPage({ params }: SubjectPageProps)
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">Môn học</p>
-                    <p className="text-lg font-bold text-slate-950">{course.code}</p>
+                    <p className="text-lg font-bold text-slate-950">{subjectData.code}</p>
                   </div>
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <div className="text-slate-500">Nhóm môn</div>
-                    <div className="mt-1 font-semibold text-slate-950">{group.group}</div>
+                    <div className="mt-1 font-semibold text-slate-950">{subjectData.groupName}</div>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <div className="text-slate-500">Danh sách tài liệu</div>
-                    <div className="mt-1 font-semibold text-slate-950">4 bài gợi ý</div>
+                    <div className="mt-1 font-semibold text-slate-950">{documents.length} tài liệu</div>
                   </div>
                 </div>
 
