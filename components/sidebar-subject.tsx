@@ -76,7 +76,10 @@ export function SubjectCategoriesSidebar() {
       .filter((group) => group.courses.length > 0)
   }, [countsByCode, filterMode, query])
 
-  const totalResults = filteredGroups.reduce((sum, group) => sum + group.courses.length, 0)
+  const totalResults = filteredGroups.reduce(
+    (sum, group) => sum + group.courses.reduce((groupSum, course) => groupSum + course.documentCount, 0),
+    0,
+  )
 
   return (
     <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] lg:sticky lg:top-24 lg:flex lg:h-[1100px] lg:flex-col">
@@ -149,7 +152,7 @@ export function SubjectCategoriesSidebar() {
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-blue-950">{group.group}</h3>
                 <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                  {group.courses.length}
+                  {group.courses.reduce((sum, course) => sum + course.documentCount, 0)}
                 </span>
               </div>
 
