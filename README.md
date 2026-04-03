@@ -1,2 +1,3 @@
 - Theo dõi cấu hình CI/CD: https://vercel.com/vietcuong2004s-projects/datn-tludoc
 - Link live: https://datn-tludoc.vercel.app/
+- CSDL MySQL online: https://railway.com/project/b5fe13e8-018d-439a-9d19-2044737aa298/service/a8c712cc-c366-4c3a-aa4d-d77eea842d32/database?environmentId=6ee76ecc-c4bc-4615-b1a5-616432dd979f
