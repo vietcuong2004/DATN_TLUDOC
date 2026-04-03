@@ -192,6 +192,15 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               </TabsContent>
             </Tabs>
 
+            <div className="mb-8 lg:hidden">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <DocumentActions
+                  downloadUrl={document.downloadUrl}
+                  fileName={document.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}
+                />
+              </div>
+            </div>
+
             <div className="mb-8">
               <h2 className="mb-4 text-xl font-bold">Tài liệu liên quan</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -256,7 +265,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               </div>
 
               {/* Section 2: Tải tài liệu & Viết đánh giá */}
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:block">
                 <DocumentActions
                   downloadUrl={document.downloadUrl}
                   fileName={document.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}
