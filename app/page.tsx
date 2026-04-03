@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Hero } from "@/components/hero"
 import { ListDocsHomepage } from "@/components/list-docs-homepage"
-import { SubjectCategoriesSidebar } from "@/components/subject-categories-sidebar"
+import { SubjectCategoriesSidebar } from "@/components/sidebar-subject"
 import { Footer } from "@/components/footer"
 import { Search, FileText, Bot, ListChecks, Network } from "lucide-react"
 
