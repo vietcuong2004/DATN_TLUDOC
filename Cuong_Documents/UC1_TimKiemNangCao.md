@@ -1,172 +1,460 @@
-# UC1 - Huong dan code tinh nang Tim kiem nang cao
+# UC1 - Hướng dẫn code tính năng Tìm kiếm nâng cao
 
-## 1) Muc tieu tinh nang
+## 1) Mục tiêu tính năng
 
-Trang Tim kiem nang cao cho phep nguoi dung:
-- Nhap tu khoa tim tai lieu.
-- Chon bo loc theo nhieu tieu chi (nganh hoc, mon hoc, loai tai lieu, danh gia, thoi gian cap nhat).
-- Xem danh sach ket qua va sap xep ket qua.
+Trang Tìm kiếm nâng cao cho phép người dùng:
+- Tìm tài liệu theo từ khóa.
+- Lọc theo ngành học, môn học, loại tài liệu, đánh giá, thời gian cập nhật.
+- Xem kết quả theo dạng thẻ và sắp xếp theo nhiều tiêu chí.
 
-## 2) File lien quan trong codebase
+## 2) Các file chính đang tham gia tính năng
 
-- Giao dien trang: `app/advanced-search/page.tsx`
-- Hien thi ket qua: `components/search-results.tsx`
-- API dang co san (chua duoc noi vao trang Tim kiem nang cao):
-	- `app/api/subjects/groups/route.ts`
-	- `app/api/documents/counts/route.ts`
-- Tang truy van du lieu DB: `lib/repositories.ts`
+- Giao diện trang tìm kiếm: `app/advanced-search/page.tsx`
+- Hiển thị danh sách kết quả + sắp xếp: `components/search-results.tsx`
+- API xử lý tìm kiếm: `app/api/search/advanced/route.ts`
+- Repository truy vấn dữ liệu: `lib/repositories.ts`
+- API lấy nhóm môn học cho bộ lọc: `app/api/subjects/groups/route.ts`
 
-## 3) Kien truc hien tai (as-is)
+## 3) Luồng hoạt động tổng thể (dễ hiểu)
 
-### 3.1 Trang `app/advanced-search/page.tsx`
+1. Người dùng mở trang `/advanced-search`.
+2. Trang gọi `GET /api/subjects/groups` để lấy danh sách ngành/môn học và đổ vào bộ lọc.
+3. Người dùng nhập từ khóa + chọn các bộ lọc.
+4. Khi bấm nút `Tìm kiếm`, hàm `runSearch()` trên frontend sẽ tạo query string.
+5. Frontend gọi `GET /api/search/advanced?...`.
+6. API route đọc query params, lọc giá trị hợp lệ rồi gọi `searchDocumentsAdvanced(...)` trong repository.
+7. Repository dựng SQL động theo filter thực tế, truy vấn bảng `documents` + `subjects`.
+8. Kết quả trả về frontend dưới dạng `items`.
+9. `SearchResults` nhận `items`, cho phép người dùng sắp xếp (Tên, Mới nhất, Cũ nhất, Đánh giá, Lượt tải) và render ra card.
 
-Trang dang la Client Component (`"use client"`) va quan ly state bang `useState`:
+## 4) Giải thích code theo từng file
 
-- `isFilterOpen`: dong/mo panel bo loc tren mobile.
-- `searchResults`: danh sach ket qua tim kiem de render.
-- `searchQuery`: tu khoa tim kiem.
-- `pageRange`: khoang so trang, mac dinh `[0, 500]`.
-- `selectedRating`: bo loc danh gia, mac dinh `"any"`.
+### 4.1 `app/advanced-search/page.tsx`
 
-Ham su kien chinh:
-- `handleSearch(e)`: chan submit mac dinh, gia lap goi API bang `setTimeout`, sau do set du lieu mock vao `searchResults`.
-- `clearFilters()`: reset `pageRange` va `selectedRating` ve gia tri mac dinh.
+#### A. Khai báo kiểu dữ liệu và hằng số
 
-Nhan xet:
-- Chua co fetch API that su.
-- Nhieu bo loc tren UI chua gan state rieng (Select/Checkbox/Radio thoi gian).
-- Nut `Ap dung bo loc` hien chua trigger logic query.
+```ts
+type SidebarGroup = {
+	group: string
+	courses: Array<{ code: string; name: string }>
+}
 
-### 3.2 Component `components/search-results.tsx`
+type AdvancedSearchResponse = {
+	items: SearchResult[]
+}
 
-Component nhan props:
-- `results: SearchResult[]`
+const DOC_TYPE_OPTIONS = [ ... ]
+const FILTER_CONTROL_CLASS = "..."
+```
 
-Model `SearchResult` hien tai:
-- `id, title, date, views, downloads, rating, price, image`
+Giải thích từng dòng:
+1. `SidebarGroup`: mô tả dữ liệu nhóm môn học trả về từ API.
+2. `AdvancedSearchResponse`: mô tả JSON trả về từ API tìm kiếm.
+3. `DOC_TYPE_OPTIONS`: danh sách loại tài liệu dùng để render checkbox.
+4. `FILTER_CONTROL_CLASS`: class Tailwind dùng chung để ép checkbox/radio về màu xanh dương theo chủ đề.
 
-Chuc nang:
-- Hien thi so luong ket qua.
-- Co dropdown "Sap xep theo" (hien dang chi la UI, chua xu ly sort).
-- Render card ket qua + link chi tiet tai lieu theo route `/document/{id}`.
+#### B. State quản lý giao diện và bộ lọc
 
-## 4) Luong xu ly hien tai
+```ts
+const [isFilterOpen, setIsFilterOpen] = useState(false)
+const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+const [searchQuery, setSearchQuery] = useState("")
 
-1. Nguoi dung mo trang `/advanced-search`.
-2. Nhap tu khoa tai o Input.
-3. Bam nut `Tim kiem` -> submit form.
-4. `handleSearch` chay va nap du lieu mock.
-5. `SearchResults` render danh sach.
+const [groups, setGroups] = useState<SidebarGroup[]>([])
+const [selectedGroup, setSelectedGroup] = useState("all")
+const [selectedSubjectCode, setSelectedSubjectCode] = useState("all")
+const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([])
+const [selectedRating, setSelectedRating] = useState("any")
+const [updatedWithin, setUpdatedWithin] = useState("any")
 
-Neu chua co ket qua (`searchResults.length === 0`) thi hien thong bao "Chua co ket qua tim kiem".
+const [isLoading, setIsLoading] = useState(false)
+const [errorMessage, setErrorMessage] = useState("")
+```
 
-## 5) API/repository dang co san va kha nang tai su dung
+Giải thích từng dòng:
+1. `isFilterOpen`: mở/đóng panel bộ lọc trên mobile.
+2. `searchResults`: chứa danh sách kết quả để render.
+3. `searchQuery`: từ khóa tìm kiếm.
+4. `groups`: dữ liệu ngành/môn từ API.
+5. `selectedGroup`: ngành đang chọn (`all` nghĩa là tất cả).
+6. `selectedSubjectCode`: môn đang chọn (`all` nghĩa là tất cả).
+7. `selectedDocTypes`: nhiều loại tài liệu được chọn (checkbox nhiều lựa chọn).
+8. `selectedRating`: mức sao tối thiểu (`any`, `2`, `3`, `4`).
+9. `updatedWithin`: khoảng thời gian (`any`, `week`, `month`, `year`).
+10. `isLoading`: hiển thị trạng thái đang gọi API.
+11. `errorMessage`: báo lỗi thân thiện nếu API lỗi.
 
-Hien tai he thong da co mot so ham truy van trong `lib/repositories.ts`:
-- `getSidebarGroups()`
-- `getDocumentCountsBySubjectCode()`
-- `getHomepageDocuments(...)`
-- `getDocumentsBySubjectCode(...)`
-- `getDocumentDetailById(...)`
+#### C. Nạp dữ liệu ngành/môn lúc mở trang
 
-Tuy nhien, chua co ham truy van tong quat cho "advanced search" (tim theo keyword + bo loc tong hop). Vi vay can bo sung:
-- 1 ham repository moi de tim tai lieu theo dieu kien.
-- 1 API route moi de frontend goi.
+```ts
+useEffect(() => {
+	let isMounted = true
 
-## 6) De xuat thiet ke code cho Tim kiem nang cao (to-be)
-
-### 6.1 Tao API route moi
-
-De xuat file moi:
-- `app/api/search/advanced/route.ts`
-
-Nhan query params, vi du:
-- `q`: tu khoa
-- `subjectCode`: ma mon
-- `docTypes`: danh sach loai tai lieu
-- `minRating`
-- `updatedWithin`: week/month/year
-- `sortBy`: relevance/newest/priceAsc/priceDesc/rating/downloads
-- `page`, `pageSize`
-
-Response de xuat:
-
-```json
-{
-	"items": [
-		{
-			"id": 1,
-			"title": "...",
-			"date": "08-05-2024",
-			"views": 1200,
-			"downloads": 300,
-			"rating": 4.5,
-			"price": 50000,
-			"image": "https://..."
+	async function loadGroups() {
+		try {
+			const response = await fetch("/api/subjects/groups", { cache: "no-store" })
+			const data = (await response.json()) as { groups?: SidebarGroup[] }
+			if (isMounted) {
+				setGroups(data.groups ?? [])
+			}
+		} catch {
+			if (isMounted) {
+				setGroups([])
+			}
 		}
-	],
-	"total": 120,
-	"page": 1,
-	"pageSize": 12
+	}
+
+	void loadGroups()
+	return () => {
+		isMounted = false
+	}
+}, [])
+```
+
+Giải thích từng dòng:
+1. `useEffect(..., [])`: chỉ chạy 1 lần khi component mount.
+2. `isMounted`: cờ an toàn để tránh setState sau khi component unmount.
+3. `fetch('/api/subjects/groups')`: gọi API lấy danh sách nhóm/môn.
+4. `setGroups(...)`: lưu dữ liệu vào state để đổ vào `<Select>`.
+5. `catch`: nếu lỗi mạng/server, fallback về mảng rỗng.
+6. `return cleanup`: set `isMounted = false` để chống warning memory leak.
+
+#### D. Tính danh sách môn học hiển thị theo ngành
+
+```ts
+const allSubjects = useMemo(() => {
+	return groups.flatMap((group) => group.courses)
+}, [groups])
+
+const subjectOptions = useMemo(() => {
+	if (selectedGroup === "all") {
+		return allSubjects
+	}
+
+	const foundGroup = groups.find((group) => group.group === selectedGroup)
+	return foundGroup?.courses ?? []
+}, [allSubjects, groups, selectedGroup])
+```
+
+Giải thích từng dòng:
+1. `allSubjects`: gom toàn bộ môn học của tất cả nhóm.
+2. `subjectOptions`: danh sách môn thực tế sẽ hiển thị trong dropdown môn học.
+3. Nếu chọn `all` ngành thì hiển thị tất cả môn.
+4. Nếu chọn 1 ngành cụ thể thì chỉ hiển thị môn thuộc ngành đó.
+
+#### E. Hàm cốt lõi gọi API tìm kiếm
+
+```ts
+const runSearch = async () => {
+	setIsLoading(true)
+	setErrorMessage("")
+
+	try {
+		const params = new URLSearchParams()
+
+		if (searchQuery.trim()) params.set("q", searchQuery.trim())
+		if (selectedGroup !== "all") params.set("groupName", selectedGroup)
+		if (selectedSubjectCode !== "all") params.set("subjectCode", selectedSubjectCode)
+		if (selectedDocTypes.length > 0) params.set("docTypes", selectedDocTypes.join(","))
+
+		if (selectedRating !== "any") {
+			const minRating = Number.parseInt(selectedRating, 10)
+			if (!Number.isNaN(minRating)) params.set("minRating", String(minRating))
+		}
+
+		if (updatedWithin !== "any") params.set("updatedWithin", updatedWithin)
+
+		const response = await fetch(`/api/search/advanced?${params.toString()}`, { cache: "no-store" })
+		if (!response.ok) throw new Error("Không thể lấy dữ liệu tìm kiếm")
+
+		const data = (await response.json()) as AdvancedSearchResponse
+		setSearchResults(data.items ?? [])
+	} catch {
+		setSearchResults([])
+		setErrorMessage("Có lỗi khi tìm kiếm. Vui lòng thử lại sau.")
+	} finally {
+		setIsLoading(false)
+	}
 }
 ```
 
-### 6.2 Bo sung repository function
+Giải thích từng dòng:
+1. Bật loading và xóa thông báo lỗi cũ.
+2. Tạo `URLSearchParams` để build query string chuẩn.
+3. Chỉ set param khi filter có ý nghĩa (tránh gửi rác `all`, `any`).
+4. Parse `selectedRating` từ chuỗi sang số trước khi gửi.
+5. Gọi API thật `/api/search/advanced`.
+6. Nếu API trả lỗi HTTP thì throw để vào nhánh `catch`.
+7. Thành công: cập nhật `searchResults`.
+8. Lỗi: clear kết quả + hiện message cho người dùng.
+9. `finally`: luôn tắt loading.
 
-De xuat them trong `lib/repositories.ts`:
-- `searchDocumentsAdvanced(filters)`
+#### F. Các hàm phụ của trang
 
-Huong tiep can:
-- Xay dung SQL dong theo dieu kien co du lieu (chi append WHERE khi filter duoc chon).
-- Dung placeholder `?` cho toan bo gia tri de tranh SQL injection.
-- Tach rieng phan `ORDER BY` va whitelist gia tri sort de tranh chen SQL.
+```ts
+const handleSearch = (e: React.FormEvent) => {
+	e.preventDefault()
+	void runSearch()
+}
 
-### 6.3 Noi frontend voi API that
+const toggleDocType = (docType: string, checked: boolean) => {
+	setSelectedDocTypes((previous) => {
+		if (checked) {
+			if (previous.includes(docType)) return previous
+			return [...previous, docType]
+		}
+		return previous.filter((item) => item !== docType)
+	})
+}
 
-Trong `app/advanced-search/page.tsx`:
-- Mo rong state de quan ly day du bo loc.
-- `handleSearch` chuyen tu mock sang `fetch('/api/search/advanced?...')`.
-- Them `isLoading`, `error` de cai thien UX.
-- Nut `Ap dung bo loc` nen trigger tim kiem (hoac submit form).
+const clearFilters = () => {
+	setSelectedGroup("all")
+	setSelectedSubjectCode("all")
+	setSelectedDocTypes([])
+	setSelectedRating("any")
+	setUpdatedWithin("any")
+}
 
-## 7) Mapping UI filter -> query param
+const handleGroupChange = (nextGroup: string) => {
+	setSelectedGroup(nextGroup)
+	if (nextGroup === "all") return
 
-- O "Nganh hoc" va "Mon hoc": map vao `subjectCode` hoac `group` tuy schema DB.
-- "Loai tai lieu" (checkbox): map `docTypes=exam,thesis,slide,...`
-- Danh gia radio:
-	- `any` -> bo qua filter
-	- `4+` -> `minRating=4`
-	- `3+` -> `minRating=3`
-	- `2+` -> `minRating=2`
-- Thoi gian cap nhat:
-	- `week` -> `updatedWithin=7d`
-	- `month` -> `updatedWithin=30d`
-	- `year` -> `updatedWithin=365d`
+	const nextSubjects = groups.find((group) => group.group === nextGroup)?.courses ?? []
+	const currentExists = nextSubjects.some((course) => course.code === selectedSubjectCode)
+	if (!currentExists) setSelectedSubjectCode("all")
+}
+```
 
-## 8) Ke hoach trien khai de xuat
+Giải thích từng dòng:
+1. `handleSearch`: chặn reload trang mặc định của form và gọi `runSearch`.
+2. `toggleDocType`: thêm/bỏ 1 loại tài liệu trong mảng checkbox.
+3. `clearFilters`: đưa tất cả bộ lọc về trạng thái mặc định.
+4. `handleGroupChange`: khi đổi ngành, kiểm tra môn học hiện tại còn hợp lệ không; nếu không thì reset về `all`.
 
-1. Chuan hoa model du lieu ket qua (type/interface) dung chung cho frontend + API.
-2. Tao API `app/api/search/advanced/route.ts`.
-3. Bo sung ham `searchDocumentsAdvanced` trong `lib/repositories.ts`.
-4. Noi `app/advanced-search/page.tsx` voi API that, bo mock data.
-5. Bat su kien cho tat ca bo loc (desktop + mobile).
-6. Them xu ly sap xep that su trong `SearchResults`.
-7. Test case:
-	 - keyword only
-	 - filter only
-	 - keyword + filter
-	 - khong co ket qua
-	 - loi API/DB
+#### G. Phần JSX quan trọng
 
-## 9) Cac diem can luu y
+- Hero section chứa tiêu đề và thanh tìm kiếm.
+- Thanh tìm kiếm đã đặt `Input + Button` cùng một hàng.
+- Cột trái (desktop): panel bộ lọc.
+- Mobile: bộ lọc dạng panel nổi (`isFilterOpen`).
+- Cột phải: render `SearchResults` khi có dữ liệu; nếu rỗng thì hiển thị trạng thái “Chưa có kết quả”.
 
-- Hien tai `SearchResults` su dung field `price`, nhung repository hien co chua tra gia. Can thong nhat schema.
-- Bo loc "So trang" va "Dinh dang" da duoc loai bo khoi UI theo yeu cau.
-- Du lieu ngay dang dang string `dd-mm-yyyy`; neu can sort theo ngay o client thi nen giu them timestamp.
-- Trang desktop/mobile dang co 2 bo UI filter rieng; can dam bao dong bo state tranh lech gia tri.
+### 4.2 `components/search-results.tsx`
 
-## 10) Tom tat nhanh
+#### A. Model dữ liệu đầu vào
 
-- Tinh nang Tim kiem nang cao hien da co giao dien day du va luong tim kiem mock.
-- Chua co backend search thuc te.
-- Huong dung: bo sung API + repository search tong hop, sau do noi lai frontend de chay du lieu that.
+```ts
+export interface SearchResult {
+	id: number
+	title: string
+	date: string
+	views: number
+	downloads: number
+	rating: number
+	image: string
+	downloadUrl?: string
+}
+```
+
+Giải thích:
+1. Đây là kiểu dữ liệu 1 tài liệu hiển thị trên card.
+2. `downloadUrl` là optional để fallback sang trang chi tiết nếu thiếu link tải.
+
+#### B. State sắp xếp và logic sắp xếp
+
+```ts
+const [sortBy, setSortBy] = useState<"name" | "newest" | "oldest" | "rating" | "downloads">("newest")
+
+const sortedResults = useMemo(() => {
+	const parseDate = (dateText: string) => {
+		const [day, month, year] = dateText.split("-").map((item) => Number.parseInt(item, 10))
+		if (!day || !month || !year) return 0
+		return new Date(year, month - 1, day).getTime()
+	}
+
+	const list = [...results]
+	list.sort((a, b) => {
+		if (sortBy === "name") return a.title.localeCompare(b.title, "vi")
+		if (sortBy === "oldest") return parseDate(a.date) - parseDate(b.date)
+		if (sortBy === "rating") return b.rating - a.rating
+		if (sortBy === "downloads") return b.downloads - a.downloads
+		return parseDate(b.date) - parseDate(a.date)
+	})
+
+	return list
+}, [results, sortBy])
+```
+
+Giải thích theo dòng:
+1. `sortBy` lưu tiêu chí sắp xếp đang chọn.
+2. `useMemo` giúp chỉ tính lại khi `results` hoặc `sortBy` đổi.
+3. `parseDate` đổi chuỗi `dd-mm-yyyy` sang timestamp để so sánh.
+4. Copy mảng `results` sang `list` để không mutate props.
+5. `sort(...)` xử lý lần lượt từng tiêu chí.
+6. Mặc định là `newest` (mới nhất).
+
+#### C. Hành động trên mỗi card kết quả
+
+- Nút `Xem chi tiết`: điều hướng sang `/document/{id}`.
+- Nút `Tải xuống`: đi thẳng link tải (`downloadUrl`) và không mở tab mới.
+- Cả hai nút được căn phải theo yêu cầu UI mới.
+
+### 4.3 `app/api/search/advanced/route.ts`
+
+```ts
+const ALLOWED_DOC_TYPES = new Set(["exam", "lecture", "slides", "assignment", "research", "other"])
+const ALLOWED_UPDATED_WITHIN = new Set(["week", "month", "year"])
+```
+
+Giải thích:
+1. Dùng whitelist để chặn giá trị lạ từ query string.
+2. Tránh lọc sai và giảm rủi ro thao tác ngoài ý muốn.
+
+```ts
+const query = searchParams.get("q")?.trim() || undefined
+...
+const docTypes = (searchParams.get("docTypes") || "")
+	.split(",")
+	.map((item) => item.trim())
+	.filter((item) => item.length > 0 && ALLOWED_DOC_TYPES.has(item))
+```
+
+Giải thích:
+1. Đọc tham số từ URL.
+2. Chuẩn hóa (trim) dữ liệu.
+3. Với `docTypes`: tách chuỗi CSV thành mảng và giữ lại phần tử hợp lệ.
+
+```ts
+const items = await searchDocumentsAdvanced({ ... })
+return NextResponse.json({ items })
+```
+
+Giải thích:
+1. Chuyển toàn bộ filter hợp lệ xuống repository.
+2. Trả kết quả dạng JSON để frontend render.
+3. Nếu có lỗi sẽ trả `{ items: [] }` với status 500.
+
+### 4.4 `lib/repositories.ts` - hàm `searchDocumentsAdvanced(...)`
+
+```ts
+const whereClauses = ["d.status = 'published'"]
+const params: unknown[] = []
+```
+
+Giải thích:
+1. Điều kiện mặc định: chỉ lấy tài liệu đã xuất bản.
+2. `params` là mảng giá trị bind cho placeholder `?`.
+
+```ts
+if (filters.query?.trim()) {
+	const keyword = `%${filters.query.trim()}%`
+	whereClauses.push("(d.title LIKE ? OR COALESCE(d.description, '') LIKE ?)")
+	params.push(keyword, keyword)
+}
+```
+
+Giải thích:
+1. Nếu có từ khóa thì tìm theo `title` hoặc `description`.
+2. Dùng `LIKE` + `%` để tìm gần đúng.
+3. Dùng placeholder `?` để tránh SQL injection.
+
+```ts
+if (filters.groupName?.trim()) { ... }
+if (filters.subjectCode?.trim()) { ... }
+if (filters.docTypes?.length) { ... }
+if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating)) { ... }
+```
+
+Giải thích:
+1. Mỗi filter chỉ thêm vào `WHERE` khi có dữ liệu.
+2. `docTypes` dùng `IN (?, ?, ...)` động theo số phần tử.
+3. `minRating` lọc theo `d.avg_rating >= ?`.
+
+```ts
+if (filters.updatedWithin === "week") {
+	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")
+} else if (filters.updatedWithin === "month") {
+	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")
+} else if (filters.updatedWithin === "year") {
+	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)")
+}
+```
+
+Giải thích:
+1. Lọc theo thời gian cập nhật tương đối.
+2. Dùng hàm SQL `DATE_SUB` để tính mốc thời gian.
+
+```ts
+const rows = await queryRows<DocumentRow>(`
+	SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.download_url
+	FROM documents d
+	INNER JOIN subjects s ON s.id = d.subject_id
+	WHERE ${whereClauses.join(" AND ")}
+	ORDER BY d.created_at DESC
+	LIMIT ?
+`, [...params, limit])
+```
+
+Giải thích:
+1. Truy vấn join `documents` với `subjects` để lọc theo ngành/môn.
+2. Ghép động `WHERE` bằng các điều kiện đã chọn.
+3. Mặc định sắp xếp mới nhất trước.
+4. Giới hạn số lượng kết quả bằng `LIMIT`.
+
+```ts
+return rows.map((row) => ({
+	id: row.id,
+	title: row.title,
+	date: toDateString(row.created_at),
+	views: row.views_count ?? 0,
+	downloads: row.downloads_count ?? 0,
+	rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
+	image: buildDriveThumbnail(row.drive_file_id, 720),
+	downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
+}))
+```
+
+Giải thích:
+1. Chuyển row DB sang DTO frontend cần.
+2. Chuẩn hóa ngày/thống kê/rating.
+3. Nếu DB chưa có `download_url` thì fallback tự tạo từ `drive_file_id`.
+
+## 5) Mapping bộ lọc UI -> query params API
+
+- Từ khóa: `q`
+- Ngành học: `groupName`
+- Môn học: `subjectCode`
+- Loại tài liệu (nhiều lựa chọn): `docTypes=exam,slides,...`
+- Đánh giá:
+	- `any` -> không gửi `minRating`
+	- `2`, `3`, `4` -> gửi `minRating` tương ứng
+- Thời gian cập nhật:
+	- `any` -> không gửi `updatedWithin`
+	- `week`, `month`, `year` -> gửi trực tiếp
+
+## 6) Các thay đổi UI đã chốt trong phiên bản hiện tại
+
+- Bỏ bộ lọc Số trang.
+- Bỏ bộ lọc Định dạng.
+- Bỏ nút `Áp dụng bộ lọc`.
+- Search box và nút `Tìm kiếm` đặt chung một hàng.
+- Nút hành động trong card:
+	- `Xem chi tiết` có icon mắt.
+	- `Tải xuống` có icon download, không mở tab mới.
+- Dropdown sắp xếp còn: `Tên`, `Mới nhất`, `Cũ nhất`, `Đánh giá`, `Lượt tải`.
+
+## 7) Lưu ý vận hành
+
+- API tìm kiếm hiện chưa phân trang; đang giới hạn tối đa 100 bản ghi/lần.
+- Sắp xếp đang làm ở frontend (`search-results.tsx`), không phải sort ở SQL.
+- Nếu cần hiệu năng tốt hơn với dữ liệu lớn, nên đẩy sort + pagination xuống API/repository.
+
+## 8) Tóm tắt nhanh cho người mới
+
+Nếu bạn cần hiểu nhanh toàn bộ luồng, chỉ cần nhớ:
+1. `page.tsx` thu thập filter + gọi API.
+2. `route.ts` xác thực/filter query params.
+3. `repositories.ts` dựng SQL động và truy vấn DB.
+4. `search-results.tsx` sắp xếp và render card.
+
+Như vậy, bạn có thể debug rất nhanh theo thứ tự: UI -> API -> SQL -> render.
