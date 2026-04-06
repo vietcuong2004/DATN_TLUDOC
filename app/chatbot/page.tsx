@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Send, Bot, FileText, ThumbsUp, ThumbsDown, Sparkles, BookOpen, Search, Clock } from "lucide-react"
+import { Send, FileText, ThumbsUp, ThumbsDown, Sparkles, BookOpen, Search, Clock } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -23,8 +23,18 @@ interface Message {
   documents?: {
     id: number
     title: string
-    price: number
     image: string
+    downloadUrl?: string
+  }[]
+}
+
+type ChatbotApiResponse = {
+  answer: string
+  documents: {
+    id: number
+    title: string
+    image: string
+    downloadUrl?: string
   }[]
 }
 
@@ -34,161 +44,93 @@ export default function ChatbotPage() {
       id: "1",
       role: "assistant",
       content:
-        "Xin chào! Tôi là trợ lý AI của 123doc. Tôi có thể giúp bạn tìm kiếm tài liệu học tập, giải thích khái niệm, hoặc hỗ trợ bạn trong quá trình học tập. Bạn cần giúp đỡ gì?",
+        "Xin chào! Mình là trợ lý học tập của TLU Document. Mình có thể giúp bạn tìm đúng tài liệu theo môn học, gợi ý thứ tự học phù hợp và hỗ trợ giải thích khái niệm theo ngữ cảnh học tập của bạn.",
       timestamp: new Date(),
     },
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [recentSearches, setRecentSearches] = useState<string[]>([
-    "Đề cương ôn thi THPT Quốc gia môn Toán",
-    "Luận văn về marketing online",
-    "Bài giảng kinh tế vĩ mô",
+    "Tài liệu môn CSE492 - Trí tuệ nhân tạo",
+    "Tài liệu môn MATH111 - Giải tích 1",
+    "Nên học tài liệu nào trước cho CSE484",
   ])
 
   useEffect(() => {
-    scrollToBottom()
+    const container = messagesContainerRef.current
+    if (!container) {
+      return
+    }
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    })
   }, [messages])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
+
+    const question = input.trim()
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: question,
       timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
+    setRecentSearches((prev) => [question, ...prev.filter((item) => item !== question)].slice(0, 5))
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const botResponse = generateBotResponse(input)
+    try {
+      const response = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: question,
+          history: messages.slice(-8).map((item) => ({
+            role: item.role,
+            content: item.content,
+            documents: (item.documents || []).map((doc) => ({ title: doc.title })),
+          })),
+        }),
+      })
+
+      const data = (await response.json()) as ChatbotApiResponse & { error?: string }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Không thể lấy phản hồi chatbot")
+      }
+
+      const botResponse: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: data.answer,
+        timestamp: new Date(),
+        documents: data.documents || [],
+      }
+
       setMessages((prev) => [...prev, botResponse])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content:
+            "Mình chưa thể lấy phản hồi từ hệ thống AI lúc này. Bạn thử gửi lại câu hỏi sau ít phút nhé.",
+          timestamp: new Date(),
+        },
+      ])
+    } finally {
       setIsLoading(false)
-    }, 1500)
-  }
-
-  const generateBotResponse = (userInput: string): Message => {
-    // Mock responses based on user input
-    const lowerInput = userInput.toLowerCase()
-
-    if (lowerInput.includes("xin chào") || lowerInput.includes("hello")) {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "Xin chào! Rất vui được gặp bạn. Tôi có thể giúp gì cho bạn hôm nay?",
-        timestamp: new Date(),
-      }
-    } else if (lowerInput.includes("ielts") || lowerInput.includes("toeic")) {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content:
-          "Tôi có một số tài liệu về luyện thi IELTS/TOEIC có thể giúp bạn. Dưới đây là một số tài liệu phổ biến nhất:",
-        timestamp: new Date(),
-        documents: [
-          {
-            id: 1,
-            title: "Bộ đề IELTS Writing Task 2 mới nhất kèm bài mẫu band 8.0+",
-            price: 120000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-          {
-            id: 2,
-            title: "Tổng hợp từ vựng IELTS theo chủ đề - Phiên bản 2024",
-            price: 85000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-          {
-            id: 3,
-            title: "Sách luyện thi TOEIC 850+ (ETS 2023) kèm giải chi tiết",
-            price: 150000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-        ],
-      }
-    } else if (lowerInput.includes("kinh tế") || lowerInput.includes("quản trị")) {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "Về lĩnh vực kinh tế và quản trị, tôi có thể giới thiệu cho bạn một số tài liệu sau:",
-        timestamp: new Date(),
-        documents: [
-          {
-            id: 4,
-            title: "Giáo trình Kinh tế vĩ mô - ĐH Kinh tế Quốc dân (2023)",
-            price: 95000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-          {
-            id: 5,
-            title: "Bộ case study Quản trị chiến lược - Harvard Business Review",
-            price: 180000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-        ],
-      }
-    } else if (lowerInput.includes("đề thi") || lowerInput.includes("đề cương")) {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "Tôi tìm thấy một số đề thi và đề cương có thể phù hợp với nhu cầu của bạn:",
-        timestamp: new Date(),
-        documents: [
-          {
-            id: 6,
-            title: "Bộ đề thi thử THPT Quốc gia 2024 - Môn Toán (có lời giải chi tiết)",
-            price: 65000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-          {
-            id: 7,
-            title: "Đề cương ôn tập học kỳ 2 lớp 12 - Tất cả các môn",
-            price: 50000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-        ],
-      }
-    } else if (lowerInput.includes("hiệu ứng mỏ neo")) {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content:
-          'Hiệu ứng mỏ neo (Anchoring Effect) là một thiên kiến nhận thức trong tâm lý học, đề cập đến xu hướng con người phụ thuộc quá mức vào thông tin đầu tiên được cung cấp ("mỏ neo") khi đưa ra quyết định.\n\nVí dụ: Khi một cửa hàng niêm yết giá gốc cao, sau đó giảm giá 50%, người tiêu dùng có xu hướng cảm thấy đó là một ưu đãi tốt, ngay cả khi giá sau giảm vẫn cao hơn giá thị trường.\n\nTrong marketing, hiệu ứng mỏ neo được sử dụng rộng rãi để định hướng quyết định mua hàng của khách hàng. Dưới đây là một số tài liệu chuyên sâu về chủ đề này:',
-        timestamp: new Date(),
-        documents: [
-          {
-            id: 8,
-            title: "Hành vi người tiêu dùng: Các yếu tố tâm lý ảnh hưởng đến quyết định mua hàng",
-            price: 110000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-          {
-            id: 9,
-            title: "Nghiên cứu về thiên kiến nhận thức trong marketing và kinh doanh",
-            price: 135000,
-            image: "/placeholder.svg?height=100&width=150",
-          },
-        ],
-      }
-    } else {
-      return {
-        id: Date.now().toString(),
-        role: "assistant",
-        content:
-          "Cảm ơn câu hỏi của bạn. Tôi đang tìm kiếm thông tin liên quan. Bạn có thể cung cấp thêm chi tiết về loại tài liệu bạn đang tìm kiếm không? Ví dụ: môn học cụ thể, cấp độ học tập, hoặc chủ đề bạn quan tâm?",
-        timestamp: new Date(),
-      }
     }
   }
 
@@ -197,21 +139,46 @@ export default function ChatbotPage() {
   }
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const hours = `${date.getHours()}`.padStart(2, "0")
+    const minutes = `${date.getMinutes()}`.padStart(2, "0")
+    return `${hours}:${minutes}`
   }
 
   return (
     <>
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
+      <div className="bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_40%),radial-gradient(circle_at_85%_15%,_rgba(14,165,233,0.08),_transparent_40%),linear-gradient(to_bottom,_#f8fafc,_#eef2ff)]">
+      <div className="container mx-auto px-4 py-8 md:py-10">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold">Chatbot Tutor</h1>
+          <div className="relative mb-6 overflow-hidden rounded-3xl border border-blue-100/80 bg-[linear-gradient(120deg,#ffffff_0%,#f8fbff_45%,#eef2ff_100%)] px-6 py-6 shadow-[0_18px_50px_-30px_rgba(37,99,235,0.35)]">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-200/40 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 left-1/3 h-44 w-44 rounded-full bg-sky-200/35 blur-3xl" />
+
+            <div className="relative grid grid-cols-1 items-center gap-6 md:grid-cols-[1fr_180px]">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  TRỢ LÝ HỌC TẬP AI
+                </div>
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Chatbot Tutor</h1>
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-700 md:text-base">
+                  Mình là trợ lý học tập của TLU Document. Mình sẽ giúp bạn tìm ra tài liệu học tập tốt nhất theo đúng môn học.
+                </p>
+              </div>
+              <div className="relative mx-auto hidden h-32 w-32 md:block">
+                <Image
+                  src="/chatbot.png"
+                  alt="TLU Chatbot"
+                  fill
+                  className="object-contain drop-shadow-[0_10px_20px_rgba(59,130,246,0.35)]"
+                  priority
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-1">
-              <Card className="sticky top-20">
+              <Card className="sticky top-24 rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)]">
                 <CardContent className="p-4">
                   <Tabs defaultValue="suggestions">
                     <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -229,28 +196,28 @@ export default function ChatbotPage() {
                           <Button
                             variant="outline"
                             className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                            onClick={() => handleQuickQuestion("Có đề cương ôn thi THPT Quốc gia môn Toán không?")}
+                            onClick={() => handleQuickQuestion("Mình cần tài liệu môn CSE492 (Trí tuệ nhân tạo), gợi ý 3 tài liệu mẫu tốt nhất.")}
                           >
                             <span className="break-words whitespace-normal text-left block">
-                              Có đề cương ôn thi THPT Quốc gia môn Toán không?
+                              Mình cần tài liệu môn CSE492 (Trí tuệ nhân tạo), gợi ý 3 tài liệu mẫu tốt nhất.
                             </span>
                           </Button>
                           <Button
                             variant="outline"
                             className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                            onClick={() => handleQuickQuestion("Giúp tôi tìm tài liệu về IELTS Writing Task 2")}
+                            onClick={() => handleQuickQuestion("Tôi muốn tìm tài liệu môn MATH111 (Giải tích 1).")}
                           >
                             <span className="break-words whitespace-normal text-left block">
-                              Giúp tôi tìm tài liệu về IELTS Writing Task 2
+                              Tôi muốn tìm tài liệu môn MATH111 (Giải tích 1).
                             </span>
                           </Button>
                           <Button
                             variant="outline"
                             className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                            onClick={() => handleQuickQuestion("Hiệu ứng mỏ neo trong hành vi tiêu dùng là gì?")}
+                            onClick={() => handleQuickQuestion("Tôi nên học tài liệu nào trước cho môn CSE484 (Cơ sở dữ liệu)?")}
                           >
                             <span className="break-words whitespace-normal text-left block">
-                              Hiệu ứng mỏ neo trong hành vi tiêu dùng là gì?
+                              Tôi nên học tài liệu nào trước cho môn CSE484 (Cơ sở dữ liệu)?
                             </span>
                           </Button>
                         </div>
@@ -265,30 +232,30 @@ export default function ChatbotPage() {
                           <Badge
                             variant="outline"
                             className="cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleQuickQuestion("Tài liệu về kinh tế vĩ mô")}
+                            onClick={() => handleQuickQuestion("Tài liệu môn CSE492")}
                           >
-                            Kinh tế vĩ mô
+                            CSE492 - TTNT
                           </Badge>
                           <Badge
                             variant="outline"
                             className="cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleQuickQuestion("Tài liệu về lập trình Python")}
+                            onClick={() => handleQuickQuestion("Tài liệu môn CSE484")}
                           >
-                            Lập trình Python
+                            CSE484 - CSDL
                           </Badge>
                           <Badge
                             variant="outline"
                             className="cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleQuickQuestion("Đề thi IELTS mới nhất")}
+                            onClick={() => handleQuickQuestion("Tài liệu môn MATH111")}
                           >
-                            IELTS
+                            MATH111
                           </Badge>
                           <Badge
                             variant="outline"
                             className="cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleQuickQuestion("Luận văn tốt nghiệp ngành marketing")}
+                            onClick={() => handleQuickQuestion("Nên học gì trước môn CSE205")}
                           >
-                            Luận văn Marketing
+                            CSE205 - LTNC
                           </Badge>
                         </div>
                       </div>
@@ -320,9 +287,12 @@ export default function ChatbotPage() {
             </div>
 
             <div className="md:col-span-3">
-              <Card className="h-[calc(100vh-200px)] flex flex-col">
+              <Card className="h-[calc(100vh-220px)] rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] flex flex-col">
                 <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
-                  <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                  <div
+                    ref={messagesContainerRef}
+                    className="flex-1 overflow-y-auto rounded-xl bg-slate-50/70 border border-slate-100 p-3 pr-2 space-y-4"
+                  >
                     {messages.map((message) => (
                       <div
                         key={message.id}
@@ -333,16 +303,14 @@ export default function ChatbotPage() {
                         >
                           {message.role === "assistant" && (
                             <Avatar className="h-8 w-8">
-                              <AvatarImage src="/placeholder.svg" alt="AI" />
-                              <AvatarFallback className="bg-green-100 text-green-600">
-                                <Bot className="h-4 w-4" />
-                              </AvatarFallback>
+                              <AvatarImage src="/chatbot.png" alt="TLU Chatbot" />
+                              <AvatarFallback className="bg-blue-100 text-blue-700">AI</AvatarFallback>
                             </Avatar>
                           )}
                           <div className="space-y-2">
                             <div
                               className={`p-3 rounded-lg ${
-                                message.role === "user" ? "bg-green-500 text-white" : "bg-gray-100 text-gray-800"
+                                message.role === "user" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-800 border border-slate-200"
                               }`}
                             >
                               <p className="whitespace-pre-line break-words">{message.content}</p>
@@ -365,9 +333,7 @@ export default function ChatbotPage() {
                                         </div>
                                         <div className="ml-3 flex-1 min-w-0">
                                           <p className="font-medium text-sm line-clamp-2">{doc.title}</p>
-                                          <p className="text-green-500 font-bold text-sm mt-1">
-                                            {doc.price.toLocaleString("vi-VN")} VNĐ
-                                          </p>
+                                          <p className="text-green-600 text-sm mt-1">Tài liệu gợi ý</p>
                                         </div>
                                       </div>
                                     </Link>
@@ -413,10 +379,8 @@ export default function ChatbotPage() {
                       <div className="flex justify-start">
                         <div className="flex flex-row max-w-[80%] gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src="/placeholder.svg" alt="AI" />
-                            <AvatarFallback className="bg-green-100 text-green-600">
-                              <Bot className="h-4 w-4" />
-                            </AvatarFallback>
+                            <AvatarImage src="/chatbot.png" alt="TLU Chatbot" />
+                            <AvatarFallback className="bg-blue-100 text-blue-700">AI</AvatarFallback>
                           </Avatar>
                           <div className="p-3 rounded-lg bg-gray-100 text-gray-800">
                             <div className="flex space-x-2">
@@ -437,21 +401,20 @@ export default function ChatbotPage() {
                         </div>
                       </div>
                     )}
-                    <div ref={messagesEndRef} />
                   </div>
 
-                  <form onSubmit={handleSendMessage} className="mt-4 flex items-end gap-2">
+                  <form onSubmit={handleSendMessage} className="mt-4 flex items-end gap-2 rounded-xl border border-blue-100 bg-white p-2">
                     <Input
                       placeholder="Nhập câu hỏi của bạn..."
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      className="flex-1"
+                      className="flex-1 border-0 shadow-none focus-visible:ring-0"
                     />
                     <Button
                       type="submit"
                       size="icon"
                       disabled={!input.trim() || isLoading}
-                      className="bg-green-500 hover:bg-green-600"
+                      className="bg-indigo-700 hover:bg-indigo-800"
                     >
                       <Send className="h-4 w-4" />
                       <span className="sr-only">Gửi</span>
@@ -462,6 +425,7 @@ export default function ChatbotPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
       <Footer />
     </>

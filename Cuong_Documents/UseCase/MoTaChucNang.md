@@ -3,7 +3,7 @@
 ## 1. Tổng quan
 Hệ thống là một nền tảng web hỗ trợ người học tìm kiếm, đọc hiểu, tóm tắt và khai thác tài liệu học tập bằng các công cụ AI. Các chức năng chính tập trung vào năm luồng nghiệp vụ: tìm kiếm tài liệu, tóm tắt nội dung, chatbot tư vấn học tập, tạo quiz và tạo sơ đồ tư duy.
 
-## 2. Tính năng tìm kiếm và lọc nâng cao
+## 2. Tính năng tìm kiếm và lọc nâng cao (UC1)
 
 ### Mục đích
 Cho phép người dùng tìm nhanh đúng tài liệu cần thiết trong kho dữ liệu lớn thông qua từ khóa và bộ lọc chi tiết.
@@ -32,7 +32,7 @@ Cho phép người dùng tìm nhanh đúng tài liệu cần thiết trong kho d
 ### Kết quả đầu ra
 Danh sách tài liệu phù hợp với truy vấn của người dùng.
 
-## 3. Tóm tắt nội dung tài liệu bằng AI
+## 3. Tóm tắt nội dung tài liệu bằng AI (UC2)
 
 ### Mục đích
 Giúp người dùng nắm ý chính của tài liệu một cách nhanh chóng, giảm thời gian đọc và hỗ trợ ôn tập hiệu quả.
@@ -60,7 +60,7 @@ Giúp người dùng nắm ý chính của tài liệu một cách nhanh chóng,
 ### Kết quả đầu ra
 Bản tóm tắt ngắn gọn, dễ đọc và có thể tái sử dụng cho học tập.
 
-## 4. Chatbot Tutor hỗ trợ tìm tài liệu và tư vấn học tập
+## 4. Chatbot Tutor hỗ trợ tìm tài liệu và tư vấn học tập(UC3)
 
 ### Mục đích
 Đóng vai trò trợ lý học thuật thông minh, vừa trả lời câu hỏi, vừa gợi ý tài liệu liên quan dựa trên dữ liệu thật trong kho học liệu.
@@ -89,7 +89,7 @@ Bản tóm tắt ngắn gọn, dễ đọc và có thể tái sử dụng cho h�
 ### Kết quả đầu ra
 Câu trả lời có ngữ cảnh, kèm gợi ý tài liệu và lịch sử hội thoại.
 
-## 5. Tạo quiz trắc nghiệm tự động từ tài liệu
+## 5. Tạo quiz trắc nghiệm tự động từ tài liệu (UC4)
 
 ### Mục đích
 Chuyển nội dung tài liệu thành bộ câu hỏi trắc nghiệm để người dùng tự kiểm tra mức độ hiểu bài.
@@ -117,7 +117,7 @@ Chuyển nội dung tài liệu thành bộ câu hỏi trắc nghiệm để ng�
 ### Kết quả đầu ra
 Bộ quiz trắc nghiệm hoàn chỉnh và kết quả chấm điểm tự động.
 
-## 6. Tạo sơ đồ tư duy tự động
+## 6. Tạo sơ đồ tư duy tự động(UC5)
 
 ### Mục đích
 Biến tài liệu thành sơ đồ tư duy trực quan để người dùng dễ nắm cấu trúc kiến thức và ghi nhớ nhanh hơn.
