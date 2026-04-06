@@ -6,8 +6,6 @@ import { BookOpen, Filter, Search } from "lucide-react"
 import { curriculumGroups } from "@/lib/curriculum"
 
 type FilterMode = "all" | "required" | "elective"
-type SidebarCourse = { code: string; name: string; isRequired: boolean; documentCount: number }
-type SidebarGroup = { group: string; courses: SidebarCourse[] }
 
 export function SubjectCategoriesSidebar() {
   const [query, setQuery] = useState("")
@@ -59,17 +57,17 @@ export function SubjectCategoriesSidebar() {
           }))
           .filter((course) => {
             const isElective = group.group.startsWith("Tự chọn")
-          const matchesFilter =
-            filterMode === "all" ||
-            (filterMode === "required" && !isElective) ||
-            (filterMode === "elective" && isElective)
+            const matchesFilter =
+              filterMode === "all" ||
+              (filterMode === "required" && !isElective) ||
+              (filterMode === "elective" && isElective)
 
-          if (!matchesFilter) return false
-          if (!normalizedQuery) return true
+            if (!matchesFilter) return false
+            if (!normalizedQuery) return true
 
-          const haystack = `${group.group} ${course.code} ${course.name}`.toLowerCase()
-          return haystack.includes(normalizedQuery)
-        })
+            const haystack = `${group.group} ${course.code} ${course.name}`.toLowerCase()
+            return haystack.includes(normalizedQuery)
+          })
 
         return { ...group, courses }
       })
