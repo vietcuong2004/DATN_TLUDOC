@@ -246,7 +246,144 @@ CHATBOT_MAX_OUTPUT_TOKENS=400
 
 ---
 
-## 14) Khi nào mới code tiếp?
+## 14) Setup Environment Variables trên Vercel
+
+Khi bạn đã push code lên GitHub và deploy trên Vercel, cần setup lại các biến môi trường trên Vercel để chatbot hoạt động trên live.
+
+### Bước 1: Đăng nhập vào Vercel Dashboard
+1. Vào: https://vercel.com/dashboard
+2. Đăng nhập bằng tài khoản của bạn
+3. Tìm project của bạn trong danh sách
+
+### Bước 2: Mở Settings của project
+1. Mở project
+2. Click tab **Settings** (thanh menu trên cùng)
+3. Ở sidebar bên trái, click **Environment Variables**
+
+### Bước 3: Thêm các biến cần thiết
+
+Bạn sẽ nhìn thấy form để thêm biến. Thêm lần lượt các biến sau:
+
+#### Biến bắt buộc cho chatbot:
+
+**1. GEMINI_API_KEY**
+- Name: `GEMINI_API_KEY`
+- Value: Dán API key từ Google AI Studio (ví dụ: `AIzaSyC7cn-A2CA922HJf-...`)
+- Environments: Chọn **Production**
+- Click **Add**
+
+**2. CHATBOT_MODEL**
+- Name: `CHATBOT_MODEL`
+- Value: `gemini-2.5-flash`
+- Environments: **Production**
+- Click **Add**
+
+**3. CHATBOT_MAX_OUTPUT_TOKENS**
+- Name: `CHATBOT_MAX_OUTPUT_TOKENS`
+- Value: `400`
+- Environments: **Production**
+- Click **Add**
+
+**4. CHATBOT_HISTORY_USER_ID**
+- Name: `CHATBOT_HISTORY_USER_ID`
+- Value: `1`
+- Environments: **Production**
+- Click **Add**
+
+#### Biến cho database (nếu cần lấy tài liệu từ MySQL):
+
+**5. DB_HOST**
+- Name: `DB_HOST`
+- Value: IP hoặc hostname của server MySQL (ví dụ: `123.45.67.89` hoặc `db.example.com`)
+- Environments: **Production**
+- Click **Add**
+
+**6. DB_PORT**
+- Name: `DB_PORT`
+- Value: `3306`
+- Environments: **Production**
+- Click **Add**
+
+**7. DB_USER**
+- Name: `DB_USER`
+- Value: Tên user MySQL
+- Environments: **Production**
+- Click **Add**
+
+**8. DB_PASSWORD**
+- Name: `DB_PASSWORD`
+- Value: Password MySQL
+- Environments: **Production**
+- Click **Add**
+
+**9. DB_NAME**
+- Name: `DB_NAME`
+- Value: `tlu_document`
+- Environments: **Production**
+- Click **Add**
+
+**10. GOOGLE_DRIVE_ROOT_FOLDER_ID**
+- Name: `GOOGLE_DRIVE_ROOT_FOLDER_ID`
+- Value: `1LfQxNaki0yQyXsOJS7rSoHJYQ6sBPW2s` (hoặc ID của bạn)
+- Environments: **Production**
+- Click **Add**
+
+### Bước 4: Redeploy project
+
+Sau khi add xong tất cả biến:
+
+1. Vào tab **Deployments**
+2. Tìm deployment mới nhất
+3. Click vào deployment đó
+4. Click nút **Redeploy**
+5. Đợi khoảng 2-5 phút để Vercel build lại project
+
+### Bước 5: Kiểm tra chatbot hoạt động
+
+1. Vào URL của project live trên Vercel
+2. Mở trang chatbot
+3. Thử gõ một câu hỏi
+4. Nếu chatbot trả lời thì setup thành công ✓
+
+### ⚠️ Nếu vẫn không hoạt động
+
+**Kiểm tra lỗi:**
+1. Mở DevTools (F12)
+2. Vào tab **Console** để xem lỗi
+3. Vào tab **Network** để kiểm tra request gửi tới `/api/chatbot`
+
+**Kiểm tra logs trên Vercel:**
+1. Vào Settings → **Function Logs**
+2. Xem log để biết lỗi ở backend
+3. Thường là lỗi: API key sai, database không kết nối được, hoặc biến chưa được set đúng
+
+**Các lỗi thường gặp:**
+- `Error: GEMINI_API_KEY is not defined` → Quên add biến `GEMINI_API_KEY`
+- `Error: connect ECONNREFUSED` → Database không kết nối được (DB_HOST sai hoặc network không thông)
+- `Error: 401 Unauthorized` → API key Gemini sai hoặc hết hạn
+- `Error: timeout` → Server chậm hoặc database không phản hồi
+
+**Cách debug:**
+1. Kiểm tra lại tất cả biến trên Vercel Environment Variables xem có đầy đủ không
+2. Kiểm tra spelling các biến (phải viết hoa đúng như trong code)
+3. Kiểm tra API key Gemini còn hoạt động không
+4. Nếu dùng database từ máy local, có thể không kết nối được từ Vercel (cần deploy database lên cloud như AWS RDS, Railway, hay PlanetScale)
+
+### ✅ Checklist setup Vercel
+
+- [ ] Mở Settings → Environment Variables
+- [ ] Add GEMINI_API_KEY
+- [ ] Add CHATBOT_MODEL
+- [ ] Add CHATBOT_MAX_OUTPUT_TOKENS
+- [ ] Add CHATBOT_HISTORY_USER_ID
+- [ ] Add DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME (nếu dùng)
+- [ ] Chọn **Production** cho tất cả biến
+- [ ] Redeploy project
+- [ ] Kiểm tra chatbot hoạt động
+
+---
+
+## 15) Khi nào mới code tiếp?
 
 Sau khi bạn làm xong hướng dẫn này, mình sẽ viết tiếp cho bạn:
 - `app/api/chatbot/route.ts`

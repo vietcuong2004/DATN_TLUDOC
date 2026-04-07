@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { saveChatbotHistory, searchDocumentsForChatbot, searchDocumentsForChatbotBySubject } from "@/lib/repositories"
+import { saveChatbotHistory, searchDocumentsForChatbot, searchDocumentsForChatbotBySubject } from "@/lib/repository_chatbot"
 import { curriculumGroups } from "@/lib/curriculum"
 
 type ChatbotRequestBody = {
