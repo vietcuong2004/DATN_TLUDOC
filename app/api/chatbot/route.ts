@@ -83,17 +83,33 @@ YÊU CẦU THÊM:
 - Luôn hoàn thành đầy đủ các mục theo định dạng đầu ra bắt buộc.`
 }
 
-function extractGeminiText(payload: unknown): string {
-  const candidates = payload as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ text?: string }>
+function extractAssistantText(payload: unknown): string {
+  const data = payload as {
+    choices?: Array<{
+      message?: {
+        content?: string | Array<{ type?: string; text?: string }>
       }
     }>
   }
 
-  const parts = candidates.candidates?.[0]?.content?.parts ?? []
-  return parts.map((part) => part.text ?? "").join("\n").trim()
+  const content = data.choices?.[0]?.message?.content
+  if (typeof content === "string") {
+    return content.trim()
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item
+        }
+        return item.text ?? ""
+      })
+      .join("\n")
+      .trim()
+  }
+
+  return ""
 }
 
 function resolveUserId(input: ChatbotRequestBody): number | null {
@@ -115,16 +131,15 @@ function normalizeModelName(modelName: string) {
   return trimmed.startsWith("models/") ? trimmed.slice("models/".length) : trimmed
 }
 
-async function callGeminiWithFallback(
+async function callChatCompletionsWithFallback(
   apiKey: string,
   message: string,
   context: string,
   maxOutputTokens: number,
 ) {
   const candidateModels = [
-    normalizeModelName(process.env.CHATBOT_MODEL || "gemini-2.5-flash"),
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
+    normalizeModelName(process.env.CHATBOT_MODEL || "openai"),
+    "openai",
   ]
 
   const uniqueModels = Array.from(new Set(candidateModels.filter((item) => item.length > 0)))
@@ -132,38 +147,38 @@ async function callGeminiWithFallback(
   let lastErrorText = ""
 
   for (const model of uniqueModels) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${buildSystemPrompt()}\n\n${buildUserPrompt(message, context)}` }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            topP: 0.9,
-            maxOutputTokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : 400,
-          },
-        }),
+    const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-    )
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: buildSystemPrompt(),
+          },
+          {
+            role: "user",
+            content: buildUserPrompt(message, context),
+          },
+        ],
+        temperature: 0.4,
+        max_tokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : 400,
+      }),
+    })
 
     if (response.ok) {
       return { response, model }
     }
 
     lastErrorText = await response.text()
-    console.error("[api/chatbot] Gemini error", response.status, lastErrorText)
+    console.error("[api/chatbot] Pollinations error", response.status, lastErrorText)
   }
 
-  throw new Error(lastErrorText || "Không thể gọi Gemini API")
+  throw new Error(lastErrorText || "Không thể gọi Pollinations API")
 }
 
 function shouldRetryShortAnswer(answer: string, minChars: number) {
@@ -450,10 +465,10 @@ export async function POST(request: Request) {
       })
       .join("\n\n")
 
-    const apiKey = process.env.GEMINI_API_KEY
+    const apiKey = process.env.POLLINATIONS_API_KEY || process.env.GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Thiếu GEMINI_API_KEY trong biến môi trường" },
+        { error: "Thiếu POLLINATIONS_API_KEY (hoặc GEMINI_API_KEY) trong biến môi trường" },
         { status: 500 },
       )
     }
@@ -461,22 +476,22 @@ export async function POST(request: Request) {
     const maxOutputTokens = Number(process.env.CHATBOT_MAX_OUTPUT_TOKENS || 700)
     const minAnswerChars = Number(process.env.CHATBOT_MIN_ANSWER_CHARS || 220)
 
-    const { response: geminiResponse, model } = await callGeminiWithFallback(
+    const { response: llmResponse, model } = await callChatCompletionsWithFallback(
       apiKey,
       message,
       context,
       maxOutputTokens,
     )
 
-    const geminiData = (await geminiResponse.json()) as unknown
-    let answer = extractGeminiText(geminiData) ||
+    const llmData = (await llmResponse.json()) as unknown
+    let answer = extractAssistantText(llmData) ||
       "Mình chưa tạo được câu trả lời phù hợp. Bạn thử hỏi lại ngắn gọn hơn nhé."
 
     if (shouldRetryShortAnswer(answer, Number.isFinite(minAnswerChars) ? minAnswerChars : 220)) {
       const retryMessage = `${message}\n\nYÊU CẦU BẮT BUỘC: Trả lời đầy đủ, không cụt, tối thiểu 5 mục theo định dạng đã yêu cầu.`
-      const retryResult = await callGeminiWithFallback(apiKey, retryMessage, context, maxOutputTokens)
+      const retryResult = await callChatCompletionsWithFallback(apiKey, retryMessage, context, maxOutputTokens)
       const retryData = (await retryResult.response.json()) as unknown
-      const retryAnswer = extractGeminiText(retryData)
+      const retryAnswer = extractAssistantText(retryData)
 
       if (retryAnswer && retryAnswer.trim().length > answer.trim().length) {
         answer = retryAnswer
