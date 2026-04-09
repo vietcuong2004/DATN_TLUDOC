@@ -23,19 +23,3 @@
 | Quota sử dụng | Google Cloud Console | [https://console.cloud.google.com](https://console.cloud.google.com) |
 
 ---
-
-## ⚙️ Mindmap Pollinations Config
-
-Thiết lập các biến môi trường sau để bật API sinh mindmap riêng:
-
-- `POLLINATIONS_API_KEY`: API key để gọi Pollinations.
-- `MINDMAP_MODEL` (optional): mặc định `openai`.
-- `MINDMAP_CHUNK_MAX_CHARS` (optional): mặc định `12000`.
-- `MINDMAP_MAX_CHUNKS` (optional): mặc định `8`.
-
-API mới: `POST /api/mindmap/generate`
-
-- Input JSON: `{ "fileName": string, "text": string }`
-- Output JSON: `mindmap` (node tree render trực tiếp) + `simpleTree` (schema `name/children`)
-
----
