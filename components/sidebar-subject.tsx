@@ -80,7 +80,7 @@ export function SubjectCategoriesSidebar() {
   )
 
   return (
-    <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] lg:sticky lg:top-24 lg:flex lg:h-[1100px] lg:flex-col">
+    <aside className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] max-h-screen md:max-h-none lg:sticky lg:top-24 lg:h-[1100px]">
       <div className="shrink-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 px-5 py-5 text-white">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20 backdrop-blur">
@@ -137,7 +137,7 @@ export function SubjectCategoriesSidebar() {
         </div>
       </div>
 
-      <div className="bg-slate-50 px-4 py-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
+      <div className="bg-slate-50 px-4 py-4 min-h-0 flex-1 overflow-y-auto lg:pb-6">
         <div className="space-y-4">
           {isLoading && (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
