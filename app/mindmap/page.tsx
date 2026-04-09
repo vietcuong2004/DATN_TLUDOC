@@ -394,7 +394,7 @@ export default function MindmapPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {!mindmap ? (
-                  <div className="flex h-[560px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
+                  <div className="flex h-[373px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
                     <Network className="h-12 w-12 text-slate-300" />
                     <h3 className="mt-3 text-lg font-semibold text-slate-900">Chưa có sơ đồ</h3>
                     <p className="mt-1 max-w-md text-sm text-slate-500">Tải tài liệu từ bên trái và bấm "Tạo sơ đồ" để xem sơ đồ tư duy tại đây.</p>
