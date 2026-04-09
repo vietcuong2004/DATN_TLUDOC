@@ -12,16 +12,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Progress } from "@/components/ui/progress"
-import { FileUp, FileText, Brain, Copy, List, AlignLeft, Network } from "lucide-react"
+import { FileUp, FileText, Brain, Copy, List, AlignLeft } from "lucide-react"
 
 export default function Summarize() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [summaryType, setSummaryType] = useState<string>("paragraph")
+  const [summaryType, setSummaryType] = useState<SummaryFormat>("paragraph")
   const [summaryLength, setSummaryLength] = useState<number>(30)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
   const [summary, setSummary] = useState<string>("")
-  const mindmapImageUrl = "/mindmap-demo.png" // Đường dẫn ảnh sơ đồ tư duy mẫu
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,7 +55,9 @@ export default function Summarize() {
     }, 200)
   }
 
-  const generateMockSummary = (fileName: string, type: string, length: number) => {
+  type SummaryFormat = "paragraph" | "bullets"
+
+  const generateMockSummary = (fileName: string, type: SummaryFormat, length: number) => {
     // Mock summaries based on type
     if (type === "paragraph") {
       return `Tài liệu "${fileName}" là một nghiên cứu toàn diện về các phương pháp học tập hiện đại và ứng dụng công nghệ trong giáo dục. Tác giả đã phân tích sâu sắc về tác động của công nghệ đối với việc học tập, đặc biệt là trong bối cảnh giáo dục đại học. Nghiên cứu chỉ ra rằng việc tích hợp công nghệ một cách hợp lý có thể cải thiện đáng kể hiệu quả học tập, tăng cường sự tương tác giữa giảng viên và sinh viên, đồng thời phát triển kỹ năng tự học cho người học. Tuy nhiên, tác giả cũng cảnh báo về những thách thức như sự phụ thuộc quá mức vào công nghệ, vấn đề bảo mật thông tin và khoảng cách số giữa các nhóm người học khác nhau. Kết luận của nghiên cứu đề xuất một mô hình học tập kết hợp, trong đó công nghệ đóng vai trò hỗ trợ chứ không thay thế phương pháp giảng dạy truyền thống.`
@@ -71,25 +72,9 @@ export default function Summarize() {
 • Đề xuất mô hình học tập kết hợp (blended learning).
 • Công nghệ nên đóng vai trò hỗ trợ, không thay thế phương pháp giảng dạy truyền thống.
 • Kết luận nhấn mạnh tầm quan trọng của cân bằng giữa công nghệ và phương pháp truyền thống.`
-    } else {
-      return `[Tổng quan]
-- Nghiên cứu về học tập hiện đại và công nghệ giáo dục
-
-[Phân tích chính]
-- Tác động công nghệ trong giáo dục đại học
-- Cải thiện hiệu quả học tập
-- Tăng cường tương tác
-- Phát triển kỹ năng tự học
-
-[Thách thức]
-- Phụ thuộc công nghệ
-- Bảo mật thông tin
-- Khoảng cách số
-
-[Kết luận]
-- Đề xuất mô hình học tập kết hợp
-- Công nghệ hỗ trợ, không thay thế phương pháp truyền thống`
     }
+
+    return ""
   }
 
   const handleCopyToClipboard = () => {
@@ -109,16 +94,16 @@ export default function Summarize() {
             <h1 className="text-2xl md:text-3xl font-bold">Tóm tắt tài liệu bằng AI</h1>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="bg-gradient-to-r from-emerald-50 via-white to-sky-50 rounded-2xl border border-emerald-100/80 shadow-sm p-6 mb-8">
             <div className="flex items-start space-x-4">
-              <div className="bg-purple-100 p-3 rounded-full">
-                <Brain className="h-6 w-6 text-purple-600" />
+              <div className="bg-emerald-100 p-3 rounded-full">
+                <Brain className="h-6 w-6 text-emerald-600" />
               </div>
               <div>
                 <h2 className="text-lg font-medium mb-2">Tóm tắt thông minh với AI</h2>
                 <p className="text-gray-600">
                   Sử dụng trí tuệ nhân tạo để tóm tắt tài liệu dài thành các đoạn văn ngắn gọn, danh sách gạch đầu dòng
-                  hoặc sơ đồ nội dung. Tiết kiệm thời gian đọc và dễ dàng nắm bắt ý chính của tài liệu.
+                  hoặc sơ đồ nội dung trực quan. Tiết kiệm thời gian đọc và dễ dàng nắm bắt ý chính của tài liệu.
                 </p>
               </div>
             </div>
@@ -167,7 +152,7 @@ export default function Summarize() {
                       <Label>Định dạng tóm tắt</Label>
                       <RadioGroup
                         value={summaryType}
-                        onValueChange={setSummaryType}
+                        onValueChange={(value) => setSummaryType(value as SummaryFormat)}
                         className="flex flex-col space-y-2"
                       >
                         <div className="flex items-center space-x-2">
@@ -182,13 +167,6 @@ export default function Summarize() {
                           <Label htmlFor="format-bullets" className="flex items-center">
                             <List className="h-4 w-4 mr-2" />
                             Danh sách gạch đầu dòng
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="outline" id="format-outline" />
-                          <Label htmlFor="format-outline" className="flex items-center">
-                            <Network className="h-4 w-4 mr-2" />
-                            Sơ đồ nội dung
                           </Label>
                         </div>
                       </RadioGroup>
@@ -261,33 +239,12 @@ export default function Summarize() {
               <CardContent>
                 {summary ? (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-4 h-80 overflow-y-auto flex items-center justify-center">
-                      {summaryType === "outline" ? (
-                        <img src={mindmapImageUrl} alt="Sơ đồ tư duy" className="max-h-72 w-auto mx-auto" />
-                      ) : (
-                        <div className="whitespace-pre-line">{summary}</div>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      {summaryType === "outline" ? (
-                        <a
-                          href={mindmapImageUrl}
-                          download="so-do-tu-duy.png"
-                          className="flex-1 inline-flex items-center justify-center border rounded px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                          style={{ textDecoration: "none" }}
-                        >
-                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
-                          </svg>
-                          Tải xuống
-                        </a>
-                      ) : (
-                        <Button variant="outline" className="flex-1" onClick={handleCopyToClipboard}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Sao chép
-                        </Button>
-                      )}
-                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 h-80 overflow-y-auto whitespace-pre-line">{summary}</div>
+
+                    <Button variant="outline" className="w-full" onClick={handleCopyToClipboard}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Sao chép
+                    </Button>
                   </div>
                 ) : (
                   <div className="text-center py-12 h-80 flex flex-col items-center justify-center">

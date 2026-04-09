@@ -29,7 +29,7 @@ const tools = [
     name: "Sơ đồ tư duy",
     icon: <Network className="h-8 w-8 text-yellow-500" />,
     description: "Trực quan hóa ý chính tài liệu dưới dạng mindmap.",
-    href: "/summarize",
+    href: "/mindmap",
   },
   {
     name: "Quiz tự động",

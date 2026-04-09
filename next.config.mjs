@@ -9,6 +9,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      // Use memory cache in dev to avoid stale .next pack file ENOENT issues.
+      config.cache = { type: "memory" }
+    }
+    return config
+  },
 }
 
 export default nextConfig

@@ -127,19 +127,19 @@ Biến tài liệu thành sơ đồ tư duy trực quan để người dùng d�
 
 ### Tiền điều kiện
 - Tài liệu đầu vào hợp lệ
-- Hệ thống hỗ trợ hiển thị sơ đồ bằng Mermaid.js
+- Hệ thống có module render mindmap từ dữ liệu JSON dạng cây
 
 ### Luồng xử lý
 1. Người dùng chọn một tài liệu để tạo sơ đồ tư duy.
 2. Hệ thống kiểm tra khả năng đọc và phân tích nội dung của tài liệu.
 3. AI phân tích nội dung để xác định chủ đề chính, chủ đề phụ và các mối quan hệ cha - con giữa các ý.
-4. Hệ thống chuyển kết quả phân tích thành cấu trúc văn bản thụt lề theo cú pháp mindmap của Mermaid.
-5. Mermaid.js render cấu trúc đó thành sơ đồ tư duy trực quan ngay trên trình duyệt.
+4. Hệ thống chuẩn hóa kết quả phân tích thành dữ liệu JSON dạng cây (tree) gồm node cha - con.
+5. Frontend nhận JSON và render thành sơ đồ tư duy trực quan ngay trên trình duyệt.
 6. Người dùng có thể mở rộng hoặc thu gọn các nhánh, xem lại từng phần nội dung và tùy chỉnh cách hiển thị.
 7. Người dùng có thể xuất sơ đồ ra PNG hoặc PDF để lưu trữ hoặc chia sẻ.
 
 ### Luồng thay thế
-- Nếu quá trình sinh mã Mermaid lỗi, hệ thống thông báo không thể dựng sơ đồ và cho phép tạo lại.
+- Nếu AI trả dữ liệu JSON không hợp lệ hoặc thiếu cấu trúc, hệ thống thông báo không thể dựng sơ đồ và cho phép tạo lại.
 
 ### Kết quả đầu ra
 Một sơ đồ tư duy trực quan, có cấu trúc rõ ràng và có thể xuất file.
