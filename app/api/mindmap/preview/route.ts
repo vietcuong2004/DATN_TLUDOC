@@ -38,15 +38,27 @@ export async function POST(request: Request) {
     // Debug: log đường dẫn file tạm
     console.log("[mindmap.preview] inputPath:", inputPath)
     await fs.writeFile(inputPath, new Uint8Array(arrayBuffer))
-    // Chuyển đổi bằng libreoffice
+    // Chuyển đổi bằng MS Word (COM) qua PowerShell
     try {
-      console.log("[mindmap.preview] Chạy libreoffice chuyển đổi PDF...")
-      await execFileAsync("libreoffice", ["--headless", "--convert-to", "pdf", "--outdir", TMP_DIR, inputPath])
+      console.log("[mindmap.preview] Chạy PowerShell & MS Word chuyển đổi PDF...")
+      const psCommand = `
+$word = New-Object -ComObject Word.Application
+$word.Visible = $false
+try {
+  $doc = $word.Documents.Open('${inputPath}')
+  $doc.SaveAs('${outputPath}', 17)
+  $doc.Close($false)
+} finally {
+  $word.Quit()
+  [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+}
+`
+      await execFileAsync("powershell", ["-Command", psCommand])
       console.log("[mindmap.preview] Chuyển đổi xong:", outputPath)
     } catch (err) {
-      console.error("[mindmap.preview] Lỗi khi chạy libreoffice:", err)
+      console.error("[mindmap.preview] Lỗi khi chạy MS Word qua PowerShell:", err)
       await fs.unlink(inputPath).catch(() => {})
-      return NextResponse.json({ error: "Không thể chuyển đổi file docx sang PDF. Đảm bảo đã cài libreoffice." }, { status: 500 })
+      return NextResponse.json({ error: "Không thể chuyển đổi file docx sang PDF. Đảm bảo đã cài MS Word hoặc libreoffice." }, { status: 500 })
     }
     // Đọc file PDF trả về
     const pdfBuffer = await fs.readFile(outputPath)
@@ -66,7 +78,7 @@ export async function POST(request: Request) {
     return new Response(new Blob([pdfArrayBuffer], { type: "application/pdf" }), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename=\"${file.name.replace(/\.docx$/, ".pdf")}\"`
+        "Content-Disposition": `inline; filename="document.pdf"; filename*=UTF-8''${encodeURIComponent(file.name.replace(/\.docx$/, ".pdf"))}`
       }
     })
   } catch (error) {

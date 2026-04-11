@@ -332,20 +332,27 @@ export default function MindmapPage() {
         return
       }
       if (isDocx) {
-        // Upload file lên /api/upload để lấy URL public
         const formData = new FormData()
         formData.append("file", selectedFile)
-        const response = await fetch("/api/upload", {
+        const response = await fetch("/api/mindmap/preview", {
           method: "POST",
           body: formData,
         })
-        const payload = await response.json()
-        if (!response.ok || !payload.url) {
-          throw new Error(payload.error || "Không thể upload file docx")
+        
+        if (!response.ok) {
+          let errorMessage = "Không thể xem trước tài liệu docx"
+          try {
+            const payload = await response.json()
+            if (payload.error) errorMessage = payload.error
+          } catch (e) {
+            // ignore JSON parse error
+          }
+          throw new Error(errorMessage)
         }
-        // Tạo link Google Docs Viewer
-        const publicUrl = `${window.location.origin}${payload.url}`
-        setPublicDocxUrl(publicUrl)
+        
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        setPreviewUrl(objectUrl)
         return
       }
       // Các loại file khác (ví dụ .txt)
