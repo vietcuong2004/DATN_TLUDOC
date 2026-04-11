@@ -54,6 +54,10 @@ export async function POST(request: Request) {
     if (extension === "docx") {
       const parsed = await mammoth.extractRawText({ buffer })
       const text = normalizeExtractedText(parsed.value ?? "")
+      console.log("[mindmap.extract] DOCX text length:", text.length)
+      if (text.length < 20) {
+        console.log("[mindmap.extract] DOCX text content:", text)
+      }
       return NextResponse.json({ text })
     }
 

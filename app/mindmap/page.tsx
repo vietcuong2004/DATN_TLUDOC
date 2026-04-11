@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
+// ...existing code...
 import { jsPDF } from "jspdf"
 import { FileUp, FileText, Network, Sparkles } from "lucide-react"
 
@@ -271,11 +272,37 @@ async function generateMindmapFromApi(fileName: string, text: string) {
   return payload.mindmap
 }
 
+
+
 export default function MindmapPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [publicDocxUrl, setPublicDocxUrl] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [processingProgress, setProcessingProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState("")
   const [mindmap, setMindmap] = useState<MindmapNode | null>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewText, setPreviewText] = useState<string>("")
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState("")
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null)
+    setMindmap(null)
+    setErrorMessage("")
+    setIsPreviewOpen(false)
+    setPreviewText("")
+    setPreviewError("")
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
@@ -284,28 +311,86 @@ export default function MindmapPage() {
     setErrorMessage("")
   }
 
-  const handleCreateMindmap = async () => {
-    if (!selectedFile) {
-      return
+  const handleOpenPreview = async () => {
+    if (!selectedFile) return
+    setIsPreviewOpen(true)
+    setPreviewLoading(true)
+    setPreviewError("")
+    setPreviewText("")
+    setPublicDocxUrl(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
     }
+    try {
+      const fileName = selectedFile.name.toLowerCase()
+      const isPdf = selectedFile.type === "application/pdf" || fileName.endsWith(".pdf")
+      const isDocx = selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")
+      if (isPdf) {
+        const objectUrl = URL.createObjectURL(selectedFile)
+        setPreviewUrl(objectUrl)
+        return
+      }
+      if (isDocx) {
+        // Upload file lên /api/upload để lấy URL public
+        const formData = new FormData()
+        formData.append("file", selectedFile)
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        const payload = await response.json()
+        if (!response.ok || !payload.url) {
+          throw new Error(payload.error || "Không thể upload file docx")
+        }
+        // Tạo link Google Docs Viewer
+        const publicUrl = `${window.location.origin}${payload.url}`
+        setPublicDocxUrl(publicUrl)
+        return
+      }
+      // Các loại file khác (ví dụ .txt)
+      const formData = new FormData()
+      formData.append("file", selectedFile)
+      const response = await fetch("/api/mindmap/extract", {
+        method: "POST",
+        body: formData,
+      })
+      const payload = (await response.json().catch(() => ({}))) as { text?: string; error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || "Không thể xem trước tài liệu")
+      }
+      const text = (payload.text || "").trim()
+      setPreviewText(text)
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "Không thể xem trước tài liệu")
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
+  const handleCreateMindmap = async () => {
+    if (!selectedFile) return
     setIsGenerating(true)
     setErrorMessage("")
-
+    setProcessingProgress(5)
+    const progressTimer = window.setInterval(() => {
+      setProcessingProgress((prev) => (prev >= 90 ? 90 : prev + 6))
+    }, 250)
     try {
       const isSupported = /\.(pdf|doc|docx)$/i.test(selectedFile.name)
       if (!isSupported) {
         throw new Error("UNSUPPORTED_FILE")
       }
-
       const extracted = await extractFileText(selectedFile)
       const sourceText = buildMindmapSourceText(selectedFile, extracted)
       const result = await generateMindmapFromApi(selectedFile.name, sourceText)
       setMindmap(result)
+      setProcessingProgress(100)
     } catch (error) {
-      console.error(error)
-      setErrorMessage("Không thể tạo tài liệu, vui lòng thử lại")
+      setErrorMessage(error instanceof Error ? error.message : "Không thể tạo tài liệu, vui lòng thử lại")
+      setProcessingProgress(0)
     } finally {
+      window.clearInterval(progressTimer)
       setIsGenerating(false)
     }
   }
@@ -335,12 +420,11 @@ export default function MindmapPage() {
               </div>
             </div>
           </div>
-
           <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Card className="border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle>Chọn tài liệu</CardTitle>
-                <CardDescription>Tải PDF, Word hoặc tài liệu khác để bắt đầu</CardDescription>
+                <CardTitle>Tải lên tài liệu</CardTitle>
+                <CardDescription>Chọn PDF hoặc Word (.doc, .docx) để bắt đầu</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!selectedFile ? (
@@ -353,7 +437,18 @@ export default function MindmapPage() {
                     <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, Word (.doc, .docx)</span>
                   </label>
                 ) : (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center">
+                  <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
+                    <button
+                      type="button"
+                      aria-label="Bỏ file đã chọn"
+                      className="absolute -right-3 -top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-red-500 text-white shadow-md hover:bg-red-600"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        clearSelectedFile()
+                      }}
+                    >
+                      <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                    </button>
                     <div className="w-full rounded-xl border border-blue-200 bg-white p-4">
                       <div className="flex items-center gap-3">
                         <FileText className="h-10 w-10 text-blue-600" />
@@ -365,28 +460,86 @@ export default function MindmapPage() {
                     </div>
                   </div>
                 )}
-                <Input id="mindmap-file" type="file" className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-
+                <Input
+                  id="mindmap-file"
+                  type="file"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                />
                 <div className="flex flex-wrap gap-2">
                   {selectedFile && (
-                    <Button variant="outline" className="flex-1" onClick={() => document.getElementById("mindmap-file")?.click()}>
-                      Chọn file khác
+                    <Button variant="outline" className="flex-1" onClick={handleOpenPreview}>
+                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      Xem tài liệu
                     </Button>
                   )}
                   <Button className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={!selectedFile || isGenerating} onClick={handleCreateMindmap}>
                     {isGenerating ? "Đang tạo..." : "Tạo sơ đồ"}
                   </Button>
                 </div>
-
+                {isGenerating && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Đang xử lý...</span>
+                      <span>{processingProgress}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-blue-100">
+                      <div className="h-2 rounded-full bg-blue-600 transition-all" style={{ width: `${processingProgress}%` }} />
+                    </div>
+                  </div>
+                )}
                 {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-
                 <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
                   <p className="font-semibold text-slate-900">Lưu ý</p>
                   <p className="mt-1">Ngay cả tài liệu quét (scan pdf) cũng có thể xử lý được. Hệ thống sẽ trích xuất tất cả nội dung có thể đọc và tạo sơ đồ tư duy dựa trên đó.</p>
                 </div>
               </CardContent>
             </Card>
-
+            {isPreviewOpen && (
+              <div className="fixed inset-0 z-50 bg-black/50 p-4" onClick={() => setIsPreviewOpen(false)}>
+                <div
+                  className="mx-auto flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{selectedFile?.name || "Xem tài liệu"}</p>
+                      <p className="text-xs text-slate-500">Xem trước tài liệu đã chọn</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)}>
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6" /></svg>
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-slate-50">
+                    {previewLoading ? (
+                      <div className="flex h-full items-center justify-center text-sm text-slate-600">Đang tải tài liệu...</div>
+                    ) : previewError ? (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{previewError}</div>
+                    ) : publicDocxUrl ? (
+                      <iframe
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(publicDocxUrl || "")}&embedded=true`}
+                        title={selectedFile?.name || "Preview"}
+                        className="h-full w-full border-0"
+                      />
+                    ) : previewUrl ? (
+                      <iframe src={previewUrl || undefined} title={selectedFile?.name || "Preview"} className="h-full w-full border-0" />
+                    ) : previewText ? (
+                      <div className="h-full overflow-auto p-6">
+                        <article className="mx-auto max-w-3xl whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700">
+                          {previewText}
+                        </article>
+                      </div>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm text-slate-500">Không có nội dung xem trước.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <Card className="border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle>Sơ đồ tư duy</CardTitle>
@@ -408,6 +561,7 @@ export default function MindmapPage() {
         </div>
       </div>
       <Footer />
-    </>
-  )
-}
+      </>
+    );
+  }
+
