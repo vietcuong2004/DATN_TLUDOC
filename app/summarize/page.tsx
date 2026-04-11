@@ -76,9 +76,77 @@ export default function Summarize() {
     try {
       const fileName = selectedFile.name.toLowerCase()
       const isPdf = selectedFile.type === "application/pdf" || fileName.endsWith(".pdf")
+      const isDocx = selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")
 
       if (isPdf) {
         const objectUrl = URL.createObjectURL(selectedFile)
+        setPreviewUrl(objectUrl)
+        return
+      }
+      
+      if (isDocx) {
+        const docxUrl = URL.createObjectURL(selectedFile)
+        
+        // Tạo giao diện xem trước DOCX đẹp mắt sử dụng docx-preview qua CDN
+        const html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="utf-8">
+              <title>Xem trước DOCX</title>
+              <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+              <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
+              <style>
+                  body {
+                    margin: 0; padding: 0; 
+                    background: #e2e8f0; 
+                    display: flex; flex-direction: column; align-items: center; 
+                    overflow-y: auto;
+                    font-family: sans-serif;
+                  }
+                  #container {
+                    width: 100%;
+                    max-width: 900px;
+                    margin: 20px auto;
+                  }
+                  .loading { margin-top: 50px; text-align: center; color: #64748b; font-size: 15px; }
+              </style>
+          </head>
+          <body>
+              <div id="loading" class="loading">Đang tải và định dạng tài liệu...</div>
+              <div id="container"></div>
+              <script>
+                  fetch("${docxUrl}")
+                      .then(res => res.blob())
+                      .then(blob => {
+                          const options = {
+                              className: "docx-preview",
+                              inWrapper: true,
+                              ignoreWidth: false,
+                              ignoreHeight: false,
+                              ignoreFonts: false,
+                              breakPages: true,
+                              ignoreLastRenderedPageBreak: true,
+                              experimental: true,
+                              trimXmlDeclaration: true,
+                              useBase64URL: false
+                          };
+                          return docx.renderAsync(blob, document.getElementById("container"), null, options);
+                      })
+                      .then(() => {
+                          document.getElementById("loading").style.display = 'none';
+                      })
+                      .catch(err => {
+                          console.error("View error:", err);
+                          document.getElementById("loading").innerText = "Lỗi khi hiển thị tài liệu: " + err.message;
+                          document.getElementById("loading").style.color = "red";
+                      });
+              </script>
+          </body>
+          </html>
+        `
+        const blob = new Blob([html], { type: "text/html; charset=utf-8" })
+        const objectUrl = URL.createObjectURL(blob)
         setPreviewUrl(objectUrl)
         return
       }

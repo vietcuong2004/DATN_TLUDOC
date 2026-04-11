@@ -332,25 +332,69 @@ export default function MindmapPage() {
         return
       }
       if (isDocx) {
-        const formData = new FormData()
-        formData.append("file", selectedFile)
-        const response = await fetch("/api/mindmap/preview", {
-          method: "POST",
-          body: formData,
-        })
+        const docxUrl = URL.createObjectURL(selectedFile)
         
-        if (!response.ok) {
-          let errorMessage = "Không thể xem trước tài liệu docx"
-          try {
-            const payload = await response.json()
-            if (payload.error) errorMessage = payload.error
-          } catch (e) {
-            // ignore JSON parse error
-          }
-          throw new Error(errorMessage)
-        }
-        
-        const blob = await response.blob()
+        // Tạo giao diện xem trước DOCX đẹp mắt sử dụng docx-preview qua CDN
+        const html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="utf-8">
+              <title>Xem trước DOCX</title>
+              <!-- Load thư viện giải nén và render DOCX -->
+              <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+              <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
+              <style>
+                  body {
+                    margin: 0; padding: 0; 
+                    background: #e2e8f0; 
+                    display: flex; flex-direction: column; align-items: center; 
+                    overflow-y: auto;
+                    font-family: sans-serif;
+                  }
+                  #container {
+                    width: 100%;
+                    max-width: 900px;
+                    margin: 20px auto;
+                  }
+                  .loading { margin-top: 50px; text-align: center; color: #64748b; font-size: 15px; }
+              </style>
+          </head>
+          <body>
+              <div id="loading" class="loading">Đang tải và định dạng tài liệu...</div>
+              <div id="container"></div>
+              <script>
+                  fetch("${docxUrl}")
+                      .then(res => res.blob())
+                      .then(blob => {
+                          const options = {
+                              className: "docx-preview", // Class wrapper
+                              inWrapper: true, // Render trong wrapper
+                              ignoreWidth: false,
+                              ignoreHeight: false,
+                              ignoreFonts: false,
+                              breakPages: true, // Hiển thị phân trang như giấy A4
+                              ignoreLastRenderedPageBreak: true,
+                              experimental: true,
+                              trimXmlDeclaration: true,
+                              useBase64URL: false
+                          };
+                          
+                          return docx.renderAsync(blob, document.getElementById("container"), null, options);
+                      })
+                      .then(() => {
+                          document.getElementById("loading").style.display = 'none';
+                      })
+                      .catch(err => {
+                          console.error("View error:", err);
+                          document.getElementById("loading").innerText = "Lỗi khi hiển thị tài liệu: " + err.message;
+                          document.getElementById("loading").style.color = "red";
+                      });
+              </script>
+          </body>
+          </html>
+        `
+        const blob = new Blob([html], { type: "text/html; charset=utf-8" })
         const objectUrl = URL.createObjectURL(blob)
         setPreviewUrl(objectUrl)
         return
@@ -516,6 +560,12 @@ export default function MindmapPage() {
                       <p className="text-xs text-slate-500">Xem trước tài liệu đã chọn</p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {(previewUrl || publicDocxUrl) && (
+                        <Button variant="outline" size="sm" onClick={() => window.open(previewUrl || publicDocxUrl || "", "_blank")}>
+                          <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          Mở trong tab mới
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)}>
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6" /></svg>
                       </Button>

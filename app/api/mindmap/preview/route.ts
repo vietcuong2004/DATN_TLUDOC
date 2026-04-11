@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server"
-import { execFile } from "child_process"
-import { promisify } from "util"
-import { randomUUID } from "crypto"
-import fs from "fs/promises"
-import path from "path"
-
-const execFileAsync = promisify(execFile)
+import mammoth from "mammoth"
 
 export const runtime = "nodejs"
-
-// Thư mục tạm để lưu file upload và file PDF (tương thích Windows)
-const TMP_DIR = process.env.TEMP || process.env.TMP || "C:/Temp"
 
 function extensionFromName(fileName: string) {
   const matched = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)
@@ -19,8 +10,8 @@ function extensionFromName(fileName: string) {
 
 export async function POST(request: Request) {
   try {
-    // Debug: log đường dẫn thư mục tạm
-    console.log("[mindmap.preview] TMP_DIR:", TMP_DIR)
+    // Debug: log nhận request
+    console.log("[mindmap.preview] Nhận request chuyển đổi preview file")
     const formData = await request.formData()
     const file = formData.get("file")
     if (!(file instanceof File)) {
@@ -30,57 +21,48 @@ export async function POST(request: Request) {
     if (ext !== "docx") {
       return NextResponse.json({ error: "Chỉ hỗ trợ file .docx" }, { status: 415 })
     }
-    // Lưu file tạm
-    const uuid = randomUUID()
-    const inputPath = path.join(TMP_DIR, `${uuid}.docx`)
-    const outputPath = path.join(TMP_DIR, `${uuid}.pdf`)
+    // Vercel serverless functions do not have LibreOffice or MS Word.
+    // They also have a read-only filesystem.
+    // Instead of converting to PDF, we use mammoth to convert to HTML
+    // and serve the HTML directly as a preview blob.
+    
+    // Đọc nội dung ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
-    // Debug: log đường dẫn file tạm
-    console.log("[mindmap.preview] inputPath:", inputPath)
-    await fs.writeFile(inputPath, new Uint8Array(arrayBuffer))
-    // Chuyển đổi bằng MS Word (COM) qua PowerShell
+    const buffer = Buffer.from(arrayBuffer)
+    
     try {
-      console.log("[mindmap.preview] Chạy PowerShell & MS Word chuyển đổi PDF...")
-      const psCommand = `
-$word = New-Object -ComObject Word.Application
-$word.Visible = $false
-try {
-  $doc = $word.Documents.Open('${inputPath}')
-  $doc.SaveAs('${outputPath}', 17)
-  $doc.Close($false)
-} finally {
-  $word.Quit()
-  [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-}
-`
-      await execFileAsync("powershell", ["-Command", psCommand])
-      console.log("[mindmap.preview] Chuyển đổi xong:", outputPath)
+      console.log("[mindmap.preview] Chạy mammoth để convert to HTML...")
+      const result = await mammoth.convertToHtml({ buffer })
+      
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${file.name}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
+            th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+            img { max-width: 100%; height: auto; }
+          </style>
+        </head>
+        <body>
+          ${result.value}
+        </body>
+        </html>
+      `
+      
+      return new Response(htmlContent, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Content-Disposition": `inline; filename="preview.html"`
+        }
+      })
     } catch (err) {
-      console.error("[mindmap.preview] Lỗi khi chạy MS Word qua PowerShell:", err)
-      await fs.unlink(inputPath).catch(() => {})
-      return NextResponse.json({ error: "Không thể chuyển đổi file docx sang PDF. Đảm bảo đã cài MS Word hoặc libreoffice." }, { status: 500 })
+      console.error("[mindmap.preview] Lỗi mammoth convert:", err)
+      return NextResponse.json({ error: "Không thể trích xuất HTML từ file docx." }, { status: 500 })
     }
-    // Đọc file PDF trả về
-    const pdfBuffer = await fs.readFile(outputPath)
-    console.log("[mindmap.preview] Đọc file PDF thành công:", outputPath)
-    // Chuyển Buffer sang ArrayBuffer slice, đảm bảo là ArrayBuffer thực sự
-    let pdfArrayBuffer = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength)
-    // Nếu là SharedArrayBuffer, copy sang ArrayBuffer mới
-    if (!(pdfArrayBuffer instanceof ArrayBuffer)) {
-      const tmp = new Uint8Array(pdfBuffer.byteLength)
-      tmp.set(new Uint8Array(pdfBuffer))
-      pdfArrayBuffer = tmp.buffer
-    }
-    // Xoá file tạm
-    await fs.unlink(inputPath).catch(() => {})
-    await fs.unlink(outputPath).catch(() => {})
-    // Trả về Blob thay vì Buffer để tránh lỗi kiểu
-    return new Response(new Blob([pdfArrayBuffer], { type: "application/pdf" }), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="document.pdf"; filename*=UTF-8''${encodeURIComponent(file.name.replace(/\.docx$/, ".pdf"))}`
-      }
-    })
   } catch (error) {
     console.error("[mindmap.preview] Lỗi server:", error)
     return NextResponse.json({ error: `Lỗi server khi chuyển đổi file: ${error}` }, { status: 500 })
