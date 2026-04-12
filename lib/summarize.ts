@@ -1,4 +1,5 @@
 import mammoth from "mammoth"
+import * as pdfParse from "pdf-parse"
 
 export type SummaryFormat = "paragraph" | "bullets"
 export type SummaryLanguage = "vi" | "en"
@@ -74,56 +75,26 @@ function inferKind(file: File) {
 }
 
 async function extractPdfText(buffer: Buffer) {
-  let loadedModule: unknown = null
-
   try {
-    loadedModule = await import("pdf-parse")
-  } catch {
-    try {
-      const fallbackRequire = eval("require") as (id: string) => unknown
-      loadedModule = fallbackRequire("pdf-parse")
-    } catch {
-      throw new Error("Không thể tải thư viện pdf-parse trong môi trường hiện tại.")
-    }
-  }
-
-  const moduleAny = loadedModule as {
-    PDFParse?: new (options: { data: Uint8Array }) => {
-      getText: () => Promise<{ text?: string }>
-      destroy: () => Promise<void>
-    }
-    default?: unknown
-  }
-
-  const defaultExport = moduleAny.default as
-    | {
-        PDFParse?: new (options: { data: Uint8Array }) => {
-          getText: () => Promise<{ text?: string }>
-          destroy: () => Promise<void>
-        }
-      }
-    | ((input: Buffer) => Promise<{ text?: string }>)
-    | undefined
-
-  const PDFParseClass = moduleAny.PDFParse ?? (typeof defaultExport === "object" ? defaultExport?.PDFParse : undefined)
-  if (PDFParseClass) {
-    const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
-
-    try {
+    const PDFParseClass = (pdfParse as any).PDFParse
+    if (PDFParseClass && typeof PDFParseClass === 'function') {
+      const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
       const parsed = await parser.getText()
+      if (typeof parser.destroy === "function") await parser.destroy()
       return normalizeWhitespace(parsed.text ?? "")
-    } finally {
-      await parser.destroy()
     }
-  }
 
-  const legacyPdfParse = typeof defaultExport === "function" ? defaultExport : null
-  if (legacyPdfParse) {
-    const parsed = await legacyPdfParse(buffer)
-    return normalizeWhitespace(parsed?.text ?? "")
+    const legacyPdfParse = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default
+    if (typeof legacyPdfParse === "function") {
+      const parsed = await legacyPdfParse(buffer)
+      return normalizeWhitespace(parsed.text ?? "")
+    }
+    
+    throw new Error("Phiên bản pdf-parse không tương thích")
+  } catch (error) {
+    console.error("[summarize] Lỗi khi đọc PDF:", error)
+    throw new Error("Không thể trích xuất chữ từ PDF.")
   }
-
-  throw new Error("Phiên bản pdf-parse hiện tại không có API phù hợp để trích xuất nội dung.")
 }
 
 async function extractWordText(buffer: Buffer) {

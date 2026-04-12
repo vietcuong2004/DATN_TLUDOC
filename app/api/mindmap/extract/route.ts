@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import mammoth from "mammoth"
+import * as pdfParse from "pdf-parse"
 
 export const runtime = "nodejs"
 
@@ -17,15 +18,25 @@ function normalizeExtractedText(value: string) {
 }
 
 async function extractPdfText(buffer: Buffer) {
-  const pdfParseModule = await import("pdf-parse")
-  const PDFParseClass = pdfParseModule.PDFParse
-  const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
-
   try {
-    const parsed = await parser.getText()
-    return normalizeExtractedText(parsed.text ?? "")
-  } finally {
-    await parser.destroy()
+    const PDFParseClass = (pdfParse as any).PDFParse
+    if (PDFParseClass && typeof PDFParseClass === 'function') {
+      const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
+      const parsed = await parser.getText()
+      if (typeof parser.destroy === "function") await parser.destroy()
+      return normalizeExtractedText(parsed.text ?? "")
+    }
+
+    const legacyPdfParse = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default
+    if (typeof legacyPdfParse === "function") {
+      const parsed = await legacyPdfParse(buffer)
+      return normalizeExtractedText(parsed.text ?? "")
+    }
+    
+    throw new Error("Phiên bản pdf-parse không tương thích")
+  } catch (error) {
+    console.error("[mindmap.extract] Lỗi khi đọc PDF:", error)
+    throw new Error("Không thể trích xuất chữ từ PDF.")
   }
 }
 

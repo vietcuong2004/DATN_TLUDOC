@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import mammoth from "mammoth"
+import * as pdfParse from "pdf-parse"
 import { generateQuizFromText } from "@/lib/quiz"
 
 export const runtime = "nodejs"
@@ -22,20 +23,15 @@ function normalizeExtractedText(value: string) {
 
 async function extractPdfText(buffer: Buffer) {
   try {
-    const fallbackRequire = eval("require") as (id: string) => any
-    const pdfParseModule = fallbackRequire("pdf-parse")
-    
-    // Thử sử dụng API thư viện PDFParse (giống mindmap/summarize)
-    const PDFParseClass = pdfParseModule.PDFParse || pdfParseModule.default?.PDFParse
-    if (PDFParseClass) {
+    const PDFParseClass = (pdfParse as any).PDFParse
+    if (PDFParseClass && typeof PDFParseClass === 'function') {
       const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
       const parsed = await parser.getText()
       if (typeof parser.destroy === "function") await parser.destroy()
       return normalizeExtractedText(parsed.text ?? "")
     }
 
-    // Fallback cho bản cũ
-    const legacyPdfParse = typeof pdfParseModule.default === "function" ? pdfParseModule.default : pdfParseModule
+    const legacyPdfParse = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default
     if (typeof legacyPdfParse === "function") {
       const parsed = await legacyPdfParse(buffer)
       return normalizeExtractedText(parsed.text ?? "")
