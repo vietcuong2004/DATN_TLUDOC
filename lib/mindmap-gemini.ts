@@ -347,19 +347,29 @@ Yêu cầu:
 Nội dung:
 ${chunkText}`
 
-  const summaryText = await callPollinationsChat({
-    apiKey: options.apiKey,
-    model: options.model,
-    userPrompt: prompt,
-    temperature: 0.3,
-    maxTokens: 1500,
-  })
+  let lastError: unknown = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const summaryText = await callPollinationsChat({
+        apiKey: options.apiKey,
+        model: options.model,
+        userPrompt: prompt,
+        temperature: 0.3 + attempt * 0.1, // Tăng nhẹ nhiệt độ nếu lỗi
+        maxTokens: 1500,
+      })
 
-  if (!summaryText) {
-    throw new Error("Gemini summarize returned empty content")
+      if (summaryText) {
+        return summaryText
+      }
+    } catch (error) {
+      lastError = error
+      console.warn(`[mindmap.generate] chunk summarize attempt ${attempt + 1} failed, retrying...`)
+      await new Promise(r => setTimeout(r, 1500))
+    }
   }
 
-  return summaryText
+  console.error("[mindmap.generate] All attempts to summarize chunk failed, returning empty summary.", lastError)
+  return "" // Trả về chuỗi rỗng để pipeline không bị sập toàn cục
 }
 
 async function generateMindmapFromContext(
