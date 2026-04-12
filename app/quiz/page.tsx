@@ -205,8 +205,11 @@ export default function QuizPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
-      if (selectedFile.size > 4.5 * 1024 * 1024) {
-        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+      const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
+      
+      // Bỏ qua check file PDF vì nó đã được xử lý phía client
+      if (!isPdf && selectedFile.size > 4.5 * 1024 * 1024) {
+        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc cắt nhỏ trước khi tải lên (File của bạn > 4.5MB).")
         if (fileInputRef.current) fileInputRef.current.value = ""
         return
       }
@@ -224,8 +227,22 @@ export default function QuizPage() {
     }, 800)
 
     try {
+      let fileToUpload = selectedFile
+      const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
+
+      if (isPdf) {
+        setProcessingProgress(8)
+        const { extractTextFromPDFFile } = await import("@/lib/client-pdf-parser")
+        const extractedText = await extractTextFromPDFFile(selectedFile)
+        
+        fileToUpload = new File([extractedText], selectedFile.name.replace(/\.pdf$/i, ".txt"), { type: "text/plain" })
+        if (fileToUpload.size > 4.5 * 1024 * 1024) {
+           throw new Error("Tài liệu quá dài (vượt quá 4.5MB chữ). Vui lòng cắt nhỏ văn bản hơn nữa.")
+        }
+      }
+
       const formData = new FormData()
-      formData.append("file", selectedFile)
+      formData.append("file", fileToUpload)
 
       const response = await fetch("/api/quiz/generate", {
         method: "POST",

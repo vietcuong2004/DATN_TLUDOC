@@ -306,8 +306,11 @@ export default function MindmapPage() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
-    if (file && file.size > 4.5 * 1024 * 1024) {
-      alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+    const isPdf = file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))
+    
+    // Bỏ qua giới hạn size của PDF vì PDF đã được xử lý phía client
+    if (file && !isPdf && file.size > 4.5 * 1024 * 1024) {
+      alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
       if (fileInputRef.current) fileInputRef.current.value = ""
       return
     }
@@ -433,11 +436,16 @@ export default function MindmapPage() {
       setProcessingProgress((prev) => (prev >= 90 ? 90 : prev + 6))
     }, 250)
     try {
-      const isSupported = /\.(pdf|doc|docx)$/i.test(selectedFile.name)
-      if (!isSupported) {
-        throw new Error("UNSUPPORTED_FILE")
+      let fileToProcess = selectedFile
+      const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
+      
+      if (isPdf) {
+        const { extractTextFromPDFFile } = await import("@/lib/client-pdf-parser")
+        const extractedText = await extractTextFromPDFFile(selectedFile)
+        fileToProcess = new File([extractedText], selectedFile.name.replace(/\.pdf$/i, ".txt"), { type: "text/plain" })
       }
-      const extracted = await extractFileText(selectedFile)
+
+      const extracted = await extractFileText(fileToProcess)
       const sourceText = buildMindmapSourceText(selectedFile, extracted)
       const result = await generateMindmapFromApi(selectedFile.name, sourceText)
       setMindmap(result)

@@ -174,8 +174,11 @@ export default function Summarize() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
-      if (file.size > 4.5 * 1024 * 1024) {
-        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+      
+      // Bỏ qua check dung lượng PDF vì nó được phân tích phía client
+      if (!isPdf && file.size > 4.5 * 1024 * 1024) {
+        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
         e.target.value = ""
         return
       }
@@ -200,8 +203,22 @@ export default function Summarize() {
     }, 250)
 
     try {
+      let fileToUpload = selectedFile
+      const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
+
+      if (isPdf) {
+        setProcessingProgress(8)
+        const { extractTextFromPDFFile } = await import("@/lib/client-pdf-parser")
+        const extractedText = await extractTextFromPDFFile(selectedFile)
+        
+        fileToUpload = new File([extractedText], selectedFile.name.replace(/\.pdf$/i, ".txt"), { type: "text/plain" })
+        if (fileToUpload.size > 4.5 * 1024 * 1024) {
+           throw new Error("Tài liệu quá dài (vượt quá 4.5MB chữ). Vui lòng cắt nhỏ văn bản hơn nữa.")
+        }
+      }
+
       const formData = new FormData()
-      formData.append("file", selectedFile)
+      formData.append("file", fileToUpload)
       formData.append("summaryType", summaryType)
       formData.append("summaryLength", String(summaryLength))
       formData.append("language", summaryLanguage)
