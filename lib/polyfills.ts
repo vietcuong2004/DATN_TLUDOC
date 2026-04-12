@@ -8,7 +8,4 @@ if (typeof global !== "undefined") {
   if (typeof (global as any).Path2D === "undefined") {
     (global as any).Path2D = class Path2D {}
   }
-  if (typeof (global as any).window === "undefined") {
-    (global as any).window = global
-  }
 }
