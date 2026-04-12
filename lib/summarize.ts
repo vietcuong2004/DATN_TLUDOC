@@ -1,10 +1,5 @@
 import mammoth from "mammoth"
 
-if (typeof global !== "undefined" && typeof (global as any).DOMMatrix === "undefined") {
-  (global as any).DOMMatrix = class DOMMatrix {}
-}
-const pdfParse = require("pdf-parse")
-
 export type SummaryFormat = "paragraph" | "bullets"
 export type SummaryLanguage = "vi" | "en"
 
@@ -80,7 +75,13 @@ function inferKind(file: File) {
 
 async function extractPdfText(buffer: Buffer) {
   try {
-    const PDFParseClass = (pdfParse as any).PDFParse
+    if (typeof global !== "undefined" && typeof (global as any).DOMMatrix === "undefined") {
+      (global as any).DOMMatrix = class DOMMatrix {}
+    }
+    const pdfParseModule = (await import(/* webpackIgnore: true */ "pdf-parse")) as any
+    const pdfParse = pdfParseModule.default || pdfParseModule
+
+    const PDFParseClass = pdfParse.PDFParse
     if (PDFParseClass && typeof PDFParseClass === 'function') {
       const parser = new PDFParseClass({ data: Uint8Array.from(buffer) })
       const parsed = await parser.getText()
