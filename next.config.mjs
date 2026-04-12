@@ -16,6 +16,7 @@ const nextConfig = {
     }
     return config
   },
+  serverExternalPackages: ["pdf-parse"],
 }
 
 export default nextConfig

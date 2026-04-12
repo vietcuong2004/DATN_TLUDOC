@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import mammoth from "mammoth"
+
+if (typeof global !== "undefined" && typeof (global as any).DOMMatrix === "undefined") {
+  (global as any).DOMMatrix = class DOMMatrix {}
+}
 const pdfParse = require("pdf-parse")
 import { generateQuizFromText } from "@/lib/quiz"
 

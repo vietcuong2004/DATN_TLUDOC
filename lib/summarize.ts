@@ -1,4 +1,8 @@
 import mammoth from "mammoth"
+
+if (typeof global !== "undefined" && typeof (global as any).DOMMatrix === "undefined") {
+  (global as any).DOMMatrix = class DOMMatrix {}
+}
 const pdfParse = require("pdf-parse")
 
 export type SummaryFormat = "paragraph" | "bullets"
