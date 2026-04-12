@@ -101,7 +101,7 @@ Chuyển nội dung tài liệu thành bộ câu hỏi trắc nghiệm để ng�
 - Tài liệu đầu vào hợp lệ và có đủ nội dung để sinh câu hỏi
 
 ### Luồng xử lý
-1. Người dùng chọn tài liệu có sẵn hoặc tải file mới lên.
+1. Người dùng tải file cần ôn tập lên hệ thống.
 2. Hệ thống đọc và tiền xử lý nội dung tài liệu.
 3. AI phân tích văn bản để nhận diện các đoạn có khả năng sinh câu hỏi, các khái niệm quan trọng và các ý chính.
 4. Hệ thống sinh ra danh sách câu hỏi trắc nghiệm, mỗi câu gồm nội dung câu hỏi, bốn phương án lựa chọn và đáp án đúng.
