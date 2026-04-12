@@ -1,5 +1,5 @@
 import mammoth from "mammoth"
-import * as pdfParse from "pdf-parse"
+const pdfParse = require("pdf-parse")
 
 export type SummaryFormat = "paragraph" | "bullets"
 export type SummaryLanguage = "vi" | "en"

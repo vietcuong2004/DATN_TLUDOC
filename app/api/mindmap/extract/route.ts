@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import mammoth from "mammoth"
-import * as pdfParse from "pdf-parse"
+const pdfParse = require("pdf-parse")
 
 export const runtime = "nodejs"
 
