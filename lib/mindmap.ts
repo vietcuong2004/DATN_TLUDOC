@@ -1,4 +1,4 @@
-export type SummaryType = "paragraph" | "bullets" | "outline"
+import { z } from "zod"
 
 export type MindmapNode = {
   id: string
@@ -7,518 +7,533 @@ export type MindmapNode = {
   sourceRefs: string[]
   children: MindmapNode[]
 }
-
-type ThemeDefinition = {
-  id: string
-  title: string
-  keywords: string[]
-}
-
-type GroupedSentences = {
-  title: string
-  tokens: string[]
-  items: string[]
-}
-
 type SimpleMindmapNode = {
   name: string
   children?: SimpleMindmapNode[]
 }
 
-const MIN_BRANCH_COUNT = 3
-const MIN_LEAF_COUNT = 3
+type GenerationOptions = {
+  fileName: string
+  text: string
+  apiKey: string
+  model: string
+  maxChunkChars: number
+  maxChunks: number
+}
+
+function normalizeModelName(modelName: string) {
+  const trimmed = modelName.trim()
+  return trimmed.startsWith("models/") ? trimmed.slice("models/".length) : trimmed
+}
+
+async function callPollinationsChat(options: {
+  apiKey: string
+  model: string
+  systemPrompt?: string
+  userPrompt: string
+  temperature: number
+  maxTokens: number
+}) {
+  const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${options.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: normalizeModelName(options.model || "openai"),
+      messages: [
+        ...(options.systemPrompt
+          ? [{ role: "system", content: options.systemPrompt }]
+          : []),
+        { role: "user", content: options.userPrompt },
+      ],
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    throw new Error(`Pollinations error (${response.status}): ${errorBody || "Unknown"}`)
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{
+      message?: {
+        content?: string
+      }
+    }>
+  }
+
+  const content = payload.choices?.[0]?.message?.content?.trim() ?? ""
+  if (!content) {
+    throw new Error("Pollinations returned empty content")
+  }
+
+  return content
+}
+
+const SimpleMindmapNodeSchema: z.ZodType<SimpleMindmapNode> = z.lazy(() =>
+  z.object({
+    name: z.string().min(1),
+    children: z.array(SimpleMindmapNodeSchema).optional(),
+  }),
+)
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim()
 }
 
-function stripBulletPrefix(value: string) {
-  return value.replace(/^[-•*]\s*/, "").replace(/^\d+[.)]\s*/, "")
+function normalizeName(value: string) {
+  return normalizeWhitespace(value)
+    .replace(/^[-*•]\s*/, "")
+    .replace(/[\r\n]+/g, " ")
 }
 
-function titleFromText(value: string, maxWords = 16) {
-  const cleaned = normalizeWhitespace(stripBulletPrefix(value))
-  if (!cleaned) {
-    return "Nội dung"
-  }
-
-  const words = cleaned.split(" ")
-  return words.slice(0, maxWords).join(" ")
+function cleanMarkdownText(text: string): string {
+  // Loại bỏ heading markdown
+  text = text.replace(/^#+\s+/gm, "")
+  
+  // Loại bỏ bullet points
+  text = text.replace(/^[\s]*[•○◯●-]\s+/gm, "")
+  
+  // Loại bỏ numbered lists
+  text = text.replace(/^\s*\d+\.\s+/gm, "")
+  
+  // Ghép các dòng bị cắt
+  text = text.replace(/([.!?])\n(?=[a-z])/g, "$1 ")
+  
+  // Normalize whitespace
+  text = text.replace(/\s+/g, " ")
+  
+  return text.trim()
 }
 
 function titleFromFileName(fileName: string) {
   const withoutExtension = fileName.replace(/\.[^.]+$/, "")
-  const normalized = withoutExtension.replace(/[_-]+/g, " ")
-  return titleFromText(normalized, 8)
+  const cleaned = withoutExtension.replace(/[_-]+/g, " ").trim()
+  return cleaned.length > 0 ? cleaned : "Tai lieu"
 }
 
-function sanitizeInputText(value: string) {
-  return value
+function normalizeForCompare(value: string) {
+  return normalizeName(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
+function extractJsonFromText(value: string) {
+  const fencedMatch = value.match(/```json\s*([\s\S]*?)```/i)
+  if (fencedMatch) {
+    return fencedMatch[1].trim()
+  }
+
+  const genericFenceMatch = value.match(/```\s*([\s\S]*?)```/)
+  if (genericFenceMatch) {
+    return genericFenceMatch[1].trim()
+  }
+
+  const objectStart = value.indexOf("{")
+  const objectEnd = value.lastIndexOf("}")
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    return value.slice(objectStart, objectEnd + 1).trim()
+  }
+
+  return value.trim()
+}
+
+function findBalancedJsonObject(value: string) {
+  const start = value.indexOf("{")
+  if (start < 0) {
+    return ""
+  }
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index]
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+
+      if (char === "\\") {
+        escaped = true
+        continue
+      }
+
+      if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === "{") {
+      depth += 1
+      continue
+    }
+
+    if (char === "}") {
+      depth -= 1
+      if (depth === 0) {
+        return value.slice(start, index + 1)
+      }
+    }
+  }
+
+  return ""
+}
+
+function parseJsonWithRepairs(rawText: string) {
+  const extracted = extractJsonFromText(rawText)
+  const balanced = findBalancedJsonObject(rawText)
+
+  const candidates = uniqueStrings([
+    extracted,
+    balanced,
+    extracted.replace(/,\s*([}\]])/g, "$1"),
+    balanced.replace(/,\s*([}\]])/g, "$1"),
+    extracted.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"),
+    balanced.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"),
+  ]).filter((item) => item.length > 0)
+
+  let lastError: unknown = null
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw (lastError instanceof Error ? lastError : new Error("Khong parse duoc JSON tu Gemini output."))
+}
+
+function sentenceToLeafTitle(sentence: string, maxWords = 14) {
+  const normalized = normalizeName(sentence)
+  const words = normalized.split(/\s+/).filter((word) => word.length > 0)
+  if (words.length === 0) {
+    return "Chi tiet noi dung"
+  }
+  return words.slice(0, maxWords).join(" ")
+}
+
+function chunkText(inputText: string, maxChunkChars: number, maxChunks: number) {
+  const text = cleanMarkdownText(inputText)
     .replace(/\u0000/g, " ")
     .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]+/g, " ")
     .replace(/\r/g, "")
-}
-
-function splitSentences(value: string) {
-  const compact = value
-    .replace(/\n+/g, " ")
-    .replace(/\s+/g, " ")
     .trim()
 
-  if (!compact) {
+  if (!text) {
     return [] as string[]
   }
 
-  return compact
-    .split(/(?<=[.!?;:])\s+|\s+-\s+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 24)
+  if (text.length <= maxChunkChars) {
+    return [text]
+  }
+
+  const paragraphs = text.split(/\n{2,}/).flatMap((paragraph) => {
+    const trimmed = paragraph.trim()
+    if (!trimmed) {
+      return [] as string[]
+    }
+
+    if (trimmed.length > maxChunkChars) {
+      return splitLargeParagraph(trimmed, Math.max(1600, Math.floor(maxChunkChars * 0.92)))
+    }
+
+    return [trimmed]
+  })
+
+  const chunks: string[] = []
+  let current = ""
+
+  for (const paragraph of paragraphs) {
+    const candidate = current ? `${current}\n\n${paragraph}` : paragraph
+    if (candidate.length > maxChunkChars && current.length > 0) {
+      chunks.push(current)
+      current = paragraph
+      if (chunks.length >= maxChunks) {
+        break
+      }
+      continue
+    }
+
+    current = candidate
+  }
+
+  if (current.length > 0 && chunks.length < maxChunks) {
+    chunks.push(current)
+  }
+
+  return chunks.slice(0, maxChunks)
 }
 
-function extractBulletLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => stripBulletPrefix(line.trim()))
-    .filter((line) => line.length > 0)
+function splitLargeParagraph(paragraph: string, maxChars: number) {
+  const parts: string[] = []
+  const sentences = paragraph
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?;:])\s+/)
+    .filter((item) => item.length > 0)
+
+  let current = ""
+  for (const sentence of sentences) {
+    const next = current ? `${current} ${sentence}` : sentence
+    if (next.length > maxChars && current.length > 0) {
+      parts.push(current)
+      current = sentence
+      continue
+    }
+    current = next
+  }
+
+  if (current.length > 0) {
+    parts.push(current)
+  }
+
+  return parts.length > 0 ? parts : [paragraph.slice(0, maxChars)]
 }
 
-function isImportantTitle(title: string) {
-  return /kết luận|thách thức|quan trọng|tổng quan|lợi ích|giải pháp|mục tiêu|rủi ro|hành động/i.test(title)
+function uniqueStrings(items: string[]) {
+  const result: string[] = []
+  const seen = new Set<string>()
+
+  for (const item of items) {
+    const normalized = normalizeForCompare(item)
+    if (!normalized || seen.has(normalized)) {
+      continue
+    }
+    seen.add(normalized)
+    result.push(item)
+  }
+
+  return result
 }
 
-function createNode(
-  id: string,
-  title: string,
-  important = false,
-  sourceRefs: string[] = [],
-  children: MindmapNode[] = [],
-): MindmapNode {
+function toMindmapNode(simpleNode: SimpleMindmapNode, path: string[] = []): MindmapNode {
+  const level = path.length
+  const nodeId = path.length === 0 ? "root" : `root-${path.join("-")}`
+  const children = (simpleNode.children ?? []).map((child, index) => toMindmapNode(child, [...path, String(index)]))
+
   return {
-    id,
-    title: titleFromText(title, 18),
-    important,
-    sourceRefs,
+    id: nodeId,
+    title: normalizeName(simpleNode.name) || "Noi dung",
+    important: level <= 1,
+    sourceRefs: level === 0 ? ["file"] : [`level-${level}`],
     children,
   }
 }
 
-const STOPWORDS = new Set([
-  "và", "là", "của", "cho", "trong", "một", "những", "các", "được", "với", "đến", "khi", "này", "đó", "từ", "theo", "về", "trên", "dưới", "đang", "đã", "sẽ", "nên", "cần", "hoặc", "thì", "lại", "như", "rằng", "để", "việc", "qua", "sau", "trước", "nếu", "mà", "do", "bị", "có", "không", "it", "is", "are", "the", "and", "for", "that", "this", "with",
-])
+// ============ NEW PIPELINE ============
 
-const THEMES: ThemeDefinition[] = [
-  { id: "context", title: "Bối cảnh & phạm vi", keywords: ["tổng quan", "bối cảnh", "mô tả", "phạm vi", "giới thiệu", "nền tảng", "vấn đề"] },
-  { id: "goals", title: "Mục tiêu chính", keywords: ["mục tiêu", "định hướng", "kỳ vọng", "đầu ra", "yêu cầu", "tiêu chí"] },
-  { id: "concepts", title: "Khái niệm cốt lõi", keywords: ["khái niệm", "định nghĩa", "thành phần", "đặc điểm", "nguyên tắc", "mô hình"] },
-  { id: "process", title: "Quy trình thực hiện", keywords: ["quy trình", "bước", "thực hiện", "triển khai", "workflow", "pipeline", "giai đoạn"] },
-  { id: "techniques", title: "Kỹ thuật & công cụ", keywords: ["thuật toán", "kỹ thuật", "công cụ", "framework", "công nghệ", "tối ưu", "xử lý"] },
-  { id: "benefits", title: "Kết quả & lợi ích", keywords: ["kết quả", "lợi ích", "hiệu quả", "cải thiện", "tăng", "giảm", "nâng cao"] },
-  { id: "risks", title: "Rủi ro & lưu ý", keywords: ["rủi ro", "thách thức", "hạn chế", "lưu ý", "cảnh báo", "phụ thuộc", "bảo mật"] },
-  { id: "actions", title: "Khuyến nghị hành động", keywords: ["khuyến nghị", "đề xuất", "hành động", "ưu tiên", "kế hoạch", "tiếp theo", "kết luận"] },
-]
+async function summarizeChunk(chunkText: string, options: { apiKey: string; model: string }): Promise<string> {
+  const prompt = `Bạn là chuyên gia phân tích tài liệu.
 
-function tokenize(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^0-9a-zA-ZÀ-ỹ\s]/g, " ")
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3 && !STOPWORDS.has(token))
-}
+Hãy tóm tắt nội dung dưới đây thành các ý chính.
 
-function overlapScore(source: string[], target: string[]) {
-  if (source.length === 0 || target.length === 0) {
-    return 0
-  }
+Yêu cầu:
+- Dạng bullet points
+- Ngắn gọn, mỗi dòng <= 15 từ
+- Không thêm thông tin ngoài tài liệu
+- Chỉ trả về bullet points, không thêm ghi chú
 
-  const sourceSet = new Set(source)
-  let matches = 0
-  for (const token of target) {
-    if (sourceSet.has(token)) {
-      matches += 1
-    }
-  }
+Nội dung:
+${chunkText}`
 
-  return matches / Math.max(sourceSet.size, target.length)
-}
+  let lastError: unknown = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const summaryText = await callPollinationsChat({
+        apiKey: options.apiKey,
+        model: options.model,
+        userPrompt: prompt,
+        temperature: 0.3 + attempt * 0.1, // Tăng nhẹ nhiệt độ nếu lỗi
+        maxTokens: 1500,
+      })
 
-function sentenceThemeScore(sentence: string, sentenceIndex: number, totalSentences: number, theme: ThemeDefinition) {
-  const lowered = sentence.toLowerCase()
-  let score = 0
-
-  for (const keyword of theme.keywords) {
-    if (lowered.includes(keyword)) {
-      score += 3
-    }
-  }
-
-  const atBeginning = sentenceIndex <= Math.max(1, Math.floor(totalSentences * 0.2))
-  const atEnd = sentenceIndex >= Math.max(0, Math.floor(totalSentences * 0.8))
-
-  if (atBeginning && (theme.id === "context" || theme.id === "goals")) {
-    score += 2
-  }
-
-  if (atEnd && (theme.id === "actions" || theme.id === "benefits")) {
-    score += 2
-  }
-
-  if (/\d+/.test(sentence) && (theme.id === "process" || theme.id === "techniques")) {
-    score += 1
-  }
-
-  return score
-}
-
-function summarizeEvidence(sentence: string) {
-  const stripped = sentence
-    .replace(/^[-•*]\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  const latexBlocks = stripped.match(/\$[^$]+\$/g)
-  if (latexBlocks && latexBlocks.length > 0) {
-    // Preserve short inline LaTeX blocks if present.
-    return titleFromText(`${stripped} ${latexBlocks.join(" ")}`, 18)
-  }
-
-  return titleFromText(stripped, 18)
-}
-
-function deriveGroupTitle(items: string[]) {
-  if (items.length === 0) {
-    return "Ý chính"
-  }
-
-  const tokenFrequency = new Map<string, number>()
-  for (const item of items) {
-    for (const token of tokenize(item)) {
-      tokenFrequency.set(token, (tokenFrequency.get(token) ?? 0) + 1)
-    }
-  }
-
-  const topTokens = [...tokenFrequency.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([token]) => token)
-
-  if (topTokens.length >= 2) {
-    return titleFromText(topTokens.join(" "), 6)
-  }
-
-  const colonPrefix = items[0].split(":")[0]
-  return titleFromText(colonPrefix, 8)
-}
-
-function groupSentencesBySubtopic(items: string[]) {
-  const groups: GroupedSentences[] = []
-
-  for (const item of items) {
-    const tokens = tokenize(item)
-    let matchedGroup: GroupedSentences | null = null
-    let bestScore = 0
-
-    for (const group of groups) {
-      const score = overlapScore(tokens, group.tokens)
-      if (score > bestScore) {
-        bestScore = score
-        matchedGroup = group
+      if (summaryText) {
+        return summaryText
       }
+    } catch (error) {
+      lastError = error
+      console.warn(`[mindmap.generate] chunk summarize attempt ${attempt + 1} failed, retrying...`)
+      await new Promise(r => setTimeout(r, 1500))
     }
-
-    if (matchedGroup && bestScore >= 0.35) {
-      matchedGroup.items.push(item)
-      const mergedTokens = [...new Set([...matchedGroup.tokens, ...tokens])]
-      matchedGroup.tokens = mergedTokens.slice(0, 10)
-      continue
-    }
-
-    groups.push({
-      title: deriveGroupTitle([item]),
-      tokens: tokens.slice(0, 10),
-      items: [item],
-    })
   }
 
-  for (const group of groups) {
-    group.title = deriveGroupTitle(group.items)
-  }
-
-  return groups
+  console.error("[mindmap.generate] All attempts to summarize chunk failed, returning empty summary.", lastError)
+  return "" // Trả về chuỗi rỗng để pipeline không bị sập toàn cục
 }
 
-function buildFallbackLeafText(themeTitle: string, leafIndex: number) {
-  const presets = [
-    `${themeTitle}: định nghĩa hoặc ý chính cốt lõi`,
-    `${themeTitle}: ví dụ minh họa và trường hợp áp dụng`,
-    `${themeTitle}: lưu ý thực thi và sai lầm thường gặp`,
+async function generateMindmapFromContext(
+  globalContext: string,
+  rootTitle: string,
+  options: { apiKey: string; model: string },
+): Promise<SimpleMindmapNode> {
+  const prompt = `Bạn là chuyên gia phân tích tài liệu và tạo sơ đồ tư duy.
+
+Từ nội dung dưới đây, hãy tạo sơ đồ tư duy (mindmap).
+
+Yêu cầu:
+- 5-8 nhánh chính (các chủ đề chính)
+- Mỗi nhánh 3-6 ý con (chi tiết, ví dụ, phương pháp)
+- Mỗi node <= 10 từ
+- Không bịa thông tin, chỉ dùng nội dung đã cho
+- Cấu trúc rõ ràng, hợp logic
+
+Trả về JSON theo schema này (chỉ JSON, không thêm ghi chú):
+{
+  "name": "Tiêu đề tài liệu",
+  "children": [
+    {
+      "name": "Chủ đề chính 1",
+      "children": [
+        { "name": "Chi tiết 1" },
+        { "name": "Chi tiết 2" }
+      ]
+    }
   ]
-
-  return presets[leafIndex] ?? `${themeTitle}: chi tiết mở rộng ${leafIndex + 1}`
 }
 
-function ensureLeafCountForBranch(branchTitle: string, leaves: MindmapNode[], branchId: string) {
-  const nextLeaves = [...leaves]
+Nội dung tài liệu:
+${globalContext}`
 
-  for (let index = nextLeaves.length; index < MIN_LEAF_COUNT; index += 1) {
-    nextLeaves.push(
-      createNode(
-        `${branchId}-${index}`,
-        buildFallbackLeafText(branchTitle, index),
-        false,
-        [`${branchId}-fallback-${index}`],
-      ),
-    )
-  }
+  let lastError: unknown = null
 
-  return nextLeaves
-}
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const temperature = attempt === 0 ? 0.4 : attempt === 1 ? 0.2 : 0
+      const strictSuffix = attempt > 0
+        ? "\n\nChi tra ve DUY NHAT mot JSON object hop le, khong markdown, khong text bo sung."
+        : ""
 
-function scoreLeafImportance(sentence: string, sentenceIndex: number, bucketSize: number) {
-  let score = sentence.length
+      const modelText = await callPollinationsChat({
+        apiKey: options.apiKey,
+        model: options.model,
+        systemPrompt: "Ban la tro ly tao so do tu duy va phai tra ve JSON hop le.",
+        userPrompt: `${prompt}${strictSuffix}`,
+        temperature,
+        maxTokens: 3000,
+      })
 
-  if (sentenceIndex === 0) {
-    score += 30
-  }
-
-  if (/\d+/.test(sentence)) {
-    score += 15
-  }
-
-  if (/ví dụ|example|lưu ý|cảnh báo|kết luận|quan trọng|bước/i.test(sentence)) {
-    score += 22
-  }
-
-  if (sentenceIndex >= Math.max(0, bucketSize - 2)) {
-    score += 10
-  }
-
-  return score
-}
-
-function buildNotebookStyleTree(fileName: string, inputText: string) {
-  const rootTitle = titleFromFileName(fileName)
-  const sentences = splitSentences(sanitizeInputText(inputText))
-
-  if (sentences.length === 0) {
-    return createNode(
-      "root",
-      rootTitle,
-      true,
-      ["file"],
-      [
-        createNode("root-0", "Bối cảnh tài liệu", true, ["fallback"], []),
-        createNode("root-1", "Nội dung chính", true, ["fallback"], []),
-        createNode("root-2", "Kết luận và hướng tiếp theo", true, ["fallback"], []),
-      ],
-    )
-  }
-
-  const buckets = new Map<string, { theme: ThemeDefinition; items: string[]; score: number; firstIndex: number }>()
-  for (const theme of THEMES) {
-    buckets.set(theme.id, { theme, items: [], score: 0, firstIndex: Number.POSITIVE_INFINITY })
-  }
-
-  for (let index = 0; index < sentences.length; index += 1) {
-    const sentence = sentences[index]
-
-    let bestTheme = THEMES[0]
-    let bestScore = Number.NEGATIVE_INFINITY
-
-    for (const theme of THEMES) {
-      const currentScore = sentenceThemeScore(sentence, index, sentences.length, theme)
-      if (currentScore > bestScore) {
-        bestScore = currentScore
-        bestTheme = theme
-      }
-    }
-
-    // Không có keyword rõ ràng: phân bổ theo diễn tiến nội dung giống NotebookLM.
-    if (bestScore <= 0) {
-      const progress = index / Math.max(1, sentences.length - 1)
-      if (progress <= 0.2) bestTheme = THEMES.find((theme) => theme.id === "context") ?? bestTheme
-      else if (progress <= 0.38) bestTheme = THEMES.find((theme) => theme.id === "goals") ?? bestTheme
-      else if (progress <= 0.56) bestTheme = THEMES.find((theme) => theme.id === "concepts") ?? bestTheme
-      else if (progress <= 0.74) bestTheme = THEMES.find((theme) => theme.id === "process") ?? bestTheme
-      else bestTheme = THEMES.find((theme) => theme.id === "actions") ?? bestTheme
-      bestScore = 1
-    }
-
-    const bucket = buckets.get(bestTheme.id)
-    if (!bucket) {
-      continue
-    }
-
-    bucket.items.push(sentence)
-    bucket.score += bestScore
-    bucket.firstIndex = Math.min(bucket.firstIndex, index)
-  }
-
-  const selectedThemes = [...buckets.values()]
-    .filter((bucket) => bucket.items.length > 0)
-    .sort((a, b) => {
-      const scoreDiff = b.score - a.score
-      if (scoreDiff !== 0) {
-        return scoreDiff
-      }
-      return a.firstIndex - b.firstIndex
-    })
-    .slice(0, 6)
-
-  const prioritizedThemes = [...selectedThemes]
-
-  if (prioritizedThemes.length < MIN_BRANCH_COUNT) {
-    const usedThemeIds = new Set(prioritizedThemes.map((bucket) => bucket.theme.id))
-    for (const theme of THEMES) {
-      if (usedThemeIds.has(theme.id)) {
+      if (!modelText) {
+        lastError = new Error("Pollinations mindmap generation returned empty content")
         continue
       }
-      prioritizedThemes.push({
-        theme,
-        items: [],
-        score: 0,
-        firstIndex: Number.POSITIVE_INFINITY,
-      })
-      if (prioritizedThemes.length >= MIN_BRANCH_COUNT) {
-        break
+
+      try {
+        const parsed = parseJsonWithRepairs(modelText)
+        const validated = SimpleMindmapNodeSchema.parse(parsed)
+
+        // Ensure root has correct name
+        validated.name = rootTitle
+
+        console.log(`[mindmap.generate] Successfully generated mindmap on attempt ${attempt + 1}`)
+        return validated
+      } catch (parseError) {
+        lastError = parseError
+        console.warn(`[mindmap.generate] JSON parse failed on attempt ${attempt + 1}:`, {
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          modelTextLength: modelText.length,
+          preview: modelText.substring(0, 150),
+        })
       }
+    } catch (error) {
+      lastError = error
     }
   }
 
-  const children = prioritizedThemes.slice(0, 6).map((bucket, themeIndex) => {
-    const rankedItems = bucket.items
-      .map((item, itemIndex) => ({ item, score: scoreLeafImportance(item, itemIndex, bucket.items.length) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
-
-    const leaves = rankedItems.map((entry, itemIndex) =>
-      createNode(
-        `root-${themeIndex}-${itemIndex}`,
-        summarizeEvidence(entry.item),
-        itemIndex === 0,
-        [bucket.theme.id, `sentence-${itemIndex}`],
-      ),
-    )
-
-    const ensuredLeaves = ensureLeafCountForBranch(bucket.theme.title, leaves, `root-${themeIndex}`)
-
-    return createNode(
-      `root-${themeIndex}`,
-      bucket.theme.title,
-      isImportantTitle(bucket.theme.title),
-      [bucket.theme.id],
-      ensuredLeaves,
-    )
+  console.error("[mindmap.generate] All retry attempts failed:", {
+    error: lastError instanceof Error ? lastError.message : String(lastError),
   })
 
-  return createNode("root", rootTitle, true, ["file"], children)
+  throw lastError instanceof Error ? lastError : new Error("Failed to generate mindmap from Pollinations after 3 attempts")
 }
 
-function buildOutlineTree(fileName: string, summaryText: string): MindmapNode {
-  const rootTitle = titleFromFileName(fileName)
-  const sections: Array<{ title: string; items: string[] }> = []
-  let currentSection: { title: string; items: string[] } | null = null
+export async function generateMindmapWithGemini(options: GenerationOptions) {
+  const rootTitle = titleFromFileName(options.fileName)
 
-  for (const rawLine of summaryText.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line) {
-      continue
+  // Step 1: Chunk text
+  const chunks = chunkText(options.text, options.maxChunkChars, options.maxChunks)
+
+  if (chunks.length === 0) {
+    // Fallback if empty
+    const fallback: SimpleMindmapNode = {
+      name: rootTitle,
+      children: [
+        {
+          name: "Phan mot",
+          children: [{ name: "Chi tiet 1" }, { name: "Chi tiet 2" }, { name: "Chi tiet 3" }],
+        },
+        {
+          name: "Phan hai",
+          children: [{ name: "Chi tiet 1" }, { name: "Chi tiet 2" }, { name: "Chi tiet 3" }],
+        },
+        {
+          name: "Phan ba",
+          children: [{ name: "Chi tiet 1" }, { name: "Chi tiet 2" }, { name: "Chi tiet 3" }],
+        },
+      ],
     }
 
-    const headingMatch = line.match(/^\[(.+)\]$/)
-    if (headingMatch) {
-      currentSection = { title: headingMatch[1].trim(), items: [] }
-      sections.push(currentSection)
-      continue
+    return {
+      simpleTree: fallback,
+      mindmap: toMindmapNode(fallback),
+      chunkCount: 0,
     }
-
-    if (!currentSection) {
-      currentSection = { title: "Tổng quan", items: [] }
-      sections.push(currentSection)
-    }
-
-    currentSection.items.push(stripBulletPrefix(line))
   }
 
-  if (sections.length === 0) {
-    return buildNotebookStyleTree(fileName, summaryText)
-  }
-
-  return createNode(
-    "root",
-    rootTitle,
-    true,
-    ["file"],
-    sections.map((section, sectionIndex) =>
-      {
-        const leafNodes = section.items.slice(0, 6).map((item, itemIndex) =>
-          createNode(
-            `root-${sectionIndex}-${itemIndex}`,
-            summarizeEvidence(item),
-            itemIndex === 0,
-            [`section-${sectionIndex}`, `item-${itemIndex}`],
-          ),
+  try {
+    // Step 2: Summarize each chunk (local summary) with batching to prevent API rate limits
+    console.log(`[mindmap.generate] Summarizing ${chunks.length} chunks...`)
+    const summaries: string[] = []
+    for (let index = 0; index < chunks.length; index += 2) {
+      const batch = chunks.slice(index, index + 2)
+      const batchSummaries = await Promise.all(
+        batch.map((chunk) =>
+          summarizeChunk(chunk, {
+            apiKey: options.apiKey,
+            model: options.model,
+          })
         )
+      )
+      summaries.push(...batchSummaries)
+    }
 
-        return createNode(
-          `root-${sectionIndex}`,
-          section.title,
-          isImportantTitle(section.title),
-          [`section-${sectionIndex}`],
-          ensureLeafCountForBranch(section.title, leafNodes, `root-${sectionIndex}`),
-        )
-      },
-    ),
-  )
-}
+    // Step 3: Merge into global context
+    const globalContext = summaries.join("\n\n")
 
-function buildBulletsTree(fileName: string, summaryText: string): MindmapNode {
-  const bullets = extractBulletLines(summaryText)
+    console.log(`[mindmap.generate] Global context length: ${globalContext.length} chars`)
 
-  if (bullets.length === 0) {
-    return buildNotebookStyleTree(fileName, summaryText)
-  }
+    // Step 4: Generate mindmap once from global context
+    console.log(`[mindmap.generate] Generating mindmap from global context...`)
+    const simpleTree = await generateMindmapFromContext(globalContext, rootTitle, {
+      apiKey: options.apiKey,
+      model: options.model,
+    })
 
-  return buildNotebookStyleTree(fileName, bullets.join(". "))
-}
+    return {
+      simpleTree,
+      mindmap: toMindmapNode(simpleTree),
+      chunkCount: chunks.length,
+    }
+  } catch (error) {
+    console.error("[mindmap.generate] Error in pipeline:", {
+      error: error instanceof Error ? error.message : String(error),
+    })
 
-function buildParagraphTree(fileName: string, summaryText: string): MindmapNode {
-  return buildNotebookStyleTree(fileName, summaryText)
-}
-
-export function buildMindmapFromSummary(fileName: string, summaryType: SummaryType, summaryText: string) {
-  const normalizedSummary = normalizeWhitespace(summaryText)
-
-  if (summaryType === "outline") {
-    return buildOutlineTree(fileName, summaryText)
-  }
-
-  if (summaryType === "bullets") {
-    return buildBulletsTree(fileName, normalizedSummary || summaryText)
-  }
-
-  return buildParagraphTree(fileName, normalizedSummary || summaryText)
-}
-
-export function countMindmapNodes(node: MindmapNode): number {
-  return 1 + node.children.reduce((total, child) => total + countMindmapNodes(child), 0)
-}
-
-export function countMindmapDepth(node: MindmapNode): number {
-  if (node.children.length === 0) {
-    return 1
-  }
-
-  return 1 + Math.max(...node.children.map((child) => countMindmapDepth(child)))
-}
-
-export function toSimpleMindmapTree(node: MindmapNode): SimpleMindmapNode {
-  if (node.children.length === 0) {
-    return { name: node.title }
-  }
-
-  return {
-    name: node.title,
-    children: node.children.map((child) => toSimpleMindmapTree(child)),
+    throw error
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { generateMindmapWithGemini } from "@/lib/mindmap-gemini"
+import { generateMindmapWithGemini } from "@/lib/mindmap"
 
 export const runtime = "nodejs"
 
