@@ -73,6 +73,10 @@ function inferKind(file: File) {
     return "doc" as const
   }
 
+  if (extension === "txt" || mimeType.includes("text/")) {
+    return "txt" as const
+  }
+
   return "unknown" as const
 }
 
@@ -116,6 +120,10 @@ export async function extractTextFromFile(file: File) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
+
+  if (kind === "txt") {
+    return normalizeWhitespace(buffer.toString("utf-8"))
+  }
 
   if (kind === "pdf") {
     return extractPdfText(buffer)
