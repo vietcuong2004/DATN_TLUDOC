@@ -174,6 +174,11 @@ export default function Summarize() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      if (file.size > 4.5 * 1024 * 1024) {
+        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+        e.target.value = ""
+        return
+      }
       setSelectedFile(file)
       setSummary("")
       setErrorMessage("")

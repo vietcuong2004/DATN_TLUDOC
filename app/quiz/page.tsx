@@ -205,6 +205,11 @@ export default function QuizPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
+      if (selectedFile.size > 4.5 * 1024 * 1024) {
+        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+        if (fileInputRef.current) fileInputRef.current.value = ""
+        return
+      }
       setFile(selectedFile)
       setQuizState("idle")
     }

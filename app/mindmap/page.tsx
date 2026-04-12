@@ -306,6 +306,11 @@ export default function MindmapPage() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
+    if (file && file.size > 4.5 * 1024 * 1024) {
+      alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén PDF hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
     setSelectedFile(file)
     setMindmap(null)
     setErrorMessage("")
