@@ -16,10 +16,7 @@ const nextConfig = {
     }
     return config
   },
-  serverExternalPackages: ["pdf-parse"],
-  outputFileTracingIncludes: {
-    "/*": ["./node_modules/pdf-parse/**/*"]
-  }
+  serverExternalPackages: ["pdf-parse"]
 }
 
 export default nextConfig
