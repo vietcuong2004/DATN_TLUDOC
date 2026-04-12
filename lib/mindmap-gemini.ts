@@ -481,16 +481,21 @@ export async function generateMindmapWithGemini(options: GenerationOptions) {
   }
 
   try {
-    // Step 2: Summarize each chunk (local summary)
+    // Step 2: Summarize each chunk (local summary) with batching to prevent API rate limits
     console.log(`[mindmap.generate] Summarizing ${chunks.length} chunks...`)
-    const summaries = await Promise.all(
-      chunks.map((chunk) =>
-        summarizeChunk(chunk, {
-          apiKey: options.apiKey,
-          model: options.model,
-        }),
-      ),
-    )
+    const summaries: string[] = []
+    for (let index = 0; index < chunks.length; index += 2) {
+      const batch = chunks.slice(index, index + 2)
+      const batchSummaries = await Promise.all(
+        batch.map((chunk) =>
+          summarizeChunk(chunk, {
+            apiKey: options.apiKey,
+            model: options.model,
+          })
+        )
+      )
+      summaries.push(...batchSummaries)
+    }
 
     // Step 3: Merge into global context
     const globalContext = summaries.join("\n\n")
