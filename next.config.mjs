@@ -14,6 +14,10 @@ const nextConfig = {
       // Use memory cache in dev to avoid stale .next pack file ENOENT issues.
       config.cache = { type: "memory" }
     }
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    }
     return config
   },
   serverExternalPackages: ["pdf-parse"]
