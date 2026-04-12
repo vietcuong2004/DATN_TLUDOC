@@ -17,10 +17,8 @@ const nextConfig = {
     return config
   },
   serverExternalPackages: ["pdf-parse"],
-  experimental: {
-    outputFileTracingIncludes: {
-      "/*": ["./node_modules/pdf-parse/**/*"]
-    }
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/pdf-parse/**/*"]
   }
 }
 
