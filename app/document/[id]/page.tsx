@@ -47,9 +47,12 @@ export default async function DocumentPage({
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            {/* Title Section */}
             <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-              <h1 className="mb-4 text-3xl font-bold text-slate-900">{document.title}</h1>
+              <div className="mb-3 flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-[#0b3b8f] rounded-lg w-fit border border-blue-100/50">
+                <span className="font-bold text-sm">[{document.subjectCode}] {document.subjectName}</span>
+              </div>
+
+              <h1 className="mb-6 text-3xl font-bold text-slate-900 leading-tight">{document.title}</h1>
 
               <div className="flex flex-wrap items-center gap-6 text-sm">
                 <div className="flex items-center gap-2 text-slate-600">
@@ -109,6 +112,10 @@ export default async function DocumentPage({
                   <div>
                     <h3 className="font-medium text-gray-900">Thông tin cơ bản</h3>
                     <ul className="mt-2 space-y-2">
+                      <li className="flex justify-between">
+                        <span className="text-gray-500">Môn học:</span>
+                        <span className="font-medium text-right">[{document.subjectCode}] {document.subjectName}</span>
+                      </li>
                       <li className="flex justify-between">
                         <span className="text-gray-500">Định dạng:</span>
                         <span className="font-medium">{document.format}</span>
@@ -253,6 +260,10 @@ export default async function DocumentPage({
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 text-lg font-semibold text-slate-900">Thông tin tài liệu</h3>
                 <ul className="space-y-3">
+                  <li className="flex justify-between text-sm border-b border-slate-100 pb-3">
+                    <span className="text-slate-600">Môn học:</span>
+                    <span className="font-medium text-slate-900 text-right ml-4">[{document.subjectCode}] {document.subjectName}</span>
+                  </li>
                   <li className="flex justify-between text-sm border-b border-slate-100 pb-3">
                     <span className="text-slate-600">Định dạng:</span>
                     <span className="font-medium text-slate-900">{document.format}</span>

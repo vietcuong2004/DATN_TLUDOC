@@ -77,6 +77,8 @@ export type DocumentDetail = {
   previewUrl: string
   downloadUrl: string
   subjectId: number
+  subjectName: string
+  subjectCode: string
 }
 
 function buildDriveThumbnail(fileId: string | null, size = 1200) {
@@ -239,26 +241,29 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
     return null
   }
 
-  const rows = await queryRows<DocumentRow>(
+  const rows = await queryRows<DocumentRow & { subject_name: string; subject_code: string; review_count: number }>(
     `
       SELECT
-        id,
-        title,
-        description,
-        subject_id,
-        created_at,
-        views_count,
-        downloads_count,
-        avg_rating,
-        review_count,
-        file_name,
-        file_ext,
-        drive_file_id,
-        file_url,
-        preview_url,
-        download_url
-      FROM documents
-      WHERE id = ? AND status = 'published'
+        d.id,
+        d.title,
+        d.description,
+        d.subject_id,
+        s.name as subject_name,
+        s.code as subject_code,
+        d.created_at,
+        d.views_count,
+        d.downloads_count,
+        d.avg_rating,
+        d.review_count,
+        d.file_name,
+        d.file_ext,
+        d.drive_file_id,
+        d.file_url,
+        d.preview_url,
+        d.download_url
+      FROM documents d
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE d.id = ? AND d.status = 'published'
       LIMIT 1
     `,
     [id],
@@ -286,6 +291,8 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
     previewUrl: row.preview_url || `https://drive.google.com/file/d/${row.drive_file_id}/preview`,
     downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
     subjectId: row.subject_id,
+    subjectName: row.subject_name,
+    subjectCode: row.subject_code,
   }
 }
 
