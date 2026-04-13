@@ -2,14 +2,18 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, PenTool } from "lucide-react"
+import { ReviewDialog } from "@/components/ReviewDialog"
 
 interface DocumentActionsProps {
+  documentId: number
   downloadUrl: string
   fileName?: string
 }
 
-export default function DocumentActions({ downloadUrl, fileName = "document" }: DocumentActionsProps) {
+export default function DocumentActions({ documentId, downloadUrl, fileName = "document" }: DocumentActionsProps) {
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isReviewOpen, setIsReviewOpen] = useState(false)
+
 
   const handleDownload = () => {
     if (!downloadUrl) {
@@ -20,6 +24,9 @@ export default function DocumentActions({ downloadUrl, fileName = "document" }: 
     try {
       setIsDownloading(true)
       
+      // Gọi API để tăng lượt tải trong cơ sở dữ liệu
+      fetch(`/api/documents/${documentId}/download`, { method: "POST" }).catch(err => console.error("Update downloads count failed:", err))
+
       // Tạo anchor element để download trực tiếp (không bật tab mới)
       const link = document.createElement("a")
       link.href = downloadUrl
@@ -55,11 +62,21 @@ export default function DocumentActions({ downloadUrl, fileName = "document" }: 
             Tải xuống
           </>
         </Button>
-        <Button variant="outline" className="w-full">
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => setIsReviewOpen(true)}
+        >
           <PenTool className="h-4 w-4 mr-2" />
           Viết đánh giá
         </Button>
       </div>
+
+      <ReviewDialog
+        documentId={documentId}
+        isOpen={isReviewOpen}
+        onOpenChange={setIsReviewOpen}
+      />
     </div>
   )
 } 

@@ -43,3 +43,9 @@ export async function queryRows<T extends RowDataPacket>(sql: string, params: un
   const [rows] = await db.query<T[]>(sql, params)
   return rows
 }
+
+export async function executeCommand(sql: string, params: any[] = []) {
+  const db = getDbPool()
+  const [result] = await db.execute(sql, params)
+  return result
+}

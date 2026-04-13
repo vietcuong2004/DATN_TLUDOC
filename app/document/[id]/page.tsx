@@ -7,17 +7,30 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import DocumentActions from "./DocumentActions"
 import DocumentViewer from "./DocumentViewer"
-import { getDocumentDetailById, getRelatedDocuments } from "@/lib/repositories"
+import { ReviewHighlightHandler } from "@/components/ReviewHighlightHandler"
+import { getDocumentDetailById, getRelatedDocuments, incrementViews, getReviewsByDocumentId } from "@/lib/repositories"
 
 export const dynamic = "force-dynamic"
 
-export default async function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DocumentPage({ 
+  params,
+  searchParams,
+}: { 
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string; highlight?: string }>
+}) {
   const resolvedParams = await params
+  const resolvedSearchParams = await searchParams
   const documentId = Number(resolvedParams.id)
+  const activeTab = resolvedSearchParams.tab || "description"
+  const shouldHighlight = resolvedSearchParams.highlight === "true"
 
   if (!Number.isFinite(documentId) || documentId <= 0) {
     notFound()
   }
+
+  // Tăng lượt xem
+  await incrementViews(documentId)
 
   const document = await getDocumentDetailById(documentId)
   if (!document) {
@@ -25,10 +38,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   }
 
   const relatedDocuments = await getRelatedDocuments(document.id, document.subjectId, 6)
+  const reviews = await getReviewsByDocumentId(documentId)
 
   return (
     <>
       <Navbar />
+      <ReviewHighlightHandler />
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
@@ -80,7 +95,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               />
             </div>
 
-            <Tabs defaultValue="description" className="mb-8">
+            <Tabs defaultValue={activeTab} className="mb-8" id="reviews">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="description">Mô tả</TabsTrigger>
                 <TabsTrigger value="details">Chi tiết</TabsTrigger>
@@ -125,71 +140,61 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               </TabsContent>
               <TabsContent value="reviews" className="rounded-b-lg bg-white p-4 shadow-sm">
                 <div className="space-y-4">
-                  {[
-                    {
-                      id: 1,
-                      author: "Nguyễn Văn A",
-                      rating: 5,
-                      text: "Tài liệu rất hữu ích, nội dung chi tiết và dễ hiểu. Recommend cho mọi người!",
-                      date: "20-03-2026",
-                      avatar: "https://i.pravatar.cc/150?u=user1"
-                    },
-                    {
-                      id: 2,
-                      author: "Trần Thị B",
-                      rating: 4,
-                      text: "Nội dung tốt nhưng hình ảnh chất lượng không cao. Nhìn chung vẫn ổn.",
-                      date: "18-03-2026",
-                      avatar: "https://i.pravatar.cc/150?u=user2"
-                    },
-                    {
-                      id: 3,
-                      author: "Lê Văn C",
-                      rating: 5,
-                      text: "Tuyệt vời! Giải thích rất rõ ràng, đã giúp tôi vượt qua môn học này.",
-                      date: "15-03-2026",
-                      avatar: "https://i.pravatar.cc/150?u=user3"
-                    },
-                    {
-                      id: 4,
-                      author: "Phạm Minh D",
-                      rating: 3,
-                      text: "Được bình thường, còn thiếu một số chủ đề quan trọng.",
-                      date: "10-03-2026",
-                      avatar: "https://i.pravatar.cc/150?u=user4"
-                    }
-                  ].map((review) => (
-                    <div key={review.id} className="border-b border-slate-200 pb-4 last:border-b-0">
-                      <div className="flex items-start gap-3">
-                        <Image
-                          src={review.avatar}
-                          alt={review.author}
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 rounded-full"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-semibold text-slate-900">{review.author}</h4>
-                            <span className="text-xs text-slate-500">{review.date}</span>
+                  {reviews.length > 0 ? (
+                    reviews.map((review: any, index: number) => {
+                      const isNew = index === 0 && shouldHighlight
+                      return (
+                        <div 
+                          key={review.id} 
+                          className={`relative border-b border-slate-200 pb-4 last:border-b-0 transition-all duration-1000 ${
+                            isNew ? "bg-green-50/50 -mx-4 px-4 py-4 rounded-lg border-green-200 shadow-sm animate-in fade-in slide-in-from-top-4" : ""
+                          }`}
+                        >
+                          {isNew && (
+                            <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-green-600">Vừa gửi</span>
+                            </div>
+                          )}
+                          <div className="flex items-start gap-3">
+                            <Image
+                              src={review.avatar || `https://i.pravatar.cc/150?u=${review.id}`}
+                              alt={review.author}
+                              width={40}
+                              height={40}
+                              className="h-10 w-10 rounded-full border border-slate-200"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold text-slate-900">{review.author}</h4>
+                                <span className="text-xs text-slate-500">
+                                  {new Date(review.created_at).toLocaleDateString("vi-VN")}
+                                </span>
+                              </div>
+                              <div className="my-1 flex">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-4 w-4 ${
+                                      i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <p className="text-sm text-slate-700">{review.comment}</p>
+                            </div>
                           </div>
-                          <div className="my-1 flex">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${
-                                  i < review.rating
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-sm text-slate-700">{review.text}</p>
                         </div>
-                      </div>
+                      )
+                    })
+                  ) : (
+                    <div className="py-8 text-center text-slate-400">
+                      Chưa có đánh giá nào cho tài liệu này. Hãy là người đầu tiên!
                     </div>
-                  ))}
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
@@ -197,6 +202,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
             <div className="mb-8 lg:hidden">
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <DocumentActions
+                  documentId={document.id}
                   downloadUrl={document.downloadUrl}
                   fileName={document.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}
                 />
@@ -269,6 +275,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               {/* Section 2: Tải tài liệu & Viết đánh giá */}
               <div className="hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:block">
                 <DocumentActions
+                  documentId={document.id}
                   downloadUrl={document.downloadUrl}
                   fileName={document.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}
                 />

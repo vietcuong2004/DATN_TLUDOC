@@ -278,7 +278,7 @@ async function main() {
             status,
             is_featured
           )
-          VALUES (?, ?, ?, ?, ?, 'gdrive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+          VALUES (?, ?, ?, ?, ?, 'gdrive', ?, ?, ?, ?, ?, ?, ?, ?, 0)
         `,
         [
           path.basename(fileName, path.extname(fileName)),

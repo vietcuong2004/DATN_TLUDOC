@@ -1,5 +1,5 @@
 import type { RowDataPacket } from "mysql2"
-import { isDbConfigured, queryRows } from "@/lib/mysql"
+import { isDbConfigured, queryRows, executeCommand } from "@/lib/mysql"
 
 type SubjectRow = RowDataPacket & {
   code: string
@@ -314,3 +314,63 @@ export async function getRelatedDocuments(documentId: number, subjectId: number,
     image: buildDriveThumbnail(row.drive_file_id, 720),
   }))
 }
+
+export async function incrementViews(id: number) {
+  if (!isDbConfigured()) return;
+  await executeCommand(
+    "UPDATE documents SET views_count = views_count + 1 WHERE id = ?",
+    [id]
+  )
+}
+
+export async function incrementDownloads(id: number) {
+  if (!isDbConfigured()) return;
+  await executeCommand(
+    "UPDATE documents SET downloads_count = downloads_count + 1 WHERE id = ?",
+    [id]
+  )
+}
+
+export async function getReviewsByDocumentId(documentId: number) {
+  if (!isDbConfigured()) return []
+  return await queryRows(
+    `
+      SELECT r.id, r.rating, r.comment, r.updated_at as created_at, u.full_name as author, u.avatar_url as avatar
+      FROM document_reviews r
+      INNER JOIN users u ON r.user_id = u.id
+      WHERE r.document_id = ?
+      ORDER BY r.updated_at DESC
+    `,
+    [documentId],
+  )
+}
+
+
+
+
+export async function addDocumentReview(data: { documentId: number; userId: number; rating: number; comment: string }) {
+  if (!isDbConfigured()) return
+
+  // 1. Thêm bản ghi đánh giá (Nếu đã có thì cập nhật)
+  await executeCommand(
+    `
+      INSERT INTO document_reviews (document_id, user_id, rating, comment)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment)
+    `,
+    [data.documentId, data.userId, data.rating, data.comment],
+  )
+
+  // 2. Cập nhật lại avg_rating và review_count trong bảng documents
+  await executeCommand(
+    `
+      UPDATE documents
+      SET 
+        avg_rating = (SELECT AVG(rating) FROM document_reviews WHERE document_id = ?),
+        review_count = (SELECT COUNT(*) FROM document_reviews WHERE document_id = ?)
+      WHERE id = ?
+    `,
+    [data.documentId, data.documentId, data.documentId],
+  )
+}
+

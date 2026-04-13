@@ -115,7 +115,6 @@ CREATE TABLE IF NOT EXISTS documents (
 
   views_count INT DEFAULT 0,
   downloads_count INT DEFAULT 0,
-  favorites_count INT DEFAULT 0,
   avg_rating DECIMAL(3,2) DEFAULT 0,
   review_count INT DEFAULT 0,
 
