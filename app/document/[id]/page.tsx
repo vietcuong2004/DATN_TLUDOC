@@ -9,6 +9,8 @@ import DocumentActions from "./DocumentActions"
 import DocumentViewer from "./DocumentViewer"
 import { getDocumentDetailById, getRelatedDocuments } from "@/lib/repositories"
 
+export const dynamic = "force-dynamic"
+
 export default async function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params
   const documentId = Number(resolvedParams.id)

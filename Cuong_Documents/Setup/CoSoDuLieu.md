@@ -109,8 +109,6 @@ CREATE TABLE IF NOT EXISTS documents (
   drive_file_id VARCHAR(255) NOT NULL,
   file_name VARCHAR(255),
   file_ext VARCHAR(20),
-  file_mime_type VARCHAR(100),
-  file_size_bytes BIGINT,
   file_url VARCHAR(1000),
   preview_url VARCHAR(1000),
   download_url VARCHAR(1000),
@@ -243,7 +241,112 @@ ON DUPLICATE KEY UPDATE
 
 ---
 
-## 8. Ghi chú
+## 8. Chi tiết cấu trúc các bảng
+
+Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ liệu và các ràng buộc của từng trường cho 6 bảng trong cơ sở dữ liệu:
+
+### 8.1. Bảng `users` (Quản lý người dùng)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh duy nhất của người dùng |
+| email | varchar(255) | UNIQUE, NOT NULL | Địa chỉ email đăng nhập hệ thống |
+| password_hash | varchar(255) | NOT NULL | Mật khẩu đã được mã hóa |
+| full_name | varchar(255) | NOT NULL | Họ và tên đầy đủ của người dùng |
+| avatar_url | varchar(500) | DEFAULT NULL | Đường dẫn gốc / liên kết ảnh đại diện |
+| phone | varchar(20) | DEFAULT NULL | Số điện thoại liên hệ |
+| role | enum('student','teacher','admin') | DEFAULT 'student' | Vai trò trong hệ thống |
+| status | enum('active','inactive','suspended') | DEFAULT 'active' | Trạng thái tài khoản |
+| student_id | varchar(50) | UNIQUE, DEFAULT NULL | Mã sinh viên |
+| department | varchar(100) | DEFAULT NULL | Khoa / Viện / Chuyên ngành bộ môn trực thuộc |
+| bio | text | DEFAULT NULL | Thông tin tiểu sử hoặc mô tả thêm về cá nhân |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Dấu thời gian hệ thống tạo tài khoản lúc đầu |
+| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Dấu thời gian khi bản ghi được cập nhật/sửa chữa |
+| last_login_at | timestamp | DEFAULT NULL | Thời gian ghi nhận lần đăng nhập cuối cùng |
+
+### 8.2. Bảng `subjects` (Quản lý môn học)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh duy nhất của môn học |
+| code | varchar(50) | UNIQUE, NOT NULL | Mã học phần môn học (VD: CSE484) |
+| name | varchar(255) | NOT NULL | Tên môn học hiển thị |
+| folder_key | varchar(100) | UNIQUE, NOT NULL | Tên thư mục / định danh lưu trữ trên Google Drive |
+| description | text | DEFAULT NULL | Thông tin mô tả chi tiết môn học |
+| group_name | varchar(100) | DEFAULT NULL | Nhóm kiến thức của bộ môn (Cơ sở khối ngành, Kỹ năng,...) |
+| semester | varchar(20) | DEFAULT NULL | Tên kỳ học mà môn học này được dạy |
+| is_required | tinyint(1) | DEFAULT 0 | Đánh dấu là học phần bắt buộc (1) hay tự chọn (0) |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Dấu thời gian được tạo trong CSDL |
+| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Dấu thời gian bản ghi cập nhật |
+
+### 8.3. Bảng `documents` (Thông tin tài liệu)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh tài liệu |
+| title | varchar(500) | FULLTEXT, NOT NULL | Tiêu đề của tài liệu cần hiển thị |
+| description | text | FULLTEXT, DEFAULT NULL | Lời mô tả nội dung tài liệu |
+| subject_id | int(11) | Khóa ngoại (subjects.id), NOT NULL | Thuộc về môn học nào |
+| uploader_id | int(11) | Khóa ngoại (users.id), NOT NULL | Người dùng (tài khoản) đã đăng và tải tài liệu này lên |
+| doc_type | enum('exam','lecture','slides','assignment','research','other') | DEFAULT 'other' | Phân loại thể loại tài liệu |
+| storage_provider | enum('gdrive','other') | DEFAULT 'gdrive' | Hệ thống cung cấp nơi lưu trữ vật lý, định dạng thư mục |
+| drive_folder_key | varchar(100) | NOT NULL | Khóa của thư mục Drive để file thuộc về đâu |
+| drive_file_id | varchar(255) | NOT NULL | ID cung cấp từ nền tảng Google Drive cho file này |
+| file_name | varchar(255) | DEFAULT NULL | Tên thật của file (bao gồm tên và đuôi) |
+| file_ext | varchar(20) | DEFAULT NULL | Định dạng mở rộng (pdf, docx, pptx) |
+| file_url | varchar(1000) | DEFAULT NULL | URL gốc tới file (để link sang Drive) |
+| preview_url | varchar(1000) | DEFAULT NULL | URL có thể sử dụng nhúng dạng Web Preview trên app |
+| download_url | varchar(1000) | DEFAULT NULL | URL API trực tiếp giúp người dùng click để download |
+| views_count | int(11) | DEFAULT 0 | Biến đếm số lượt xem hiển thị / truy cập file |
+| downloads_count| int(11) | DEFAULT 0 | Biến đếm số lượt người đã download tài liệu |
+| favorites_count| int(11) | DEFAULT 0 | Biến đếm độ yêu thích tài liệu |
+| avg_rating | decimal(3,2) | DEFAULT 0.00 | Số điểm trung bình (0-5.00) trong các bài review |
+| review_count | int(11) | DEFAULT 0 | Đếm số cá thể đã rating / review tài liệu này |
+| status | enum('draft','published','archived','removed') | DEFAULT 'draft' | Trạng thái hiển thị tài liệu |
+| is_featured | tinyint(1) | DEFAULT 0 | Đánh dấu nổi bật để đưa lên trang chủ / gợi ý (1: có) |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời gian tải lên CSDL hệ thống |
+| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Thời gian sửa đổi thông tin cuối |
+
+### 8.4. Bảng `document_reviews` (Lưu đánh giá tài liệu)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã ID chuyên biệt cho lời nhận xét |
+| document_id | int(11) | Khóa ngoại (documents.id), UNIQUE (với user_id), NOT NULL | Tài liệu tiếp nhận review |
+| user_id | int(11) | Khóa ngoại (users.id), UNIQUE (với document_id), NOT NULL | ID của người dùng viết ra bình luận này |
+| rating | tinyint(3) UNSIGNED | NOT NULL | Thang điểm từ 1 đến 5 |
+| comment | text | DEFAULT NULL | Nội dung chia sẻ cảm nghĩ / bình luận |
+| helpful_count | int(11) | DEFAULT 0 | Số lượt người khác vote "Hữu ích" cho bình luận |
+| unhelpful_count| int(11) | DEFAULT 0 | Số lượt người khác vote "Không hữu ích" |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời gian bắt đầu viết đánh giá |
+| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Cuối cùng người dùng sửa đánh giá khi nào |
+
+### 8.5. Bảng `document_summaries` (Tóm tắt tài liệu qua AI)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | ID bài tóm tắt |
+| document_id | int(11) | Khóa ngoại (documents.id), UNIQUE, NOT NULL | Ánh xạ 1-1: file tài liệu ứng với đoạn tóm tắt tương ứng |
+| summary_text | longtext | NOT NULL | Cấu trúc chữ, nội dung tổng hợp từ AI |
+| summary_type | enum('short','medium','long') | DEFAULT 'medium' | Độ dài của bản tóm tắt |
+| ai_model | varchar(100) | DEFAULT NULL | Mô hình AI sinh ra kết quả |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời gian AI trả về kết quả vào db |
+
+### 8.6. Bảng `chatbot_history` (Dữ liệu hội thoại AI)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | ID cho phiên/dòng hội thoại |
+| user_id | int(11) | Khóa ngoại (users.id), NOT NULL | Nhận diện cuộc hội thoại của ai |
+| document_id | int(11) | Khóa ngoại (documents.id), DEFAULT NULL | Sinh viên đang hỏi về tài liệu cụ thể nào (có thể rỗng) |
+| question | text | NOT NULL | Câu hỏi sinh viên đưa ra cho AI |
+| answer | longtext | NOT NULL | Lời giải trích xuất do Bot trả lời |
+| ai_model | varchar(100) | DEFAULT NULL | Phiên bản AI xử lý giải đáp |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Lưu giữ thời gian vấn đáp |
+
+---
+
+## 9. Ghi chú
 
 - Không lưu nội dung file gốc vào MySQL
 - MySQL chỉ lưu metadata và chỉ số thống kê
