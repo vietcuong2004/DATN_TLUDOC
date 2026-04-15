@@ -4,15 +4,10 @@ import { Hero } from "@/components/hero"
 import { ListDocsHomepage } from "@/components/list-docs-homepage"
 import { SubjectCategoriesSidebar } from "@/components/sidebar-subject"
 import { Footer } from "@/components/footer"
-import { Search, FileText, Bot, ListChecks, Network } from "lucide-react"
+import { FileText, Bot, ListChecks, Network } from "lucide-react"
 
 const tools = [
-  {
-    name: "Tìm kiếm nâng cao",
-    icon: <Search className="h-8 w-8 text-blue-500" />,
-    description: "Lọc tài liệu theo nhiều tiêu chí để tìm nhanh nội dung phù hợp.",
-    href: "/advanced-search",
-  },
+
   {
     name: "Tóm tắt tài liệu",
     icon: <FileText className="h-8 w-8 text-green-500" />,

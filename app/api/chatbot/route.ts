@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { saveChatbotHistory, searchDocumentsForChatbot, searchDocumentsForChatbotBySubject } from "@/lib/repository_chatbot"
+import type { ChatbotCandidateDocument } from "@/lib/repository_chatbot"
 import { curriculumGroups } from "@/lib/curriculum"
+import { classifyIntentWithAI } from "@/lib/chatbot-intent"
+import { getDbPool } from "@/lib/mysql"
+import { getHuggingFaceEmbedding, cosineSimilarity } from "@/lib/hf-embedder"
 
 type ChatbotRequestBody = {
   message?: string
@@ -34,39 +38,35 @@ type InferredCourse = {
   name: string
 }
 
+const IRRELEVANT_RESPONSE = "Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn, bạn có thể hỏi lại được không? Tôi có thể giúp bạn tìm tài liệu liên quan đến môn học"
+
 function buildSystemPrompt() {
-  return `Bạn là TutorAI - trợ giảng học thuật cho sinh viên đại học Việt Nam.
-
+  return `Bạn là TutorAI trợ giảng học thuật cho sinh viên đại học.
+ 
 NHIỆM VỤ CỐT LÕI:
-1) Giải thích kiến thức rõ ràng, dễ hiểu, có tính sư phạm.
-2) Ưu tiên sử dụng NGỮ CẢNH TÀI LIỆU được cung cấp.
-3) Đưa ra gợi ý học tập thực hành được ngay.
+1) Giải thích kiến thức rõ ràng, dễ hiểu.
+2) Trả lời đúng chuyên môn. Nếu câu hỏi về Toán nhưng tài liệu về Lập trình, BỎ QUA tài liệu và trả lời bằng kiến thức của bạn.
 
-NGUYÊN TẮC TRẢ LỜI:
-- Trả lời bằng tiếng Việt, văn phong thân thiện nhưng học thuật.
-- Trình bày theo cấu trúc ngắn, rõ, có tiêu đề nhỏ.
-- Nếu câu hỏi khó: chia nhỏ vấn đề thành các bước.
-- Nếu liên quan bài thi: nêu mẹo làm bài và lỗi thường gặp.
-- Nếu người dùng hỏi mơ hồ: đặt 1-2 câu hỏi làm rõ.
+TRÍCH DẪN TÀI LIỆU (Cực kỳ quan trọng):
+- MỤC V chỉ được điền tên của các file tài liệu có trong NGỮ CẢNH.
+- KHÔNG giải thích, KHÔNG viết thêm các cụm từ như "Danh sách file", "Nguồn", "Ghi rõ". Chỉ liệt kê gạch đầu dòng tên tài liệu. 
+- Nếu không có tài liệu đúng chuyên môn, để MỤC V trống.
 
-RÀNG BUỘC ĐỘ TIN CẬY:
-- Chỉ khẳng định mạnh khi có dữ liệu trong NGỮ CẢNH TÀI LIỆU hoặc kiến thức nền phổ thông đáng tin.
-- Không bịa tài liệu, không bịa số liệu, không bịa nguồn.
-- Nếu dữ liệu chưa đủ, phải nói rõ: "Hiện chưa đủ dữ liệu trong kho tài liệu để kết luận chắc chắn".
+QUY TẮC TOÁN HỌC & FORMAT:
+- Sử dụng chuẩn Markdown. Mọi biểu thức Toán học PHẢI được bọc trong \( \) (cho inline) hoặc \[ \] (cho block).
+- TUYỆT ĐỐI KHÔNG để khoảng trắng giữa \ và dấu ngoặc. Không được đưa văn bản tiếng Việt vào trong biểu thức Toán.
 
-ƯU TIÊN CÁ NHÂN HÓA CHO SINH VIÊN:
-- Tùy theo mục đích người học (ôn thi, làm bài tập, hiểu khái niệm).
-- Kết thúc bằng "Bước tiếp theo" thật cụ thể (ví dụ: nên đọc tài liệu nào trước, luyện gì trong 20 phút).
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (TUYỆT ĐỐI DÙNG HEADING 2):
+## I. Tổng quan
+## II. Giải thích chi tiết
+## III. Ví dụ minh họa
+## IV. Bước tiếp theo để học
+## V. Tài liệu tham khảo
 
-ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
-1) Tóm tắt ngắn (2-4 câu)
-2) Giải thích chi tiết (gạch đầu dòng)
-3) Ví dụ minh họa (nếu phù hợp)
-4) Bước tiếp theo để học (2-3 ý)
-5) Mức độ chắc chắn: Cao / Trung bình / Thấp (kèm lý do 1 câu)
-
-Nếu có tài liệu liên quan trong context, thêm mục:
-6) Tài liệu nên đọc tiếp: liệt kê theo mức ưu tiên.`
+QUY TẮC CỨNG:
+- Trả lời đúng 5 mục La Mã theo đúng tên gọi như trên, luôn bắt đầu bằng ## (Heading 2).
+- Sử dụng danh sách đánh số (1. 2. 3.) cho các bước.
+- Nếu người dùng hỏi ngoài phạm vi học tập: CHỈ TRẢ LỜI CÂU: "${IRRELEVANT_RESPONSE}"`
 }
 
 function buildUserPrompt(message: string, context: string) {
@@ -83,31 +83,26 @@ YÊU CẦU THÊM:
 - Luôn hoàn thành đầy đủ các mục theo định dạng đầu ra bắt buộc.`
 }
 
-function extractAssistantText(payload: unknown): string {
-  const data = payload as {
-    choices?: Array<{
-      message?: {
-        content?: string | Array<{ type?: string; text?: string }>
-      }
-    }>
+function extractAssistantText(payload: any): string {
+  if (!payload) return ""
+  
+  // Trình tự ưu tiên các định dạng phản hồi (OpenAI, Gemini, Pollinations)
+  const choices = payload.choices?.[0]
+  if (choices?.message?.content) {
+    const content = choices.message.content
+    if (typeof content === "string") return content.trim()
+    if (Array.isArray(content)) {
+      return content.map((item: any) => typeof item === "string" ? item : (item.text ?? "")).join("").trim()
+    }
   }
 
-  const content = data.choices?.[0]?.message?.content
-  if (typeof content === "string") {
-    return content.trim()
+  // Trường hợp cho Google Gemini
+  if (payload.candidates?.[0]?.content?.parts?.[0]?.text) {
+    return payload.candidates[0].content.parts[0].text.trim()
   }
 
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === "string") {
-          return item
-        }
-        return item.text ?? ""
-      })
-      .join("\n")
-      .trim()
-  }
+  // Trường hợp cho phản hồi text thuần túy
+  if (typeof payload === "string") return payload.trim()
 
   return ""
 }
@@ -138,8 +133,9 @@ async function callChatCompletionsWithFallback(
   maxOutputTokens: number,
 ) {
   const candidateModels = [
-    normalizeModelName(process.env.CHATBOT_MODEL || "openai"),
     "openai",
+    "gpt-4o",
+    "unity"
   ]
 
   const uniqueModels = Array.from(new Set(candidateModels.filter((item) => item.length > 0)))
@@ -166,7 +162,7 @@ async function callChatCompletionsWithFallback(
           },
         ],
         temperature: 0.4,
-        max_tokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : 400,
+        max_tokens: Number.isFinite(maxOutputTokens) && maxOutputTokens > 400 ? maxOutputTokens : 1200,
       }),
     })
 
@@ -190,7 +186,6 @@ function shouldRetryShortAnswer(answer: string, minChars: number) {
     return true
   }
 
-  // Heuristic: if text ends with a comma/colon, it likely got cut off.
   const trimmed = answer.trim()
   return /[,:;\-]$/.test(trimmed)
 }
@@ -222,7 +217,10 @@ const COMMON_COURSE_ALIASES: Record<string, string[]> = {
   CSE111: ["nhap mon lap trinh", "nmlt"],
   CSE311: ["linux", "ma nguon mo", "oss"],
   CSE480: ["pttk", "phan tich thiet ke he thong thong tin"],
-  MATH333: ["dstt", "dai so tuyen tinh", "linear algebra"],
+  MATH333: ["dstt", "dai so tuyen tinh", "linear algebra", "dai so"],
+  MATH254: ["xs tk", "xac suat thong ke", "probability", "xac suat"],
+  MLP121: ["triet hoc", "triet", "mac lenin"],
+  GEL111: ["phap luat", "pl dc", "phap luat dai cuong"],
   SSE111: ["ky nang mem", "knm"],
 }
 
@@ -241,7 +239,6 @@ function buildCourseAliasMap() {
     aliases.add(normalizedName)
     aliases.add(compact)
 
-    // Allow patterns like "cse 492" in addition to "cse492"
     const letterPart = code.replace(/\d+/g, "").toLowerCase()
     const numberPart = code.replace(/\D+/g, "")
     if (letterPart && numberPart) {
@@ -249,7 +246,6 @@ function buildCourseAliasMap() {
       aliases.add(`${letterPart}-${numberPart}`)
     }
 
-    // Acronym from significant words, e.g. "co so du lieu" -> "csdl"
     const significantWords = words.filter((word) => !STOP_WORDS.has(word))
     if (significantWords.length >= 2) {
       aliases.add(significantWords.map((word) => word[0]).join(""))
@@ -315,10 +311,20 @@ function isDocumentSearchIntent(message: string) {
   }
 
   const lower = message.toLowerCase()
+  const capabilityPatterns = [
+    /bạn có (biết )?tìm/i,
+    /có thể tìm/i,
+    /có (tài liệu|đề thi) không/i,
+    /biết (tìm|lấy) không/i,
+    /là gì thế/i
+  ]
+  if (capabilityPatterns.some(p => p.test(lower)) && !lower.includes("môn") && !lower.includes("mã")) {
+    return false
+  }
 
   const searchVerbs = ["tìm", "tim", "kiếm", "kiem", "gợi ý", "goi y", "cho mình", "cho toi", "muốn có", "muon co"]
   const documentKeywords = ["tài liệu", "tai lieu", "đề cương", "de cuong", "giáo trình", "giao trinh", "đề thi", "de thi"]
-  const courseSignal = lower.includes("môn") || /[a-z]{2,4}\d{3}\b/i.test(message)
+  const courseSignal = lower.includes("môn") || / [a-z]{2,4}\d{3}\b/i.test(message)
 
   const hasDocumentKeyword = documentKeywords.some((item) => lower.includes(item))
   const hasSearchVerb = searchVerbs.some((item) => lower.includes(item))
@@ -352,52 +358,65 @@ function extractSubjectHint(message: string) {
 
   const cleaned = message
     .replace(/\b(tôi muốn|toi muon|mình muốn|minh muon|giúp tôi|giup toi|hãy|hay|vui lòng|vui long)\b/gi, " ")
-    .replace(/\b(tìm kiếm|tim kiem|tìm|tim|tài liệu|tai lieu|môn|mon|về|ve|cho tôi|cho toi)\b/gi, " ")
+    .replace(/\b(tìm kiếm|tim kiem|tìm|tim|tài liệu|tai lieu|môn|mon|về|ve|cho tôi|cho toi|của|cua)\b/gi, " ")
+    .replace(/\b(bạn có|có thể|không|đâu|nào|nao|gì|biết|biet|xem|lấy|lay|đọc|doc)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim()
 
-  return cleaned.length > 0 ? cleaned : message.trim()
+  return cleaned.length >= 3 ? cleaned : ""
 }
 
 function buildGuaranteedAnswer(message: string, docs: SuggestedDoc[], draftAnswer: string) {
-  const normalizedDraft = draftAnswer.trim()
   const topDocs = docs.slice(0, 3)
+  const normalized = normalizeVietnameseText(message)
+  const studyKeywords = ["hoc", "mon", "tai lieu", "de thi", "giai", "thuat toan", "lap trinh", "cau truc", "du lieu", "la gi", "tai sao", "cach", "lam sao"]
+  const hasStudySignal = studyKeywords.some(k => normalized.includes(k))
+  const hasCourse = Boolean(inferCourseFromText(message))
 
-  const documentLines = topDocs.length
-    ? topDocs.map((doc, index) => `${index + 1}. ${doc.title}`).join("\n")
-    : "Hiện chưa có tài liệu khớp trực tiếp trong kho cho truy vấn này."
+  if (topDocs.length === 0 && message.length < 25) {
+    return "Xin lỗi, tôi vẫn chưa hiểu rõ ý bạn, bạn có thể hỏi lại chi tiết được không? Vui lòng hỏi theo cú pháp: 'Tìm tài liệu [Tên môn]' hoặc '[Kiến thức] là gì' để mình hỗ trợ tốt nhất nhé."
+  }
 
-  const nextSteps = topDocs.length
-    ? [
-        "Mở tài liệu số 1 và đọc mục tổng quan trước để nắm khung kiến thức.",
-        "Sau đó đọc tiếp tài liệu số 2 hoặc 3 để làm ví dụ/bài tập áp dụng.",
-        "Nếu bạn muốn, mình có thể lập kế hoạch ôn 30 phút theo đúng tài liệu vừa gợi ý.",
-      ]
-    : [
-        "Bạn thử bổ sung môn học cụ thể (ví dụ: Giải tích 1, Giải tích nhiều biến).",
-        "Bạn thử thêm mục tiêu học (ôn thi, làm bài tập, học lại từ đầu).",
-        "Mình sẽ tạo lộ trình học từng bước ngay sau khi bạn làm rõ mục tiêu.",
-      ]
+  if (!hasStudySignal && !hasCourse) {
+    return IRRELEVANT_RESPONSE
+  }
+
+  const docList = topDocs.length 
+    ? topDocs.map((doc, i) => `${i + 1}. ${doc.title}`).join("\n")
+    : "Hiện chưa có tài liệu khớp trực tiếp cho nội dung này."
 
   return [
-    "Tóm tắt ngắn:",
-    `Bạn đang tìm thông tin về: ${message}. Mình đã xử lý theo hướng hỗ trợ học tập thực hành, ưu tiên tài liệu trong kho của hệ thống.`,
+    `🔍 **Kết quả tìm kiếm cho:** "${message}"`,
     "",
-    "Giải thích chi tiết:",
-    normalizedDraft.length >= 120
-      ? normalizedDraft
-      : "- Đây là truy vấn dạng tìm tài liệu, nên trọng tâm là chọn đúng tài liệu theo mức độ học và mục tiêu sử dụng (ôn thi, làm bài tập, hay học lại nền tảng).\n- Khi học hiệu quả, bạn nên bắt đầu từ tài liệu tổng quan trước rồi mới chuyển sang tài liệu có bài tập/đề thi để củng cố.\n- Nếu bạn cho biết rõ môn và phần kiến thức cần học, mình sẽ lọc chính xác hơn.",
+    "💡 **Gợi ý học tập:**",
+    "- Bạn nên xem qua danh sách tài liệu bên dưới để nắm bắt kiến thức nền tảng.",
+    "- Nếu cần giải thích chuyên sâu về từng phần, hãy đặt câu hỏi chi tiết hơn cho mình nhé.",
     "",
-    "Tài liệu nên đọc tiếp:",
-    documentLines,
+    "📚 **Tài liệu đề xuất:**",
+    docList,
     "",
-    "Bước tiếp theo để học:",
-    `- ${nextSteps[0]}`,
-    `- ${nextSteps[1]}`,
-    `- ${nextSteps[2]}`,
-    "",
-    `Mức độ chắc chắn: ${topDocs.length ? "Trung bình - Cao" : "Trung bình"} (${topDocs.length ? "có tài liệu liên quan trong kho" : "cần thêm thông tin để lọc chính xác hơn"}).`,
+    `✅ **Mức độ tin cậy:** ${topDocs.length ? "Cao (Có tài liệu khớp)" : "Trung bình"}`
   ].join("\n")
+}
+
+function isGarbageAnswer(answer: string, message: string) {
+  const normalizedAnswer = answer.toLowerCase()
+  const normalizedMessage = message.toLowerCase()
+  
+  const badPatterns = [
+    "bạn đang tìm thông tin",
+    "truy vấn dạng tìm tài liệu",
+    "mình đã xử lý theo hướng",
+    "ưu tiên tài liệu trong kho"
+  ]
+  
+  const casualWords = ["alo", "hi", "hello", "ê", "à", "ơi"]
+  const isCasual = casualWords.some(p => normalizedMessage.includes(p))
+
+  return (
+    badPatterns.some(p => normalizedAnswer.includes(p)) &&
+    (isCasual || message.length < 15)
+  )
 }
 
 function buildHistoryContext(history: ChatbotRequestBody["history"]) {
@@ -445,26 +464,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Thiếu nội dung câu hỏi" }, { status: 400 })
     }
 
-    const historyContext = buildHistoryContext(body.history)
-    const inferredCourseFromCurrent = inferCourseFromText(message)
-    const inferredCourseFromHistory = inferCourseFromHistory(body.history)
-    const activeCourse = inferredCourseFromCurrent ?? inferredCourseFromHistory
-
-    const recommendationIntent = isStudyRecommendationIntent(message)
-    const documentSearchIntent = isDocumentSearchIntent(message)
-
-    const docs = activeCourse && (recommendationIntent || documentSearchIntent)
-      ? await searchDocumentsForChatbotBySubject(activeCourse.code, 3)
-      : await searchDocumentsForChatbot(message, 3)
-
-    const subjectHintFromConversation = activeCourse?.name || ""
-    const context = docs
-      .map((doc, index) => {
-        const description = doc.description ? `\nMô tả: ${doc.description}` : ""
-        return `${index + 1}. ${doc.title}${description}`
-      })
-      .join("\n\n")
-
+    // --- STEP 1: AI Intent Classification (Level 4 - Semantic) ---
     const apiKey = process.env.POLLINATIONS_API_KEY || process.env.GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
@@ -473,9 +473,150 @@ export async function POST(request: Request) {
       )
     }
 
-    const maxOutputTokens = Number(process.env.CHATBOT_MAX_OUTPUT_TOKENS || 700)
-    const minAnswerChars = Number(process.env.CHATBOT_MIN_ANSWER_CHARS || 220)
+    const { intent, is_academic } = await classifyIntentWithAI(message, apiKey)
 
+    if (intent === "irrelevant" || !is_academic) {
+      return NextResponse.json({
+        answer: IRRELEVANT_RESPONSE,
+        documents: [],
+      } satisfies ChatbotResponseBody)
+    }
+
+    const inferredCourseFromCurrent = inferCourseFromText(message)
+    const inferredCourseFromHistory = inferCourseFromHistory(body.history)
+    const currentSubjectHint = extractSubjectHint(message)
+    
+    let activeCourse = inferredCourseFromCurrent
+    if (!activeCourse && inferredCourseFromHistory) {
+      if (!currentSubjectHint || currentSubjectHint.length < 3) {
+        activeCourse = inferredCourseFromHistory
+      }
+    }
+
+    const recommendationIntent = isStudyRecommendationIntent(message)
+    const documentSearchIntent = isDocumentSearchIntent(message)
+
+    // --- STEP 2: Document Retrieval (Metadata + Vector Search - Plan C) ---
+    let semanticChunks: any[] = []
+    
+    try {
+      // 1. Tạo Vector cho câu hỏi (HuggingFace)
+      const questionVector = await getHuggingFaceEmbedding(message)
+      
+      // 2. Lấy toàn bộ Chunks từ MySQL để so sánh độ tương đồng (Plan C - In-Memory Similarity)
+      const pool = getDbPool()
+      const [chunkRows]: any = await pool.execute(`
+        SELECT dc.content, dc.embedding, d.id, d.title, d.preview_url as image, d.download_url
+        FROM document_chunks dc
+        INNER JOIN documents d ON d.id = dc.document_id
+        WHERE d.status = 'published'
+      `)
+      
+      if (chunkRows.length > 0) {
+        // 3. Tính độ tương đồng cho từng mảnh
+        const scoredChunks = chunkRows.map((row: any) => {
+          try {
+            const chunkVector = JSON.parse(row.embedding)
+            return {
+              content: row.content,
+              title: row.title,
+              similarity: cosineSimilarity(questionVector, chunkVector),
+              id: row.id,
+              image: row.image || "/placeholder.svg",
+              downloadUrl: row.download_url
+            }
+          } catch {
+            return { content: row.content, title: row.title, similarity: 0, id: row.id, image: row.image || "/placeholder.svg", downloadUrl: row.download_url }
+          }
+        })
+        
+        // 4. Lấy tối đa 5 đoạn có độ tương đồng cao (Ngưỡng cực khắt khe > 0.65 để lọc tài liệu ngoại lai)
+        semanticChunks = scoredChunks
+          .filter((c: any) => c.similarity > 0.65)
+          .sort((a: any, b: any) => b.similarity - a.similarity)
+          .slice(0, 5)
+
+        if (semanticChunks.length > 0) {
+          console.log(`[RAG] Found ${semanticChunks.length} chunks. Top score: ${semanticChunks[0].similarity.toFixed(4)}`)
+        } else {
+          const maxScore = Math.max(...scoredChunks.map((c: any) => c.similarity))
+          console.log(`[RAG] No chunks passed threshold. Highest was: ${maxScore.toFixed(4)}`)
+        }
+      }
+    } catch (err) {
+      console.warn("[api/chatbot] Vector search error:", err)
+      semanticChunks = []
+    }
+
+    // Luôn lấy tài liệu từ MySQL làm nòng cốt gợi ý link tải
+    let docs: ChatbotCandidateDocument[] = []
+    if (intent === "document" || recommendationIntent || documentSearchIntent || intent === "study") {
+      if (activeCourse) {
+        docs = await searchDocumentsForChatbotBySubject(activeCourse.code, 3)
+      } else {
+        docs = await searchDocumentsForChatbot(message, 4)
+      }
+    }
+
+    // --- STEP 3: Build Context ---
+    let context = ""
+    if (semanticChunks.length > 0 || docs.length > 0) {
+      context += "DỮ LIỆU TÀI LIỆU THAM KHẢO (Sử dụng các thông tin này làm nòng cốt):\n\n"
+      
+      // Ưu tiên nội dung chi tiết
+      if (semanticChunks.length > 0) {
+        context += "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n"
+        context += semanticChunks.map((chunk, i) => `[Nguồn: ${chunk.title}]: ${chunk.content}`).join("\n\n")
+        context += "\n\n"
+      }
+      
+      // Danh sách tài liệu khớp
+      if (docs.length > 0) {
+        context += "DANH SÁCH FILE TÀI LIỆU LIÊN QUAN:\n"
+        context += docs.map((doc, index) => `- ${doc.title}`).join("\n")
+      }
+    }
+
+    if (!context && !activeCourse && intent !== "document") {
+        return NextResponse.json({
+          answer: "Để hỗ trợ chính xác nhất, bạn có thể nêu rõ tên môn học hoặc nội dung cụ thể cần giải đáp không (Ví dụ: Giải tích 1 là gì, Tìm tài liệu CSE492)?",
+          documents: [],
+        } satisfies ChatbotResponseBody)
+    }
+
+    // --- STEP 4: Handle Search Intents ---
+    if (intent === "document" || recommendationIntent) {
+       if (recommendationIntent && !activeCourse) {
+         return NextResponse.json({
+           answer: "Để mình gợi ý đúng 1 tài liệu nên học trước, bạn cho mình biết rõ môn học nhé (ví dụ: Trí tuệ nhân tạo - CSE492, Cơ sở dữ liệu - CSE484).",
+           documents: [],
+         } satisfies ChatbotResponseBody)
+       }
+
+       const subjectHint = activeCourse?.name || extractSubjectHint(message)
+       const topDocs = docs.slice(0, 3).map(doc => ({
+         id: doc.id,
+         title: doc.title,
+         image: doc.image,
+         downloadUrl: doc.downloadUrl,
+       }))
+
+       const answer = recommendationIntent
+         ? (topDocs.length 
+             ? `Bạn nên học tài liệu "${topDocs[0].title}" trước để hiểu rõ bản chất nền tảng nhé.${subjectHint ? ` Với môn ${subjectHint},` : ""} mình gửi bạn ${topDocs.length} tài liệu tốt nhất bên dưới.`
+             : `Mình chưa tìm thấy tài liệu khớp cho môn ${subjectHint || "này"}. Bạn thử nêu rõ tên môn để mình gợi ý nhé.`)
+         : (topDocs.length
+             ? `Vâng, đây là danh sách tài liệu ${subjectHint ? `môn ${subjectHint}` : "liên quan"} mà bạn yêu cầu.`
+             : `Mình chưa tìm thấy tài liệu khớp cho môn ${subjectHint || "học này"}. Bạn thử nhập rõ mã môn hơn nhé.`)
+
+       return NextResponse.json({
+         answer,
+         documents: topDocs,
+       } satisfies ChatbotResponseBody)
+    }
+
+    // --- STEP 5: LLM Generation ---
+    const maxOutputTokens = Number(process.env.CHATBOT_MAX_OUTPUT_TOKENS || 1600)
     const { response: llmResponse, model } = await callChatCompletionsWithFallback(
       apiKey,
       message,
@@ -483,92 +624,80 @@ export async function POST(request: Request) {
       maxOutputTokens,
     )
 
-    const llmData = (await llmResponse.json()) as unknown
-    let answer = extractAssistantText(llmData) ||
-      "Mình chưa tạo được câu trả lời phù hợp. Bạn thử hỏi lại ngắn gọn hơn nhé."
-
-    if (shouldRetryShortAnswer(answer, Number.isFinite(minAnswerChars) ? minAnswerChars : 220)) {
-      const retryMessage = `${message}\n\nYÊU CẦU BẮT BUỘC: Trả lời đầy đủ, không cụt, tối thiểu 5 mục theo định dạng đã yêu cầu.`
-      const retryResult = await callChatCompletionsWithFallback(apiKey, retryMessage, context, maxOutputTokens)
-      const retryData = (await retryResult.response.json()) as unknown
-      const retryAnswer = extractAssistantText(retryData)
-
-      if (retryAnswer && retryAnswer.trim().length > answer.trim().length) {
-        answer = retryAnswer
-      }
+    const llmData = (await llmResponse.json()) as any
+    
+    let answer = extractAssistantText(llmData)
+    
+    // Xóa bỏ mục "Mức độ chắc chắn" bằng Regex nếu AI vẫn cố tình viết ra
+    if (answer) {
+      answer = answer.replace(/##?\s*Mức độ chắc chắn[\s\S]*?(?=##|$)/gi, "").trim();
+      answer = answer.replace(/Mức độ chắc chắn:[\s\S]*?(?=\n\n|$)/gi, "").trim();
     }
 
-    if (shouldRetryShortAnswer(answer, Number.isFinite(minAnswerChars) ? minAnswerChars : 220)) {
-      answer = buildGuaranteedAnswer(
-        message,
-        docs.map((doc) => ({
-          id: doc.id,
-          title: doc.title,
-          image: doc.image,
-          downloadUrl: doc.downloadUrl,
-        })),
-        answer,
-      )
+    console.log(`[api/chatbot] AI Output Length: ${answer?.length || 0} chars (after cleaning).`)
+    
+    if (!answer) {
+      console.error("[api/chatbot] AI returned empty. Payload:", JSON.stringify(llmData))
+      answer = "Mình tìm thấy tài liệu nhưng AI chưa thể tổng hợp câu trả lời. Bạn thử hỏi cụ thể hơn nhé."
     }
+
+    // Tạm thời vô hiệu hóa bộ lọc Garbage để xem phản hồi thực tế
+    if (isGarbageAnswer(answer, message)) {
+      console.log("[api/chatbot] Garbage answer detected, using irrelevant response fallback.")
+      answer = IRRELEVANT_RESPONSE
+    }
+
+    const minAnswerChars = Number(process.env.CHATBOT_MIN_ANSWER_CHARS || 220)
+    if (answer !== IRRELEVANT_RESPONSE && shouldRetryShortAnswer(answer, minAnswerChars)) {
+       // Retry with more specific instructions if the answer is too short or cut off
+       const retryMessage = `${message}\n\nYÊU CẦU: Trả lời đúng cấu trúc 5 phần (từ I đến V) theo quy định, trình bày bằng Markdown rõ ràng.`
+       const retryResult = await callChatCompletionsWithFallback(apiKey, retryMessage, context, maxOutputTokens)
+       const retryData = (await retryResult.response.json()) as any
+       const retryAnswer = extractAssistantText(retryData)
+       if (retryAnswer && retryAnswer.length > answer.length) {
+         answer = retryAnswer
+       }
+    }
+
+    // --- STEP 6: Save History & Return ---
+    // Lấy danh sách tài liệu mà AI thực sự trích dẫn sau khi đã siết chặt format
+    const usedDocsMap = new Map<string | number, any>();
+    
+    // Gom tất cả ứng viên tiềm năng (tích hợp)
+    const allCandidates = [...semanticChunks, ...docs];
+
+    // Chỉ giữ lại tài liệu nếu tên của tài liệu thực sự xuất hiện trong nội dung trả lời của AI
+    for (const candidate of allCandidates) {
+       // Sử dụng escape Regex để tránh lỗi khi title có ký tự đặc biệt
+       const titleLower = candidate.title.toLowerCase();
+       if (answer.toLowerCase().includes(titleLower)) {
+          usedDocsMap.set(candidate.id, {
+            id: candidate.id,
+            title: candidate.title,
+            image: candidate.image || (candidate as any).image,
+            downloadUrl: candidate.downloadUrl || (candidate as any).downloadUrl
+          });
+       }
+    }
+
+    const uniqueSourceDocs = Array.from(usedDocsMap.values());
 
     const userId = resolveUserId(body)
     if (userId) {
       await saveChatbotHistory({
         userId,
-        documentId: docs[0]?.id ?? null,
+        documentId: uniqueSourceDocs[0]?.id ?? null,
         question: message,
         answer,
         aiModel: model,
       })
     }
 
-    const responseBody: ChatbotResponseBody = {
+    return NextResponse.json({
       answer,
-      documents: docs.slice(0, 3).map((doc) => ({
-        id: doc.id,
-        title: doc.title,
-        image: doc.image,
-        downloadUrl: doc.downloadUrl,
-      })),
-    }
+      documents: uniqueSourceDocs.slice(0, 3),
+    } satisfies ChatbotResponseBody)
 
-    if (recommendationIntent) {
-      if (!activeCourse) {
-        return NextResponse.json({
-          answer:
-            "Để mình gợi ý đúng 1 tài liệu nên học trước, bạn cho mình biết rõ môn học nhé (ví dụ: Trí tuệ nhân tạo - CSE492, Cơ sở dữ liệu - CSE484, Giải tích 1 - MATH111).",
-          documents: [],
-        } satisfies ChatbotResponseBody)
-      }
-
-      const topDocs = responseBody.documents.slice(0, 3)
-      const subjectHint = subjectHintFromConversation || extractSubjectHint(message)
-
-      const recommendationAnswer = topDocs.length
-        ? `Bạn nên học tài liệu "${topDocs[0].title}" trước để hiểu rõ bản chất nền tảng nhé, đây là tài liệu cơ bản nhất trong nhóm gợi ý.${subjectHint ? ` Với môn ${subjectHint},` : ""} mình gửi bạn 3 tài liệu theo thứ tự ưu tiên ngay bên dưới.`
-        : `${subjectHint ? `Mình chưa tìm thấy tài liệu khớp cho môn ${subjectHint}.` : "Mình chưa có đủ dữ liệu để chốt tài liệu nên học trước."} Bạn thử nêu rõ tên/mã môn để mình gợi ý đúng thứ tự học nhé.`
-
-      return NextResponse.json({
-        answer: recommendationAnswer,
-        documents: topDocs,
-      } satisfies ChatbotResponseBody)
-    }
-
-    if (documentSearchIntent) {
-      const topDocs = responseBody.documents.slice(0, 3)
-      const subjectHint = subjectHintFromConversation || extractSubjectHint(message)
-
-      const directAnswer = topDocs.length
-        ? `Vâng, đây là danh sách tài liệu của môn ${subjectHint}. Mình gửi bạn 3 tài liệu mẫu tốt nhất ngay bên dưới nhé.`
-        : `Mình chưa tìm thấy tài liệu khớp trực tiếp cho môn ${subjectHint}. Bạn thử nhập rõ hơn mã môn hoặc tên môn để mình lọc chuẩn hơn nhé.`
-
-      return NextResponse.json({
-        answer: directAnswer,
-        documents: topDocs,
-      } satisfies ChatbotResponseBody)
-    }
-
-    return NextResponse.json(responseBody)
   } catch (error) {
     console.error("[api/chatbot]", error)
     return NextResponse.json(

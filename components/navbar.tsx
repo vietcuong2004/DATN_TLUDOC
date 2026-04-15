@@ -44,16 +44,6 @@ export function Navbar() {
               Trang chủ
             </Link>
             <Link 
-              href="/mindmap" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/mindmap")
-                  ? "text-blue-500 border-b-2 border-blue-500"
-                  : "text-gray-700 hover:text-green-500"
-              }`}
-            >
-              Mindmap
-            </Link>
-            <Link 
               href="/summarize" 
               className={`text-sm font-medium transition-colors pb-1 ${
                 isActive("/summarize")
@@ -64,14 +54,14 @@ export function Navbar() {
               Tóm tắt
             </Link>
             <Link 
-              href="/chatbot" 
+              href="/mindmap" 
               className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/chatbot")
+                isActive("/mindmap")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
               }`}
             >
-              Chatbot
+              Mindmap
             </Link>
             <Link 
               href="/quiz" 
@@ -83,36 +73,41 @@ export function Navbar() {
             >
               Quiz
             </Link>
+            <Link 
+              href="/chatbot" 
+              className={`text-sm font-medium transition-colors pb-1 ${
+                isActive("/chatbot")
+                  ? "text-blue-500 border-b-2 border-blue-500"
+                  : "text-gray-700 hover:text-green-500"
+              }`}
+            >
+              Chatbot
+            </Link>
           </nav>
         )}
 
-        <div className="hidden md:flex flex-1 mx-6">
+        <div className="hidden md:flex flex-1 max-w-sm mx-4">
           <form className="relative w-full" onSubmit={handleSearch}>
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <Input 
               type="search" 
               placeholder="Tìm kiếm tài liệu..." 
-              className="w-full bg-gray-100 pl-8 pr-4" 
+              className="w-full bg-gray-100 pl-8 pr-4 h-9" 
               onFocus={() => router.push("/advanced-search")} 
             />
           </form>
         </div>
 
         <div className="ml-auto flex items-center space-x-2">
-          <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">TẢI LÊN</Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden text-gray-500"
-            onClick={() => router.push("/advanced-search")}
-          >
-            <Search className="h-5 w-5" />
-            <span className="sr-only">Tìm kiếm</span>
-          </Button>
           <Button variant="ghost" size="icon" className="text-gray-500">
             <Bell className="h-5 w-5" />
             <span className="sr-only">Thông báo</span>
           </Button>
+          <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">TẢI LÊN</Button>
+          <Button variant="outline" className="hidden md:flex">
+            Đăng Nhập
+          </Button>
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
@@ -144,16 +139,6 @@ export function Navbar() {
                   Trang chủ
                 </Link>
                 <Link
-                  href="/mindmap"
-                  className={`flex items-center pb-2 transition-colors ${
-                    isActive("/mindmap")
-                      ? "text-blue-500 border-b-2 border-blue-500"
-                      : "text-gray-700 hover:text-green-500"
-                  }`}
-                >
-                  Mindmap
-                </Link>
-                <Link
                   href="/summarize"
                   className={`flex items-center pb-2 transition-colors ${
                     isActive("/summarize")
@@ -163,15 +148,15 @@ export function Navbar() {
                 >
                   Tóm tắt
                 </Link>
-                <Link 
-                  href="/chatbot" 
+                <Link
+                  href="/mindmap"
                   className={`flex items-center pb-2 transition-colors ${
-                    isActive("/chatbot")
+                    isActive("/mindmap")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
                   }`}
                 >
-                  Chatbot
+                  Mindmap
                 </Link>
                 <Link 
                   href="/quiz" 
@@ -183,18 +168,25 @@ export function Navbar() {
                 >
                   Quiz
                 </Link>
-                <Button variant="outline" className="w-full">
-                  Đăng Nhập
-                </Button>
+                <Link 
+                  href="/chatbot" 
+                  className={`flex items-center pb-2 transition-colors ${
+                    isActive("/chatbot")
+                      ? "text-blue-500 border-b-2 border-blue-500"
+                      : "text-gray-700 hover:text-green-500"
+                  }`}
+                >
+                  Chatbot
+                </Link>
                 <div className="flex flex-col gap-2 pt-4">
                   <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600">TẢI LÊN</Button>
+                  <Button variant="outline" className="w-full">
+                    Đăng Nhập
+                  </Button>
                 </div>
               </nav>
             </SheetContent>
           </Sheet>
-          <Button variant="outline" className="hidden md:flex">
-            Đăng Nhập
-          </Button>
         </div>
       </div>
     </header>
