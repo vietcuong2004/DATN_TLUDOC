@@ -91,7 +91,7 @@ export function Navbar() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <Input 
               type="search" 
-              placeholder="Tìm kiếm tài liệu..." 
+              placeholder="Tìm kiếm tài liệu, môn học..." 
               className="w-full bg-gray-100 pl-8 pr-4 h-9" 
               onFocus={() => router.push("/advanced-search")} 
             />
@@ -99,8 +99,8 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="text-gray-500">
-            <Bell className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+            <Bell className="h-5 w-5 fill-current" />
             <span className="sr-only">Thông báo</span>
           </Button>
           <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">
@@ -122,7 +122,7 @@ export function Navbar() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input 
                       type="search" 
-                      placeholder="Tìm kiếm..." 
+                      placeholder="Tìm kiếm tài liệu, môn học..." 
                       className="w-full bg-gray-100 pl-8 pr-4" 
                       onFocus={() => router.push("/advanced-search")} 
                     />

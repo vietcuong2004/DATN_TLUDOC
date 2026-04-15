@@ -63,8 +63,8 @@ export async function searchDocumentsAdvanced(filters: AdvancedSearchFilters): P
 
   if (filters.query?.trim()) {
     const keyword = `%${filters.query.trim()}%`
-    whereClauses.push("(d.title LIKE ? OR COALESCE(d.description, '') LIKE ?)")
-    params.push(keyword, keyword)
+    whereClauses.push("(d.title LIKE ? OR COALESCE(d.description, '') LIKE ? OR s.name LIKE ? OR s.code LIKE ?)")
+    params.push(keyword, keyword, keyword, keyword)
   }
 
   if (filters.groupName?.trim()) {

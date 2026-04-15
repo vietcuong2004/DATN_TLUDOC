@@ -59,76 +59,115 @@ export function SearchResults({ results }: SearchResultsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-gray-500">Hiển thị {results.length} kết quả</p>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-500">Sắp xếp theo:</span>
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+          <p className="text-sm font-semibold text-slate-700">Tìm thấy {results.length} tài liệu</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sắp xếp theo:</span>
           <select
-            className="text-sm border rounded-md px-2 py-1"
+            className="text-sm border border-slate-200 rounded-xl px-4 py-2 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as "name" | "newest" | "oldest" | "rating" | "downloads")}
           >
-            <option value="name">Tên</option>
-            <option value="newest">Mới nhất</option>
-            <option value="oldest">Cũ nhất</option>
-            <option value="rating">Đánh giá</option>
-            <option value="downloads">Lượt tải</option>
+            <option value="newest">Mới nhất hiện nay</option>
+            <option value="rating">Đánh giá tốt nhất</option>
+            <option value="downloads">Tải xuống nhiều nhất</option>
+            <option value="name">Tên A - Z</option>
+            <option value="oldest">Cũ nhất trước đây</option>
           </select>
         </div>
       </div>
 
       {sortedResults.map((result) => (
-        <Card key={result.id} className="overflow-hidden">
+        <Card key={result.id} className="group overflow-hidden border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-[0_15px_35px_-12px_rgba(30,64,175,0.15)] bg-white rounded-2xl">
           <CardContent className="p-0">
-            <div className="flex flex-col sm:flex-row">
-              <div className="relative h-48 sm:h-auto sm:w-48 shrink-0">
-                <Image src={result.image || "/placeholder.svg"} alt={result.title} fill className="object-cover" />
+            <div className="flex flex-col md:flex-row">
+              <div className="relative h-52 md:h-auto md:w-64 shrink-0 overflow-hidden bg-slate-50 border-r border-slate-100">
+                <Image 
+                  src={result.image || "/placeholder.svg"} 
+                  alt={result.title} 
+                  fill 
+                  className="object-cover transition-transform duration-500 group-hover:scale-105" 
+                />
+                <div className="absolute top-0 left-0 w-full h-full border-4 border-white/20 pointer-events-none"></div>
+                <div className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase tracking-wider">
+                  Tài liệu
+                </div>
               </div>
-              <div className="p-4 flex flex-col flex-1">
+              
+              <div className="p-5 md:p-6 flex flex-col flex-1">
                 <div className="flex-1">
-                  <Link href={`/document/${result.id}`} className="hover:text-green-500">
-                    <h3 className="font-medium text-lg mb-2">{result.title}</h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">PDF</span>
+                    <span className="text-[10px] font-medium text-slate-400">•</span>
+                    <span className="text-xs text-slate-500 font-medium">{result.date}</span>
+                  </div>
+                  
+                  <Link href={`/document/${result.id}`} className="block">
+                    <h3 className="font-bold text-xl mb-3 text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight">
+                      {result.title}
+                    </h3>
                   </Link>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mb-3">
-                    <div className="flex items-center">
-                      <Eye className="h-4 w-4 mr-1" />
-                      <span>{result.views}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Download className="h-4 w-4 mr-1" />
-                      <span>{result.downloads}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="flex mr-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < Math.floor(result.rating)
-                                ? "text-yellow-400 fill-yellow-400"
-                                : i < result.rating
-                                  ? "text-yellow-400 fill-yellow-400 opacity-50"
-                                  : "text-gray-300"
-                            }`}
-                          />
-                        ))}
+                  
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-6 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                        <Eye className="h-4 w-4" />
                       </div>
-                      <span>{result.rating}</span>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Lượt xem</span>
+                        <span className="font-bold text-slate-700">{result.views}</span>
+                      </div>
                     </div>
-                    <div>Ngày đăng: {result.date}</div>
+                    
+                    <div className="w-px h-8 bg-slate-200 mx-1"></div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                        <Download className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Lượt tải</span>
+                        <span className="font-bold text-slate-700">{result.downloads}</span>
+                      </div>
+                    </div>
+
+                    <div className="w-px h-8 bg-slate-200 mx-1"></div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                        <Star className="h-4 w-4 fill-current" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Số sao</span>
+                        <span className="font-bold text-slate-700">{result.rating}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-end">
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" asChild>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+                  <div className="flex -space-x-2">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" title={`User ${i}`}></div>
+                    ))}
+                    <div className="w-8 h-8 rounded-full border-2 border-white bg-blue-50 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                      +
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 hover:text-blue-700 font-bold rounded-xl h-11 px-5" asChild>
                       <Link href={`/document/${result.id}`}>
-                        <Eye className="mr-1 h-4 w-4" />
-                        Xem chi tiết
+                        <Eye className="mr-2 h-4 w-4" />
+                        Xem tài liệu
                       </Link>
                     </Button>
-                    <Button size="sm" className="bg-green-500 hover:bg-green-600" asChild>
+                    <Button className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20 h-11 px-6" asChild>
                       <a href={result.downloadUrl || `/document/${result.id}`}>
-                        <Download className="mr-1 h-4 w-4" />
+                        <Download className="mr-2 h-4 w-4" />
                         Tải xuống
                       </a>
                     </Button>

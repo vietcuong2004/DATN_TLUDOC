@@ -215,7 +215,7 @@ export default function AdvancedSearchPage() {
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     type="search"
-                    placeholder="Nhập từ khóa tìm kiếm..."
+                    placeholder="Nhập từ khóa tìm kiếm (tên tài liệu, môn học, mã môn...)"
                     className="h-11 border-0 bg-transparent pl-11 shadow-none focus-visible:ring-0"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -238,7 +238,12 @@ export default function AdvancedSearchPage() {
               <div className="sticky top-20 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900">Bộ lọc tìm kiếm</h2>
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearFilters}
+                  className="text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
                   <X className="mr-1 h-4 w-4" />
                   Xóa
                 </Button>
@@ -357,18 +362,26 @@ export default function AdvancedSearchPage() {
                     </div>
                   </RadioGroup>
                 </div>
-
+                
+                <div className="pt-6 border-t border-slate-100 mt-6">
+                  <Button className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-11 rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20" onClick={runSearch}>
+                    Áp dụng bộ lọc
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
 
             {isFilterOpen && (
               <div className="fixed inset-0 z-50 overflow-auto bg-white p-4 md:hidden">
-                <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold">Bộ lọc tìm kiếm</h2>
-                <Button variant="ghost" size="sm" onClick={() => setIsFilterOpen(false)}>
+                <div className="mb-6 flex items-center justify-between border-b pb-4">
+                <h2 className="text-xl font-bold text-slate-900">Bộ lọc tìm kiếm</h2>
+                <button 
+                  onClick={() => setIsFilterOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-lg border-2 border-white hover:bg-red-600 transition-all hover:scale-105"
+                >
                   <X className="h-5 w-5" />
-                </Button>
+                </button>
               </div>
 
               <div className="space-y-6">
@@ -485,16 +498,24 @@ export default function AdvancedSearchPage() {
                   </RadioGroup>
                 </div>
 
-                <div className="flex space-x-4 pt-4">
-                  <Button
-                    variant="outline"
-                    className="w-full"
+                <div className="flex flex-col gap-3 pt-6 border-t mt-6 mb-8">
+                  <Button 
+                    className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-12 rounded-xl shadow-lg shadow-blue-700/20" 
                     onClick={() => {
-                      clearFilters()
+                      runSearch()
                       setIsFilterOpen(false)
                     }}
                   >
-                    Xóa bộ lọc
+                    Áp dụng bộ lọc
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-slate-500 hover:text-red-500 hover:bg-red-50 font-medium"
+                    onClick={() => {
+                      clearFilters()
+                    }}
+                  >
+                    Xóa tất cả bộ lọc
                   </Button>
                 </div>
               </div>
