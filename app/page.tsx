@@ -48,8 +48,11 @@ export default function Home() {
           </div>
           <div className="lg:col-span-8 xl:col-span-9">
             {/* Danh mục công cụ */}
-            <section className="mb-10">
-              <h2 className="text-2xl font-bold mb-6 text-center">Danh mục công cụ học tập</h2>
+            <section className="mb-12">
+              <div className="flex flex-col items-center mb-8">
+                <h2 className="text-3xl font-bold text-slate-900 mb-2">Danh mục công cụ học tập</h2>
+                <div className="h-1.5 w-20 bg-green-500 rounded-full"></div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {tools.map((tool) => (
                   <Link href={tool.href} key={tool.name} className="group">

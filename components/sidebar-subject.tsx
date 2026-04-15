@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookOpen, Filter, Search } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronUp, Filter, Search } from "lucide-react"
 import { curriculumGroups } from "@/lib/curriculum"
 
 type FilterMode = "all" | "required" | "elective"
@@ -12,6 +12,7 @@ export function SubjectCategoriesSidebar() {
   const [filterMode, setFilterMode] = useState<FilterMode>("all")
   const [countsByCode, setCountsByCode] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   useEffect(() => {
     let isMounted = true
@@ -80,8 +81,15 @@ export function SubjectCategoriesSidebar() {
   )
 
   return (
-    <aside className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] max-h-screen md:max-h-none lg:sticky lg:top-24 lg:h-[1100px]">
-      <div className="shrink-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 px-5 py-5 text-white">
+    <aside className={`flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] lg:sticky lg:top-24 ${isExpanded ? "lg:h-[1100px]" : "h-fit"}`}>
+      <div className="relative shrink-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 px-5 py-5 text-white">
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          title={isExpanded ? "Thu gọn" : "Mở rộng"}
+        >
+          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        </button>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20 backdrop-blur">
             <BookOpen className="h-5 w-5" />
@@ -131,13 +139,14 @@ export function SubjectCategoriesSidebar() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-sm text-white/80">
+        <div className={isExpanded ? "mt-4 flex items-center justify-between text-sm text-white/80" : "hidden"}>
           <span>Kết quả phù hợp</span>
           <span className="font-semibold text-white">{totalResults}</span>
         </div>
       </div>
 
-      <div className="bg-slate-50 px-4 py-4 min-h-0 flex-1 overflow-y-auto lg:pb-6">
+      {isExpanded && (
+        <div className="bg-slate-50 px-4 py-4 min-h-0 flex-1 overflow-y-auto lg:pb-6">
         <div className="space-y-4">
           {isLoading && (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
@@ -181,6 +190,7 @@ export function SubjectCategoriesSidebar() {
           )}
         </div>
       </div>
-    </aside>
+    )}
+  </aside>
   )
 }

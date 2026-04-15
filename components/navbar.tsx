@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Search, Bell, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useRouter, usePathname } from "next/navigation"
 
@@ -44,14 +44,14 @@ export function Navbar() {
               Trang chủ
             </Link>
             <Link 
-              href="/summarize" 
+              href="/chatbot" 
               className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/summarize")
+                isActive("/chatbot")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
               }`}
             >
-              Tóm tắt
+              Chatbot
             </Link>
             <Link 
               href="/mindmap" 
@@ -74,14 +74,14 @@ export function Navbar() {
               Quiz
             </Link>
             <Link 
-              href="/chatbot" 
+              href="/summarize" 
               className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/chatbot")
+                isActive("/summarize")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
               }`}
             >
-              Chatbot
+              Tóm tắt
             </Link>
           </nav>
         )}
@@ -103,8 +103,7 @@ export function Navbar() {
             <Bell className="h-5 w-5" />
             <span className="sr-only">Thông báo</span>
           </Button>
-          <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">TẢI LÊN</Button>
-          <Button variant="outline" className="hidden md:flex">
+          <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">
             Đăng Nhập
           </Button>
 
@@ -115,9 +114,10 @@ export function Navbar() {
                 <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right">
+            <SheetContent side="right" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <SheetTitle className="sr-only">Menu</SheetTitle>
               <nav className="grid gap-6 text-lg font-medium">
-                <div>
+                <div className="mt-12">
                   <form className="relative w-full mb-4" onSubmit={handleSearch}>
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input 
@@ -138,15 +138,15 @@ export function Navbar() {
                 >
                   Trang chủ
                 </Link>
-                <Link
-                  href="/summarize"
+                <Link 
+                  href="/chatbot" 
                   className={`flex items-center pb-2 transition-colors ${
-                    isActive("/summarize")
+                    isActive("/chatbot")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
                   }`}
                 >
-                  Tóm tắt
+                  Chatbot
                 </Link>
                 <Link
                   href="/mindmap"
@@ -168,19 +168,18 @@ export function Navbar() {
                 >
                   Quiz
                 </Link>
-                <Link 
-                  href="/chatbot" 
+                <Link
+                  href="/summarize"
                   className={`flex items-center pb-2 transition-colors ${
-                    isActive("/chatbot")
+                    isActive("/summarize")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
                   }`}
                 >
-                  Chatbot
+                  Tóm tắt
                 </Link>
                 <div className="flex flex-col gap-2 pt-4">
-                  <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600">TẢI LÊN</Button>
-                  <Button variant="outline" className="w-full">
+                  <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600">
                     Đăng Nhập
                   </Button>
                 </div>

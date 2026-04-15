@@ -49,6 +49,7 @@ export type HomepageDocument = {
   date: string
   views: number
   downloads: number
+  rating: number
   image: string
 }
 
@@ -157,7 +158,7 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
 
   const orderBy =
     mode === "featured"
-      ? "is_featured DESC, created_at DESC"
+      ? "avg_rating DESC, created_at DESC"
       : mode === "latest"
         ? "created_at DESC"
         : "views_count DESC, created_at DESC"
@@ -179,6 +180,7 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
     date: toDateString(row.created_at),
     views: row.views_count ?? 0,
     downloads: row.downloads_count ?? 0,
+    rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
     image: buildDriveThumbnail(row.drive_file_id, 720),
   }))
 }
@@ -318,6 +320,7 @@ export async function getRelatedDocuments(documentId: number, subjectId: number,
     date: toDateString(row.created_at),
     views: row.views_count ?? 0,
     downloads: row.downloads_count ?? 0,
+    rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
     image: buildDriveThumbnail(row.drive_file_id, 720),
   }))
 }

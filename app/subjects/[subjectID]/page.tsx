@@ -24,8 +24,8 @@ export async function generateMetadata({ params }: SubjectPageProps): Promise<Me
       : { code: normalizedCode, name: "Môn học chưa có trong danh mục" }
 
   return {
-    title: `Tài liệu của môn ${subjectData.code} - ${subjectData.name}`,
-    description: `Danh sách tài liệu, bài giảng và đề cương cho môn ${subjectData.name}.`,
+    title: `Tài liệu môn ${subjectData.code} - ${subjectData.name}`,
+    description: `Danh sách tài liệu, bài giảng và đề cương môn ${subjectData.name}.`,
   }
 }
 
@@ -37,21 +37,21 @@ export default async function SubjectDocumentsPage({ params }: SubjectPageProps)
 
   const subjectData = dbSubjectData
     ? {
-        code: dbSubjectData.code,
-        name: dbSubjectData.name,
-        groupName: dbSubjectData.groupName,
-      }
+      code: dbSubjectData.code,
+      name: dbSubjectData.name,
+      groupName: dbSubjectData.groupName,
+    }
     : curriculumSubjectData
       ? {
-          code: curriculumSubjectData.course.code,
-          name: curriculumSubjectData.course.name,
-          groupName: curriculumSubjectData.group.group,
-        }
+        code: curriculumSubjectData.course.code,
+        name: curriculumSubjectData.course.name,
+        groupName: curriculumSubjectData.group.group,
+      }
       : {
-          code: normalizedCode,
-          name: "Môn học chưa có trong danh mục",
-          groupName: "Khác",
-        }
+        code: normalizedCode,
+        name: "Môn học chưa có trong danh mục",
+        groupName: "Khác",
+      }
 
   const documents = await getDocumentsBySubjectCode(subjectData.code)
 
@@ -79,11 +79,11 @@ export default async function SubjectDocumentsPage({ params }: SubjectPageProps)
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-2 text-sm font-semibold text-blue-900 shadow-sm backdrop-blur">
                   <BookOpen className="h-4 w-4" />
-                  Tài liệu của môn {subjectData.code}
+                  Tài liệu môn {subjectData.code}
                 </div>
                 <div>
                   <h1 className="max-w-3xl text-3xl font-extrabold tracking-tight text-slate-950 md:text-5xl">
-                    Tài liệu của môn {subjectData.code} - {subjectData.name}
+                    Tài liệu môn {subjectData.code} - {subjectData.name}
                   </h1>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
                     Tổng hợp tài liệu học tập, slide bài giảng, đề cương và bộ câu hỏi ôn thi dành riêng cho môn học này.
