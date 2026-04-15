@@ -23,3 +23,11 @@
 | Quota sử dụng | Google Cloud Console | [https://console.cloud.google.com](https://console.cloud.google.com) |
 
 ---
+
+## 💰 Monitoring HuggingFace API
+
+| 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
+|---|---|---|
+| Xem requests & tokens | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
+| Chi tiết chi phí | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
+| Quota sử dụng | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
