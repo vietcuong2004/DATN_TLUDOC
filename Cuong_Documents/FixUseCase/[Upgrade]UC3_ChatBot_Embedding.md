@@ -22,7 +22,7 @@ Chúng ta sẽ đi sâu vào từng file và từng dòng code đang vận hành
 
 ---
 
-## 🗄️ PHẦN 2: THUẬT TOÁN NẠP LIỆU (DATA INGESTION)
+## 🗄️ PHẦN 2: THUẬT TOÁN NẠP LIỆU (ETL - DATA INGESTION)
 
 Để Chatbot có kiến thức, ta phải nạp giáo trình cho nó. Hệ thống sử dụng một script chạy nền để quét toàn bộ file PDF và chuyển ngữ nghĩa của chúng thành Toán học.
 
@@ -107,12 +107,12 @@ semanticChunks = scoredChunks
   .sort((a: any, b: any) => b.similarity - a.similarity)
   .slice(0, 5)
 ```
-*Giải thích chi tiết cho người mới:*
+*Giải thích chi tiết:*
 1.  Đầu tiên, hệ thống gửi lệnh `SELECT` truyền thống lấy tất cả chục ngàn đoạn văn lên RAM.
 2.  Sau đó, code chạy qua từng đoạn một bằng vòng lặp `map()`.
 3.  Nó "so khớp" Vector của đoạn văn với Vector của câu hỏi bằng hàm toán học `cosineSimilarity`.
 
-**Toán học Cosine là gì?** (File `lib/hf-embedder.ts`, Dòng **44 đến 62**)
+**Hàm toán học Cosine là gì?** (File `lib/hf-embedder.ts`, Dòng **44 đến 62**)
 ```typescript
 let dotProduct = 0; let normA = 0; let normB = 0;
 for (let i = 0; i < vecA.length; i++) {
@@ -253,7 +253,7 @@ Bằng việc gá code vào Ram Server (In-memory computation) ở phần lõi n
 
 Dưới đây là danh sách toàn bộ các File cấu thành nên hệ thống RAG Chatbot hiện tại. Bất cứ khi nào cần nâng cấp hoặc sửa lỗi, tính năng của từng File đã được quy hoạch cực kỳ rõ ràng:
 
-### 1. Module Dữ Liệu Nền Nền (ETL)
+### 1. Module Dữ Liệu Nền (ETL)
 *   **📍 File:** `scripts/sync-to-mysql.mjs`
 *   **Nhiệm vụ:** Đây là Script Node.js chạy độc lập. Nhiệm vụ của nó là đọc các file tài liệu định dạng PDF, dùng thư viện băm đoạn văn thành các "Chunk", tạo Vector tương ứng sử dụng hệ thống của HuggingFace và **INSERT** thẳng vào bảng `document_chunks` của CSDL MySQL. File này thường được chạy thủ công mỗi khi quản trị viên up thêm tài liệu mới.
 
