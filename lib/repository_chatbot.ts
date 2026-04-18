@@ -180,3 +180,43 @@ export async function saveChatbotHistory(input: ChatbotHistoryInput): Promise<vo
     [input.userId, input.documentId ?? null, input.question, input.answer, input.aiModel ?? null],
   )
 }
+
+export async function getChatbotRecentHistory(userId: number, limit = 10) {
+  if (!isDbConfigured()) {
+    return []
+  }
+
+  const limitValue = Math.max(1, Math.min(50, Math.trunc(limit)))
+  
+  const sql = `
+    SELECT
+      h.id as history_id,
+      h.question,
+      h.answer,
+      h.created_at,
+      d.id as doc_id,
+      d.title as doc_title,
+      d.drive_file_id,
+      d.download_url
+    FROM chatbot_history h
+    LEFT JOIN documents d ON h.document_id = d.id
+    WHERE h.user_id = ?
+    ORDER BY h.created_at DESC
+    LIMIT ?
+  `
+  
+  const rows = await queryRows<RowDataPacket>(sql, [userId, limitValue])
+  
+  return rows.map((row) => ({
+    id: row.history_id,
+    question: row.question,
+    answer: row.answer,
+    createdAt: row.created_at,
+    document: row.doc_id ? {
+      id: row.doc_id,
+      title: row.doc_title,
+      image: buildDriveThumbnail(row.drive_file_id, 720),
+      downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`
+    } : null
+  }))
+}

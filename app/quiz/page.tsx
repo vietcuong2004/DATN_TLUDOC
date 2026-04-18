@@ -19,6 +19,7 @@ import {
   X,
   Eye,
 } from "lucide-react"
+import PreviewDocument from "@/components/PreviewDocument"
 
 function renderTextWithBold(text: string) {
   if (!text) return null;
@@ -57,20 +58,10 @@ export default function QuizPage() {
 
   // Preview State
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewText, setPreviewText] = useState<string>("")
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState("")
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
-    }
-  }, [previewUrl])
+
 
   const clearSelectedFile = () => {
     setFile(null)
@@ -81,12 +72,6 @@ export default function QuizPage() {
     setScore(0)
     setProcessingProgress(0)
     setIsPreviewOpen(false)
-    setPreviewText("")
-    setPreviewError("")
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -94,112 +79,7 @@ export default function QuizPage() {
 
   const handleOpenPreview = async () => {
     if (!file) return
-
     setIsPreviewOpen(true)
-    setPreviewLoading(true)
-    setPreviewError("")
-    setPreviewText("")
-
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
-
-    try {
-      const fileName = file.name.toLowerCase()
-      const isPdf = file.type === "application/pdf" || fileName.endsWith(".pdf")
-      const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")
-
-      if (isPdf) {
-        const objectUrl = URL.createObjectURL(file)
-        setPreviewUrl(objectUrl)
-        return
-      }
-
-      if (isDocx) {
-        const docxUrl = URL.createObjectURL(file)
-
-        const html = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <meta charset="utf-8">
-              <title>Xem trước DOCX</title>
-              <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
-              <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
-              <style>
-                  body {
-                    margin: 0; padding: 0; 
-                    background: #e2e8f0; 
-                    display: flex; flex-direction: column; align-items: center; 
-                    overflow-y: auto;
-                    font-family: sans-serif;
-                  }
-                  #container {
-                    width: 100%;
-                    max-width: 900px;
-                    margin: 20px auto;
-                  }
-                  .loading { margin-top: 50px; text-align: center; color: #64748b; font-size: 15px; }
-              </style>
-          </head>
-          <body>
-              <div id="loading" class="loading">Đang tải và định dạng tài liệu...</div>
-              <div id="container"></div>
-              <script>
-                  fetch("${docxUrl}")
-                      .then(res => res.blob())
-                      .then(blob => {
-                          const options = {
-                              className: "docx-preview",
-                              inWrapper: true,
-                              ignoreWidth: false,
-                              ignoreHeight: false,
-                              ignoreFonts: false,
-                              breakPages: true,
-                              ignoreLastRenderedPageBreak: true,
-                              experimental: true,
-                              trimXmlDeclaration: true,
-                              useBase64URL: false
-                          };
-                          return docx.renderAsync(blob, document.getElementById("container"), null, options);
-                      })
-                      .then(() => {
-                          document.getElementById("loading").style.display = 'none';
-                      })
-                      .catch(err => {
-                          console.error("View error:", err);
-                          document.getElementById("loading").innerText = "Lỗi khi hiển thị tài liệu: " + err.message;
-                          document.getElementById("loading").style.color = "red";
-                      });
-              </script>
-          </body>
-          </html>
-        `
-        const blob = new Blob([html], { type: "text/html; charset=utf-8" })
-        const objectUrl = URL.createObjectURL(blob)
-        setPreviewUrl(objectUrl)
-        return
-      }
-
-      const formData = new FormData()
-      formData.append("file", file)
-      const response = await fetch("/api/mindmap/extract", {
-        method: "POST",
-        body: formData,
-      })
-
-      const payload = (await response.json().catch(() => ({}))) as { text?: string; error?: string }
-      if (!response.ok) {
-        throw new Error(payload.error || "Không thể xem trước tài liệu")
-      }
-
-      setPreviewText((payload.text || "").trim())
-    } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : "Không thể xem trước tài liệu")
-    } finally {
-      setPreviewLoading(false)
-    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -646,56 +526,13 @@ export default function QuizPage() {
 
       {/* Preview Modal */}
       {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 p-4 flex" onClick={() => setIsPreviewOpen(false)}>
-          <div
-            className="m-auto flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{file?.name || "Xem tài liệu"}</p>
-                <p className="text-xs text-slate-500">Xem trước tài liệu đã chọn</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {previewUrl ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      window.open(previewUrl, "_blank", "noopener,noreferrer")
-                    }}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Mở trong tab mới
-                  </Button>
-                ) : null}
-                <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex-1 bg-slate-50">
-              {previewLoading ? (
-                <div className="flex h-full items-center justify-center text-sm text-slate-600">Đang tải tài liệu...</div>
-              ) : previewError ? (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{previewError}</div>
-              ) : previewUrl ? (
-                <iframe src={previewUrl} title={file?.name || "Preview"} className="h-full w-full border-0" />
-              ) : (
-                <div className="h-full overflow-auto p-6">
-                  {previewText ? (
-                    <article className="mx-auto max-w-3xl whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700">
-                      {previewText}
-                    </article>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-500">Không có nội dung xem trước.</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <PreviewDocument 
+          document={{
+            title: file?.name || "Xem tài liệu",
+            file: file || undefined
+          }}
+          onClose={() => setIsPreviewOpen(false)}
+        />
       )}
     </>
   )

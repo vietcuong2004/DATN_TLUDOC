@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { MindmapViewer } from "@/components/mindmap-viewer"
+import PreviewDocument from "@/components/PreviewDocument"
 import type { MindmapNode } from "@/lib/mindmap"
 
 type ExportFormat = "png" | "jpg" | "pdf"
@@ -276,16 +277,11 @@ async function generateMindmapFromApi(fileName: string, text: string) {
 
 export default function MindmapPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [publicDocxUrl, setPublicDocxUrl] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState("")
   const [mindmap, setMindmap] = useState<MindmapNode | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewText, setPreviewText] = useState<string>("")
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState("")
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const clearSelectedFile = () => {
@@ -293,12 +289,6 @@ export default function MindmapPage() {
     setMindmap(null)
     setErrorMessage("")
     setIsPreviewOpen(false)
-    setPreviewText("")
-    setPreviewError("")
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -322,109 +312,6 @@ export default function MindmapPage() {
   const handleOpenPreview = async () => {
     if (!selectedFile) return
     setIsPreviewOpen(true)
-    setPreviewLoading(true)
-    setPreviewError("")
-    setPreviewText("")
-    setPublicDocxUrl(null)
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
-    try {
-      const fileName = selectedFile.name.toLowerCase()
-      const isPdf = selectedFile.type === "application/pdf" || fileName.endsWith(".pdf")
-      const isDocx = selectedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")
-      if (isPdf) {
-        const objectUrl = URL.createObjectURL(selectedFile)
-        setPreviewUrl(objectUrl)
-        return
-      }
-      if (isDocx) {
-        const docxUrl = URL.createObjectURL(selectedFile)
-        
-        // Tạo giao diện xem trước DOCX đẹp mắt sử dụng docx-preview qua CDN
-        const html = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <meta charset="utf-8">
-              <title>Xem trước DOCX</title>
-              <!-- Load thư viện giải nén và render DOCX -->
-              <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
-              <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
-              <style>
-                  body {
-                    margin: 0; padding: 0; 
-                    background: #e2e8f0; 
-                    display: flex; flex-direction: column; align-items: center; 
-                    overflow-y: auto;
-                    font-family: sans-serif;
-                  }
-                  #container {
-                    width: 100%;
-                    max-width: 900px;
-                    margin: 20px auto;
-                  }
-                  .loading { margin-top: 50px; text-align: center; color: #64748b; font-size: 15px; }
-              </style>
-          </head>
-          <body>
-              <div id="loading" class="loading">Đang tải và định dạng tài liệu...</div>
-              <div id="container"></div>
-              <script>
-                  fetch("${docxUrl}")
-                      .then(res => res.blob())
-                      .then(blob => {
-                          const options = {
-                              className: "docx-preview", // Class wrapper
-                              inWrapper: true, // Render trong wrapper
-                              ignoreWidth: false,
-                              ignoreHeight: false,
-                              ignoreFonts: false,
-                              breakPages: true, // Hiển thị phân trang như giấy A4
-                              ignoreLastRenderedPageBreak: true,
-                              experimental: true,
-                              trimXmlDeclaration: true,
-                              useBase64URL: false
-                          };
-                          
-                          return docx.renderAsync(blob, document.getElementById("container"), null, options);
-                      })
-                      .then(() => {
-                          document.getElementById("loading").style.display = 'none';
-                      })
-                      .catch(err => {
-                          console.error("View error:", err);
-                          document.getElementById("loading").innerText = "Lỗi khi hiển thị tài liệu: " + err.message;
-                          document.getElementById("loading").style.color = "red";
-                      });
-              </script>
-          </body>
-          </html>
-        `
-        const blob = new Blob([html], { type: "text/html; charset=utf-8" })
-        const objectUrl = URL.createObjectURL(blob)
-        setPreviewUrl(objectUrl)
-        return
-      }
-      // Các loại file khác (ví dụ .txt)
-      const formData = new FormData()
-      formData.append("file", selectedFile)
-      const response = await fetch("/api/mindmap/extract", {
-        method: "POST",
-        body: formData,
-      })
-      const payload = (await response.json().catch(() => ({}))) as { text?: string; error?: string }
-      if (!response.ok) {
-        throw new Error(payload.error || "Không thể xem trước tài liệu")
-      }
-      const text = (payload.text || "").trim()
-      setPreviewText(text)
-    } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : "Không thể xem trước tài liệu")
-    } finally {
-      setPreviewLoading(false)
-    }
   }
 
   const handleCreateMindmap = async () => {
@@ -562,53 +449,13 @@ export default function MindmapPage() {
               </CardContent>
             </Card>
             {isPreviewOpen && (
-              <div className="fixed inset-0 z-50 bg-black/50 p-4" onClick={() => setIsPreviewOpen(false)}>
-                <div
-                  className="mx-auto flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{selectedFile?.name || "Xem tài liệu"}</p>
-                      <p className="text-xs text-slate-500">Xem trước tài liệu đã chọn</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(previewUrl || publicDocxUrl) && (
-                        <Button variant="outline" size="sm" onClick={() => window.open(previewUrl || publicDocxUrl || "", "_blank")}>
-                          <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                          Mở trong tab mới
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)}>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6" /></svg>
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-slate-50">
-                    {previewLoading ? (
-                      <div className="flex h-full items-center justify-center text-sm text-slate-600">Đang tải tài liệu...</div>
-                    ) : previewError ? (
-                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{previewError}</div>
-                    ) : publicDocxUrl ? (
-                      <iframe
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(publicDocxUrl || "")}&embedded=true`}
-                        title={selectedFile?.name || "Preview"}
-                        className="h-full w-full border-0"
-                      />
-                    ) : previewUrl ? (
-                      <iframe src={previewUrl || undefined} title={selectedFile?.name || "Preview"} className="h-full w-full border-0" />
-                    ) : previewText ? (
-                      <div className="h-full overflow-auto p-6">
-                        <article className="mx-auto max-w-3xl whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700">
-                          {previewText}
-                        </article>
-                      </div>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-slate-500">Không có nội dung xem trước.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <PreviewDocument 
+                document={{
+                  title: selectedFile?.name || "Xem tài liệu",
+                  file: selectedFile || undefined
+                }}
+                onClose={() => setIsPreviewOpen(false)}
+              />
             )}
             <Card className="border-slate-200 shadow-sm">
               <CardHeader>

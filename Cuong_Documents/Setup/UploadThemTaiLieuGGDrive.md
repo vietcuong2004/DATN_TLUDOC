@@ -1,6 +1,6 @@
-# 📚 Hướng Dẫn Upload Thêm Tài Liệu Mới
+# 📚 Hướng Dẫn Upload Thêm Tài Liệu Mới (Cho Website & Chatbot RAG)
 
-Sau khi deploy xong, khi bạn muốn thêm tài liệu mới vào website, hãy làm theo hướng dẫn này.
+Sau khi deploy xong, việc thêm tài liệu nội bộ mới là rất cần thiết. Để hệ thống có thể vừa hiển thị trên website, vừa nạp kiến thức mới cho Chatbot thông minh, hãy thực hiện chính xác các bước sau.
 
 ---
 
@@ -8,230 +8,97 @@ Sau khi deploy xong, khi bạn muốn thêm tài liệu mới vào website, hãy
 
 ### 1.1. Mở Google Drive
 - Truy cập: https://drive.google.com
-- Đăng nhập bằng tài khoản được cấp quyền
+- Đăng nhập bằng tài khoản lưu trữ hệ thống.
 
-### 1.2. Tìm Folder Của Môn Học
-Bạn sẽ thấy các folder theo tên môn học, ví dụ:
+### 1.2. Upload File Vào Đúng Folder
+Tìm các folder tương ứng với tên môn học:
 ```
 📁 Cơ Sở Dữ Liệu
 📁 Lập Trình Java
 📁 Thiết Kế Web
 ```
 
-**Danh sách các folder:**
-- **Cơ Sở Dữ Liệu** (CSDL)
-- **Lập Trình Java** (Java)
-- **Thiết Kế Web** (Web)
-- v.v...
-
-### 1.3. Upload File Vào Folder
-1. **Mở folder môn học** (ví dụ: "Cơ Sở Dữ Liệu")
-2. **Click button "Upload"** (hoặc kéo thả file vào)
-3. **Chọn file PDF/Word/ZIP** mà bạn muốn thêm
-4. **Chờ upload xong** (phải thấy dấu tích xanh ✅)
+1. **Mở folder môn học** tương ứng.
+2. **Kéo thả file** (PDF, Word, ZIP) vào.
+3. **Chờ upload xong** (hiện dấu tích xanh ✅).
 
 **⚠️ Lưu ý:** 
-- File phải là PDF, Word, PowerPoint, hoặc ZIP
-- Size < 50MB (tùy cấu hình Drive)
-- Tên file nên rõ ràng, ví dụ: `Bai1_CacDieuKienSQL.pdf`
+- Tên file nên rõ ràng (vd: `Bai1_CacDieuKienSQL.pdf`).
+- Định dạng PDF được ưu tiên cao nhất vì Chatbot sẽ trích xuất chữ từ PDF để học tập! Hệ thống RAG hiện tại tập trung tối ưu hóa cho định dạng PDF.
 
 ---
 
-## 💻 Bước 2: Chạy Script Import (Trên Máy Tính)
+## 💻 Bước 2: Đồng Bộ Tài Liệu Vào Website (MySQL)
 
-Sau khi upload xong lên Drive, bạn cần chạy lệnh import để đưa tài liệu vào database.
+Bước này sẽ lấy dữ liệu từ Google Drive để cập nhật lên thẻ "Tài liệu" và các trang chuyên đề môn học.
 
-### 2.1. Mở Terminal PowerShell
-
-**Cách 1: Dùng VS Code**
-- Mở project `DATN_TLUDOCUMENT` trong VS Code
-- Nhấn **Ctrl + `** (backtick) để mở Terminal
-- Terminal sẽ hiển thị ở dưới
-
-**Cách 2: Mở PowerShell riêng**
-- Nhấn **Windows + R**
-- Gõ: `powershell`
-- Press **Enter**
-- Gõ: `cd D:\DATN_TLUDOCUMENT` (đến folder project)
+### 2.1. Mở Terminal
+- Mở project `DATN_TLUDOCUMENT` trong VS Code.
+- Nhấn **Ctrl + \`** để mở Terminal.
 
 ### 2.2. Chạy Lệnh Import
-
-**Lệnh để chạy:**
 ```powershell
 npm run import:drive
 ```
 
-**Output bạn sẽ thấy:**
-```
-> import:drive
-> node scripts/import-drive-folder.mjs
-
-📂 Scanning Google Drive...
-✅ Cơ Sở Dữ Liệu: 5 documents found
-✅ Thiết Kế Web: 3 documents found
-📝 Processing...
-✅ Added: Bai1_CacDieuKienSQL.pdf → Subject: Cơ Sở Dữ Liệu
-✅ Added: Bai2_JOIN_Query.pdf → Subject: Cơ Sở Dữ Liệu
-✅ Already exists: Bai3_Index.pdf (skipped)
-
-✅ Import completed! 8 new documents added.
-```
-
-### 2.3. Chờ Xong
-
-Script sẽ:
-1. **Quét Google Drive** → Tìm các file mới
-2. **Kiểm tra database** → Xem file đã có chưa (tránh duplicate)
-3. **Thêm vào database** → Insert vào Railway MySQL
-4. **Hiển thị kết quả** → Báo cáo số file thêm được
-
-**⏱️ Thời gian:**
-- 1-5 file: 1-2 giây
-- 10-20 file: 5-10 giây
-- 50+ file: 20-30 giây
+**Quá trình xử lý:**
+1. Quét tài liệu trên Drive 
+2. So khớp với CSDL hiện tại thông qua `drive_file_id` (trạng thái an toàn, không lo bị trùng)
+3. Cập nhật và lưu các bản ghi mới vào bảng `documents`
 
 ---
 
-## ⚠️ Bước 3: Xử Lý Lỗi (Nếu Có)
+## 🧠 Bước 3: Đồng Bộ Tri Thức Cho Chatbot RAG (Bắt buộc)
 
-### Lỗi 1: "ENOENT: no such file or directory"
-```
-Error: ENOENT: no such file or directory
-```
+Sau khi có tài liệu mới, **Chatbot vẫn chưa biết gì về nội dung của chúng**. Bạn BẮT BUỘC phải "dạy" AI bằng cách băm nhỏ văn bản (Chunking) và nạp vào vector database (Bảng `document_chunks`).
 
-**Nguyên nhân:** File `.env.local` không tìm thấy
-
-**Cách fix:**
-1. Đảm bảo file `.env.local` có trong folder `D:\DATN_TLUDOCUMENT`
-2. File phải chứa:
-   ```
-   GOOGLE_DRIVE_FOLDER_ID=your_folder_id_here
-   DB_HOST=junction.proxy.rlwy.net
-   DB_PORT=27301
-   DB_USER=root
-   DB_PASSWORD=your_password
-   DB_NAME=railway
-   ```
-
-### Lỗi 2: "Cannot connect to database"
-```
-Error: connect ECONNREFUSED
-```
-
-**Nguyên nhân:** Railway database (junction.proxy.rlwy.net) không online
-
-**Cách fix:**
-1. Kiểm tra xem Railway service còn chạy không:
-   - Truy cập: https://railway.app
-   - Vào project `DATN_TLUDOCUMENT`
-   - Xem "Database" service: phải là màu **xanh lá (healthly)**, không phải **đỏ (crashed)**
-2. Nếu đỏ, click "Deploy" để khởi động lại
-
-### Lỗi 3: "Drive Authorization Failed"
-```
-Error: Invalid credentials
-```
-
-**Nguyên nhân:** Google Drive API key hết hạn hoặc sai
-
-**Cách fix:**
-- Kiểm tra file `scripts/import-drive-folder.mjs`
-- Dòng credentials có chứa: `"client_email"` và `"private_key"`
-- Nếu sai, tạo lại file JSON từ Google Cloud Console
-
----
-
-## ✅ Bước 4: Xác Nhận Dữ Liệu Đã Thêm
-
-Sau khi script chạy xong, hãy kiểm tra xem dữ liệu đã vào database chưa.
-
-### 4.1. Cách 1: Check trên Website (Dễ nhất)
-1. Mở: https://datn-tludoc.vercel.app
-2. Click vào **môn học** bạn vừa thêm
-3. Bạn sẽ thấy **tài liệu mới** hiển thị
-
-### 4.2. Cách 2: Query Database (Chi tiết)
-
-Mở PowerShell và chạy câu lệnh SQL:
-
+### 3.1. Chạy Lệnh Embed (HuggingFace)
 ```powershell
-& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" `
-  -h junction.proxy.rlwy.net `
-  -P 27301 `
-  -u root `
-  -p `
-  railway `
-  -e "SELECT COUNT(*) as total_documents FROM documents;"
+node scripts/sync-to-mysql.mjs
 ```
 
-**Khi được hỏi password, gõ:** password của Railway
-**Output sẽ hiển thị:** Tổng số tài liệu hiện có
+### 3.2. Quá Trình Làm Việc Của Script
+Script sẽ thực hiện các việc nặng:
+- Trích xuất chữ (text) thuần tuý từ các file **PDF**.
+- Cắt văn bản ra thành hàng trăm tới hàng nghìn mảnh (chunk).
+- Gọi AI Model `all-MiniLM-L6-v2` từ hệ thống **HuggingFace** để biến các chữ này thành mảng vector toán học đa chiều.
+- Lưu trữ chuỗi vector tri thức vào bảng `document_chunks`.
 
-Ví dụ: Nếu trước có 162 documents, giờ sẽ thành 165 (thêm 3 cái mới).
+**⏱️ Thời gian:** Quá trình này **sẽ khá lâu**! (Khoảng vài phút đến chục phút tuỳ theo độ dày của PDF). Cứ để terminal điện toán chạy miệt mài cho đến khi in ra báo cáo `✨ Hoàn tất đồng bộ tri thức tài liệu vào MySQL!`.
 
 ---
 
-## 📝 Tóm Tắt Quy Trình
+## ⚠️ Bước 4: Xử Lý Lỗi (Nếu Có)
 
-| Bước | Hành Động | Thời Gian |
+### 1. Lỗi "ENOENT: no such file..."
+- **Nguyên nhân/Fix:** Không tìm thấy file biến môi trường. Chắc chắn bạn đang đứng ở thư mục gốc chứa file `.env.local`.
+
+### 2. Lỗi HuggingFace 503 / Loading (Trong lúc gọi Vector Embedding)
+- **Thông báo:** "Mô hình đang khởi động trên HuggingFace, nghỉ 10s..."
+- **Fix:** Đây là bình thường. Máy chủ AI của HuggingFace Inference thỉnh thoảng sẽ rơi vào trạng thái ngủ đông khi ít hoạt động. Script đã cài chế độ thông minh tự động bắt lỗi tạm dừng 10 giây và gọi thử lại (Retry). **Bạn không cần làm gì cả** cứ việc đi pha chút đồ uống.
+
+### 3. Không Kết Nối Được (Lỗi Token / Credentials)
+- **Fix:** Kiểm tra lại file `.env.local` của bạn đã khai báo đủ các biến:
+  - `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY` (Cho bước 2)
+  - `HUGGINGFACE_TOKEN` (Bắt buộc phải có để chạy bước 3)
+  - Database Credentials (`DB_HOST`, `DB_PORT`, `DB_NAME`...)
+
+---
+
+## ✅ Bước 5: Xác Nhận Thành Quả 
+
+1. **Kiểm tra Website:** Mở trang web ứng dụng, truy cập vào menu môn học và đảm bảo tài liệu mới được chia bố cục chuẩn.
+2. **Kiểm tra Chatbot:** Hãy thử test RAG! Vào hệ thống Chatbot, đặt một câu hỏi hóc búa để xem AI có tìm thấy thẻ tài liệu (Document Card) vừa được đẩy lên không. Nếu Chatbot trả lời mượt và tag chuẩn xác [Nguồn: PDF bạn vừa update], hệ thống của bạn thực sự tuyệt vời!
+
+---
+
+## 📝 Tóm Tắt Quy Trình Cập Nhật Tổng Lực
+
+| Thứ Tự | Giải Quyết | Thời Gian Dự Kiến |
 |------|----------|----------|
-| 1 | Upload file lên Google Drive folder | 1-5 phút |
-| 2 | Mở PowerShell, đứng ở folder `D:\DATN_TLUDOCUMENT` | 30 giây |
-| 3 | Chạy lệnh `npm run import:drive` | 5-30 giây |
-| 4 | Chờ script xong, xác nhận lỗi (nếu có) | 1-2 phút |
-| 5 | Kiểm tra website hoặc database | 30 giây |
-| **TOTAL** | | **10-15 phút** |
+| **1.** | Kéo thả lưu trữ file lên **Google Drive** | 1-5 phút |
+| **2.** | Shell lệnh: `npm run import:drive` (Tạo hiển thị Website) | 10-30 giây |
+| **3.** | Shell lệnh: `node scripts/sync-to-mysql.mjs` (Luyện AI Chatbot RAG) | 2-15 phút |
+| **4.** | Cùng kiểm thử Chatbot và UI Page | 1 phút |
 
----
-
-## 🎯 Câu Lệnh Cần Nhớ
-
-**Lệnh chính (chạy import):**
-```powershell
-npm run import:drive
-```
-
-**Kiểm tra database:**
-```powershell
-& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -h junction.proxy.rlwy.net -P 27301 -u root -p railway -e "SELECT COUNT(*) FROM documents;"
-```
-
-**Kiểm tra log (nếu muốn debug):**
-```powershell
-npm run import:drive:dry
-```
-(Cái này chỉ hiển thị những file sẽ thêm, không thêm thực sự)
-
----
-
-## 🆘 Câu Hỏi Thường Gặp
-
-### Q: Nếu tôi upload 100 file một lúc, script có bị treo không?
-**A:** Không. Script xử lý từng file một, chạy nhanh. Nhưng nếu > 200 file, có thể mất 1-2 phút.
-
-### Q: Nếu upload lại file cùng tên, nó sẽ duplicate không?
-**A:** Không. Script kiểm tra `drive_file_id` (ID duy nhất của Drive), nên nó sẽ **skip** nếu đã tồn tại.
-
-### Q: Website sẽ update ngay hay phải đợi?
-**A:** Update ngay! Vì Vercel sẽ fetch data từ Railway, không cache.
-
-### Q: Muốn xóa/sửa tài liệu sau này làm sao?
-**A:** Bạn xóa file khỏi Drive, rồi chạy `npm run import:drive` lại, script sẽ cập nhật.
-
-### Q: Script có log file không, để xem chi tiết?
-**A:** Hiện chưa có. Nhưng output trên terminal là đủ. Nếu cần log file, hãy hỏi mình cải thiện script.
-
----
-
-## 📞 Liên Hệ Hỗ Trợ
-
-Nếu gặp vấn đề:
-1. Kiểm tra phần **"Xử Lý Lỗi"** trên
-2. Nếu vẫn không được, **chụp lại error message** và hỏi
-3. Chuẩn bị file `.env.local` để check credentials
-
----
-
-**✅ Bạn đã sẵn sàng upload tài liệu mới!**
-
-Lần tới chỉ cần: **Upload Drive → Chạy `npm run import:drive` → Done!**
+**Chúc bạn quản trị hệ thống thành công nhé! 🚀**
