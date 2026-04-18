@@ -1,12 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Bell, Menu } from "lucide-react"
+import { Search, Bell, Menu, User, Settings, LogOut } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useRouter, usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
+import { UserNav } from "./user-nav"
 
 export function Navbar() {
   const isMobile = useMediaQuery("(max-width: 768px)")
@@ -16,6 +26,15 @@ export function Navbar() {
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(path + "/")
   }
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user] = useState({ name: "Nguyễn Văn A", avatar: "/avatar.png" })
+
+  useEffect(() => {
+    // Kiểm tra trạng thái đăng nhập từ localStorage
+    const status = typeof window !== "undefined" && localStorage.getItem("isLoggedIn") === "true"
+    setIsLoggedIn(status)
+  }, [pathname]) // Re-check when path changes (helpful for simulation)
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,9 +119,14 @@ export function Navbar() {
             <Bell className="h-5 w-5 fill-current" />
             <span className="sr-only">Thông báo</span>
           </Button>
-          <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600">
-            Đăng Nhập
-          </Button>
+          {isLoggedIn ? (
+            <UserNav user={user} />
+          ) : (
+            <Button className="hidden md:flex bg-green-500 text-white font-bold hover:bg-green-600" asChild>
+              <Link href="/auth/login">Đăng Nhập</Link>
+            </Button>
+          )}
+
 
           <Sheet>
             <SheetTrigger asChild>
@@ -173,9 +197,20 @@ export function Navbar() {
                   Tóm tắt
                 </Link>
                 <div className="flex flex-col gap-2 pt-4">
-                  <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600">
-                    Đăng Nhập
-                  </Button>
+                  {isLoggedIn ? (
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                      <div className="h-12 w-12 rounded-full border-2 border-white shadow-md overflow-hidden ring-2 ring-blue-500/10">
+                        <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-base font-bold text-slate-700">{user.name}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600" asChild>
+                      <Link href="/auth/login" onClick={() => (document.querySelector('[data-radix-collection-item]') as any)?.click()}>Đăng Nhập</Link>
+                    </Button>
+                  )}
                 </div>
               </nav>
             </SheetContent>
