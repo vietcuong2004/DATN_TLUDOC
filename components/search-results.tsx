@@ -14,6 +14,10 @@ export interface SearchResult {
   rating: number
   image: string
   downloadUrl?: string
+  fileExt?: string
+  subjectCode?: string
+  subjectName?: string
+  uploaderName?: string
 }
 
 interface SearchResultsProps {
@@ -71,11 +75,11 @@ export function SearchResults({ results }: SearchResultsProps) {
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as "name" | "newest" | "oldest" | "rating" | "downloads")}
           >
-            <option value="newest">Mới nhất hiện nay</option>
+            <option value="newest">Mới nhất</option>
             <option value="rating">Đánh giá tốt nhất</option>
             <option value="downloads">Tải xuống nhiều nhất</option>
             <option value="name">Tên A - Z</option>
-            <option value="oldest">Cũ nhất trước đây</option>
+            <option value="oldest">Cũ nhất</option>
           </select>
         </div>
       </div>
@@ -85,32 +89,32 @@ export function SearchResults({ results }: SearchResultsProps) {
           <CardContent className="p-0">
             <div className="flex flex-col md:flex-row">
               <div className="relative h-52 md:h-auto md:w-64 shrink-0 overflow-hidden bg-slate-50 border-r border-slate-100">
-                <Image 
-                  src={result.image || "/placeholder.svg"} 
-                  alt={result.title} 
-                  fill 
-                  className="object-cover transition-transform duration-500 group-hover:scale-105" 
+                <Image
+                  src={result.image || "/placeholder.svg"}
+                  alt={result.title}
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute top-0 left-0 w-full h-full border-4 border-white/20 pointer-events-none"></div>
                 <div className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase tracking-wider">
-                  Tài liệu
+                  {result.fileExt && result.fileExt !== "FILE" ? result.fileExt.replace(".", "").toUpperCase() : "Tài liệu"}
                 </div>
               </div>
-              
+
               <div className="p-5 md:p-6 flex flex-col flex-1">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">PDF</span>
-                    <span className="text-[10px] font-medium text-slate-400">•</span>
-                    <span className="text-xs text-slate-500 font-medium">{result.date}</span>
+                  <div className="mb-3">
+                    <span className="inline-block bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                      [{result.subjectCode || "CSE123"}] {result.subjectName || "Tên môn học"}
+                    </span>
                   </div>
-                  
+
                   <Link href={`/document/${result.id}`} className="block">
                     <h3 className="font-bold text-xl mb-3 text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight">
                       {result.title}
                     </h3>
                   </Link>
-                  
+
                   <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-6 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
@@ -121,9 +125,9 @@ export function SearchResults({ results }: SearchResultsProps) {
                         <span className="font-bold text-slate-700">{result.views}</span>
                       </div>
                     </div>
-                    
+
                     <div className="w-px h-8 bg-slate-200 mx-1"></div>
-                    
+
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-green-100 rounded-lg text-green-600">
                         <Download className="h-4 w-4" />
@@ -149,15 +153,11 @@ export function SearchResults({ results }: SearchResultsProps) {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-                  <div className="flex -space-x-2">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" title={`User ${i}`}></div>
-                    ))}
-                    <div className="w-8 h-8 rounded-full border-2 border-white bg-blue-50 flex items-center justify-center text-[10px] font-bold text-blue-600">
-                      +
-                    </div>
+                  <div className="flex flex-col text-sm text-slate-500 gap-0.5">
+                    <p><span className="font-semibold text-slate-700">Ngày đăng:</span> {result.date}</p>
+                    <p><span className="font-semibold text-slate-700">Người đăng:</span> {result.uploaderName || "Quản trị viên"}</p>
                   </div>
-                  
+
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 hover:text-blue-700 font-bold rounded-xl h-11 px-5" asChild>
                       <Link href={`/document/${result.id}`}>

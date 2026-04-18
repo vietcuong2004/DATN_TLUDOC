@@ -87,15 +87,12 @@ export function Navbar() {
         )}
 
         <div className="hidden md:flex flex-1 max-w-sm mx-4">
-          <form className="relative w-full" onSubmit={handleSearch}>
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input 
-              type="search" 
-              placeholder="Tìm kiếm tài liệu, môn học..." 
-              className="w-full bg-gray-100 pl-8 pr-4 h-9" 
-              onFocus={() => router.push("/advanced-search")} 
-            />
-          </form>
+          <Link href="/advanced-search" className="relative w-full group">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
+            <div className="w-full bg-gray-100 pl-8 pr-4 h-9 flex items-center text-sm text-gray-400 rounded-lg border border-transparent transition-all group-hover:bg-gray-200 cursor-pointer">
+              Tìm kiếm tài liệu, môn học...
+            </div>
+          </Link>
         </div>
 
         <div className="ml-auto flex items-center space-x-2">
@@ -118,15 +115,12 @@ export function Navbar() {
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <nav className="grid gap-6 text-lg font-medium">
                 <div className="mt-12">
-                  <form className="relative w-full mb-4" onSubmit={handleSearch}>
+                  <Link href="/advanced-search" className="relative w-full block group" onClick={() => (document.querySelector('[data-radix-collection-item]') as any)?.click()}>
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input 
-                      type="search" 
-                      placeholder="Tìm kiếm tài liệu, môn học..." 
-                      className="w-full bg-gray-100 pl-8 pr-4" 
-                      onFocus={() => router.push("/advanced-search")} 
-                    />
-                  </form>
+                    <div className="w-full bg-gray-100 pl-8 pr-4 h-10 flex items-center text-sm text-gray-400 rounded-lg border border-transparent">
+                      Tìm kiếm tài liệu, môn học...
+                    </div>
+                  </Link>
                 </div>
                 <Link
                   href="/"

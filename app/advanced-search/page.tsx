@@ -235,306 +235,306 @@ export default function AdvancedSearchPage() {
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
             <div className="hidden md:block">
-              <div className="sticky top-20 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">Bộ lọc tìm kiếm</h2>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearFilters}
-                  className="text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                >
-                  <X className="mr-1 h-4 w-4" />
-                  Xóa
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Ngành học</Label>
-                  <Select value={selectedGroup} onValueChange={handleGroupChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tất cả ngành học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả ngành học</SelectItem>
-                      {groups.map((group) => (
-                        <SelectItem key={group.group} value={group.group}>
-                          {group.group}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Môn học</Label>
-                  <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tất cả môn học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả môn học</SelectItem>
-                      {subjectOptions.map((course) => (
-                        <SelectItem key={course.code} value={course.code}>
-                          {course.code} - {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Loại tài liệu</Label>
-                  <div className="space-y-2">
-                    {DOC_TYPE_OPTIONS.map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`doc-type-${option.value}`}
-                          className={FILTER_CONTROL_CLASS}
-                          checked={selectedDocTypes.includes(option.value)}
-                          onCheckedChange={(checked) => toggleDocType(option.value, checked === true)}
-                        />
-                        <Label htmlFor={`doc-type-${option.value}`} className="text-sm">
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Đánh giá</Label>
-                  <RadioGroup value={selectedRating} onValueChange={setSelectedRating}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="any" id="rating-any" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="rating-any" className="text-sm">
-                        Tất cả
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="4" id="rating-4" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="rating-4" className="text-sm">
-                        4 sao trở lên
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="3" id="rating-3" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="rating-3" className="text-sm">
-                        3 sao trở lên
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2" id="rating-2" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="rating-2" className="text-sm">
-                        2 sao trở lên
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Thời gian cập nhật</Label>
-                  <RadioGroup value={updatedWithin} onValueChange={setUpdatedWithin}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="any" id="time-any" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="time-any" className="text-sm">
-                        Tất cả
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="week" id="time-week" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="time-week" className="text-sm">
-                        Trong tuần
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="month" id="time-month" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="time-month" className="text-sm">
-                        Trong tháng
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="year" id="time-year" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="time-year" className="text-sm">
-                        Trong năm
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                
-                <div className="pt-6 border-t border-slate-100 mt-6">
-                  <Button className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-11 rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20" onClick={runSearch}>
-                    Áp dụng bộ lọc
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-            {isFilterOpen && (
-              <div className="fixed inset-0 z-50 overflow-auto bg-white p-4 md:hidden">
-                <div className="mb-6 flex items-center justify-between border-b pb-4">
-                <h2 className="text-xl font-bold text-slate-900">Bộ lọc tìm kiếm</h2>
-                <button 
-                  onClick={() => setIsFilterOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-lg border-2 border-white hover:bg-red-600 transition-all hover:scale-105"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Ngành học</Label>
-                  <Select value={selectedGroup} onValueChange={handleGroupChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tất cả ngành học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả ngành học</SelectItem>
-                      {groups.map((group) => (
-                        <SelectItem key={group.group} value={group.group}>
-                          {group.group}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Môn học</Label>
-                  <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tất cả môn học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả môn học</SelectItem>
-                      {subjectOptions.map((course) => (
-                        <SelectItem key={course.code} value={course.code}>
-                          {course.code} - {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Loại tài liệu</Label>
-                  <div className="space-y-2">
-                    {DOC_TYPE_OPTIONS.map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`m-doc-type-${option.value}`}
-                          className={FILTER_CONTROL_CLASS}
-                          checked={selectedDocTypes.includes(option.value)}
-                          onCheckedChange={(checked) => toggleDocType(option.value, checked === true)}
-                        />
-                        <Label htmlFor={`m-doc-type-${option.value}`} className="text-sm">
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Đánh giá</Label>
-                  <RadioGroup value={selectedRating} onValueChange={setSelectedRating}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="any" id="m-rating-any" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-rating-any" className="text-sm">
-                        Tất cả
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="4" id="m-rating-4" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-rating-4" className="text-sm">
-                        4 sao trở lên
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="3" id="m-rating-3" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-rating-3" className="text-sm">
-                        3 sao trở lên
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2" id="m-rating-2" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-rating-2" className="text-sm">
-                        2 sao trở lên
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Thời gian cập nhật</Label>
-                  <RadioGroup value={updatedWithin} onValueChange={setUpdatedWithin}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="any" id="m-time-any" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-time-any" className="text-sm">
-                        Tất cả
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="week" id="m-time-week" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-time-week" className="text-sm">
-                        Trong tuần
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="month" id="m-time-month" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-time-month" className="text-sm">
-                        Trong tháng
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="year" id="m-time-year" className={FILTER_CONTROL_CLASS} />
-                      <Label htmlFor="m-time-year" className="text-sm">
-                        Trong năm
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="flex flex-col gap-3 pt-6 border-t mt-6 mb-8">
-                  <Button 
-                    className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-12 rounded-xl shadow-lg shadow-blue-700/20" 
-                    onClick={() => {
-                      runSearch()
-                      setIsFilterOpen(false)
-                    }}
-                  >
-                    Áp dụng bộ lọc
-                  </Button>
+              <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent flex flex-col">
+                <div className="sticky top-0 z-50 flex items-center justify-between border-b border-blue-100 bg-[radial-gradient(circle_at_top_left,_#f0f7ff_0%,_#ffffff_100%)] px-6 py-4 shadow-sm backdrop-blur-md">
+                  <h2 className="text-lg font-extrabold tracking-tight text-blue-900">Bộ lọc tìm kiếm</h2>
                   <Button
                     variant="ghost"
-                    className="w-full text-slate-500 hover:text-red-500 hover:bg-red-50 font-medium"
-                    onClick={() => {
-                      clearFilters()
-                    }}
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-8 text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
                   >
-                    Xóa tất cả bộ lọc
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Xóa
                   </Button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label>Ngành học</Label>
+                    <Select value={selectedGroup} onValueChange={handleGroupChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tất cả ngành học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả ngành học</SelectItem>
+                        {groups.map((group) => (
+                          <SelectItem key={group.group} value={group.group}>
+                            {group.group}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Môn học</Label>
+                    <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tất cả môn học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả môn học</SelectItem>
+                        {subjectOptions.map((course) => (
+                          <SelectItem key={course.code} value={course.code}>
+                            {course.code} - {course.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Loại tài liệu</Label>
+                    <div className="space-y-2">
+                      {DOC_TYPE_OPTIONS.map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`doc-type-${option.value}`}
+                            className={FILTER_CONTROL_CLASS}
+                            checked={selectedDocTypes.includes(option.value)}
+                            onCheckedChange={(checked) => toggleDocType(option.value, checked === true)}
+                          />
+                          <Label htmlFor={`doc-type-${option.value}`} className="text-sm">
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Đánh giá</Label>
+                    <RadioGroup value={selectedRating} onValueChange={setSelectedRating}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="any" id="rating-any" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="rating-any" className="text-sm">
+                          Tất cả
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="4" id="rating-4" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="rating-4" className="text-sm">
+                          4 sao trở lên
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="3" id="rating-3" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="rating-3" className="text-sm">
+                          3 sao trở lên
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="2" id="rating-2" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="rating-2" className="text-sm">
+                          2 sao trở lên
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Thời gian cập nhật</Label>
+                    <RadioGroup value={updatedWithin} onValueChange={setUpdatedWithin}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="any" id="time-any" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="time-any" className="text-sm">
+                          Tất cả
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="week" id="time-week" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="time-week" className="text-sm">
+                          Trong tuần
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="month" id="time-month" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="time-month" className="text-sm">
+                          Trong tháng
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="year" id="time-year" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="time-year" className="text-sm">
+                          Trong năm
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 mt-6">
+                    <Button className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-11 rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20" onClick={runSearch}>
+                      Áp dụng bộ lọc
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
 
-            <div className="md:col-span-3">
-            {searchResults.length > 0 ? (
-              <SearchResults results={searchResults} />
-            ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
-                <Search className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                <h3 className="mb-2 text-lg font-medium">Chưa có kết quả tìm kiếm</h3>
-                <p className="mb-4 text-gray-500">
-                  Hãy nhập từ khóa và sử dụng bộ lọc để tìm kiếm tài liệu phù hợp với nhu cầu của bạn.
-                </p>
-                <p className="text-sm text-gray-500">Gợi ý: Thử tìm kiếm với từ khóa ngắn hơn hoặc sử dụng từ khóa khác.</p>
+            {isFilterOpen && (
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-white md:hidden flex flex-col">
+                <div className="sticky top-0 z-50 flex items-center justify-between border-b border-blue-100 bg-[radial-gradient(circle_at_top_left,_#f0f7ff_0%,_#ffffff_100%)] px-6 py-5 shadow-sm">
+                  <h2 className="text-xl font-extrabold tracking-tight text-blue-900">Bộ lọc tìm kiếm</h2>
+                  <button
+                    onClick={() => setIsFilterOpen(false)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-lg border-2 border-white hover:bg-red-600 transition-all hover:scale-105"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label>Ngành học</Label>
+                    <Select value={selectedGroup} onValueChange={handleGroupChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tất cả ngành học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả ngành học</SelectItem>
+                        {groups.map((group) => (
+                          <SelectItem key={group.group} value={group.group}>
+                            {group.group}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Môn học</Label>
+                    <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tất cả môn học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả môn học</SelectItem>
+                        {subjectOptions.map((course) => (
+                          <SelectItem key={course.code} value={course.code}>
+                            {course.code} - {course.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Loại tài liệu</Label>
+                    <div className="space-y-2">
+                      {DOC_TYPE_OPTIONS.map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`m-doc-type-${option.value}`}
+                            className={FILTER_CONTROL_CLASS}
+                            checked={selectedDocTypes.includes(option.value)}
+                            onCheckedChange={(checked) => toggleDocType(option.value, checked === true)}
+                          />
+                          <Label htmlFor={`m-doc-type-${option.value}`} className="text-sm">
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Đánh giá</Label>
+                    <RadioGroup value={selectedRating} onValueChange={setSelectedRating}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="any" id="m-rating-any" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-rating-any" className="text-sm">
+                          Tất cả
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="4" id="m-rating-4" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-rating-4" className="text-sm">
+                          4 sao trở lên
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="3" id="m-rating-3" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-rating-3" className="text-sm">
+                          3 sao trở lên
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="2" id="m-rating-2" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-rating-2" className="text-sm">
+                          2 sao trở lên
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Thời gian cập nhật</Label>
+                    <RadioGroup value={updatedWithin} onValueChange={setUpdatedWithin}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="any" id="m-time-any" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-time-any" className="text-sm">
+                          Tất cả
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="week" id="m-time-week" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-time-week" className="text-sm">
+                          Trong tuần
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="month" id="m-time-month" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-time-month" className="text-sm">
+                          Trong tháng
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="year" id="m-time-year" className={FILTER_CONTROL_CLASS} />
+                        <Label htmlFor="m-time-year" className="text-sm">
+                          Trong năm
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-6 border-t mt-6 mb-8">
+                    <Button
+                      className="w-full bg-blue-700 hover:bg-blue-800 font-bold h-12 rounded-xl shadow-lg shadow-blue-700/20"
+                      onClick={() => {
+                        runSearch()
+                        setIsFilterOpen(false)
+                      }}
+                    >
+                      Áp dụng bộ lọc
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-slate-500 hover:text-red-500 hover:bg-red-50 font-medium"
+                      onClick={() => {
+                        clearFilters()
+                      }}
+                    >
+                      Xóa tất cả bộ lọc
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
+
+            <div className="md:col-span-3">
+              {searchResults.length > 0 ? (
+                <SearchResults results={searchResults} />
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
+                  <Search className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+                  <h3 className="mb-2 text-lg font-medium">Chưa có kết quả tìm kiếm</h3>
+                  <p className="mb-4 text-gray-500">
+                    Hãy nhập từ khóa và sử dụng bộ lọc để tìm kiếm tài liệu phù hợp với nhu cầu của bạn.
+                  </p>
+                  <p className="text-sm text-gray-500">Gợi ý: Thử tìm kiếm với từ khóa ngắn hơn hoặc sử dụng từ khóa khác.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

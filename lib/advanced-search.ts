@@ -10,6 +10,10 @@ type DocumentRow = RowDataPacket & {
   avg_rating: number
   drive_file_id: string | null
   download_url: string | null
+  file_ext: string | null
+  file_name: string | null
+  subject_code: string | null
+  subject_name: string | null
 }
 
 export type AdvancedSearchFilters = {
@@ -31,6 +35,10 @@ export type AdvancedSearchDocument = {
   rating: number
   image: string
   downloadUrl: string
+  fileExt?: string
+  subjectCode?: string
+  subjectName?: string
+  uploaderName?: string
 }
 
 function buildDriveThumbnail(fileId: string | null, size = 1200) {
@@ -102,7 +110,19 @@ export async function searchDocumentsAdvanced(filters: AdvancedSearchFilters): P
 
   const rows = await queryRows<DocumentRow>(
     `
-      SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.download_url
+      SELECT 
+        d.id, 
+        d.title, 
+        d.created_at, 
+        d.views_count, 
+        d.downloads_count, 
+        d.avg_rating, 
+        d.drive_file_id, 
+        d.download_url,
+        d.file_ext,
+        d.file_name,
+        s.code AS subject_code,
+        s.name AS subject_name
       FROM documents d
       INNER JOIN subjects s ON s.id = d.subject_id
       WHERE ${whereClauses.join(" AND ")}
@@ -121,5 +141,9 @@ export async function searchDocumentsAdvanced(filters: AdvancedSearchFilters): P
     rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
     image: buildDriveThumbnail(row.drive_file_id, 720),
     downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
+    fileExt: row.file_ext || (row.file_name?.split(".").pop()) || "FILE",
+    subjectCode: row.subject_code || undefined,
+    subjectName: row.subject_name || undefined,
+    uploaderName: "Quản trị viên",
   }))
 }
