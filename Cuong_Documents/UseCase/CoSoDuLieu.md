@@ -1,8 +1,8 @@
 # Tài Liệu Thiết Kế Cơ Sở Dữ Liệu (MySQL/MariaDB + Google Drive)
 ## Dự án TLU Document
 
-Phiên bản: 4.1  
-Ngày cập nhật: 03/04/2026
+Phiên bản: 4.2  
+Ngày cập nhật: 18/04/2026
 
 ---
 
@@ -27,6 +27,7 @@ Mô hình này phù hợp vì:
 4. `document_reviews`
 5. `document_summaries`
 6. `chatbot_history`
+7. `document_chunks`
 
 ---
 
@@ -181,6 +182,17 @@ CREATE TABLE IF NOT EXISTS chatbot_history (
   INDEX idx_chat_user (user_id),
   INDEX idx_chat_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  document_id INT NOT NULL,
+  content LONGTEXT NOT NULL,
+  embedding JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  INDEX idx_document_chunks_doc_id (document_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 ---
@@ -282,29 +294,29 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 
 | Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
 | :--- | :--- | :--- | :--- |
-| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh tài liệu |
-| title | varchar(500) | FULLTEXT, NOT NULL | Tiêu đề của tài liệu cần hiển thị |
-| description | text | FULLTEXT, DEFAULT NULL | Lời mô tả nội dung tài liệu |
-| subject_id | int(11) | Khóa ngoại (subjects.id), NOT NULL | Thuộc về môn học nào |
-| uploader_id | int(11) | Khóa ngoại (users.id), NOT NULL | Người dùng (tài khoản) đã đăng và tải tài liệu này lên |
-| doc_type | enum('exam','lecture','slides','assignment','research','other') | DEFAULT 'other' | Phân loại thể loại tài liệu |
-| storage_provider | enum('gdrive','other') | DEFAULT 'gdrive' | Hệ thống cung cấp nơi lưu trữ vật lý, định dạng thư mục |
-| drive_folder_key | varchar(100) | NOT NULL | Khóa của thư mục Drive để file thuộc về đâu |
-| drive_file_id | varchar(255) | NOT NULL | ID cung cấp từ nền tảng Google Drive cho file này |
-| file_name | varchar(255) | DEFAULT NULL | Tên thật của file (bao gồm tên và đuôi) |
-| file_ext | varchar(20) | DEFAULT NULL | Định dạng mở rộng (pdf, docx, pptx) |
-| file_url | varchar(1000) | DEFAULT NULL | URL gốc tới file (để link sang Drive) |
-| preview_url | varchar(1000) | DEFAULT NULL | URL có thể sử dụng nhúng dạng Web Preview trên app |
-| download_url | varchar(1000) | DEFAULT NULL | URL API trực tiếp giúp người dùng click để download |
-| views_count | int(11) | DEFAULT 0 | Biến đếm số lượt xem hiển thị / truy cập file |
-| downloads_count| int(11) | DEFAULT 0 | Biến đếm số lượt người đã download tài liệu |
-| favorites_count| int(11) | DEFAULT 0 | Biến đếm độ yêu thích tài liệu |
-| avg_rating | decimal(3,2) | DEFAULT 0.00 | Số điểm trung bình (0-5.00) trong các bài review |
-| review_count | int(11) | DEFAULT 0 | Đếm số cá thể đã rating / review tài liệu này |
-| status | enum('draft','published','archived','removed') | DEFAULT 'draft' | Trạng thái hiển thị tài liệu |
-| is_featured | tinyint(1) | DEFAULT 0 | Đánh dấu nổi bật để đưa lên trang chủ / gợi ý (1: có) |
-| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời gian tải lên CSDL hệ thống |
-| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Thời gian sửa đổi thông tin cuối |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh duy nhất (khóa chính) tự động sinh ra cho mỗi tài liệu khi được đưa vào hệ thống. |
+| title | varchar(500) | FULLTEXT, NOT NULL | Tiêu đề hoặc tên hiển thị chính thức của tài liệu. Hỗ trợ Fulltext cho tính năng tìm kiếm văn bản. |
+| description | text | FULLTEXT, DEFAULT NULL | Lời mô tả chi tiết, phân tích nội dung cốt lõi của tài liệu để người xem đọc lướt trước khi tải. |
+| subject_id | int(11) | Khóa ngoại (subjects.id), NOT NULL | Mã định danh giúp hệ thống phân loại chính xác tài liệu này thuộc về bộ môn / môn học nào. |
+| uploader_id | int(11) | Khóa ngoại (users.id), NOT NULL | ID của tài khoản Admin hoặc sinh viên đã trực tiếp upload và cống hiến tài liệu này lên hệ thống. |
+| doc_type | enum('exam','lecture','slides','assignment','research','other') | DEFAULT 'other' | Phân loại thể loại tập tin để dễ lọc: thi thử (exam), bài giảng (lecture), bài trình chiếu (slides)... |
+| storage_provider | enum('gdrive','other') | DEFAULT 'gdrive' | Nền tảng phân phối Cloud đang chứa file gốc. Mặc định là 'gdrive' (Google Drive). |
+| drive_folder_key | varchar(100) | NOT NULL | Tên Khóa (Key) của thư mục Google Drive đang chứa tệp (Ví dụ: TRI_TUE_NHAN_TAO). Dùng để auto-sync. |
+| drive_file_id | varchar(255) | NOT NULL | Chuỗi ID độc quyền do Google Drive cấp riêng cho file để phục vụ trích xuất API, iframe và RAG Chatbot. |
+| file_name | varchar(255) | DEFAULT NULL | Tên phần mềm gốc của tệp chuẩn trên máy tính hệ điều hành lúc tải lên Drive (Vd: BaiTapNhom.pdf). |
+| file_ext | varchar(20) | DEFAULT NULL | Đuôi định dạng kỹ thuật số (pdf, docx, pptx). Dùng để front-end sinh ra các icon minh họa chuẩn xác. |
+| file_url | varchar(1000) | DEFAULT NULL | Đường dẫn chia sẻ trực tiếp bản gốc web trên Drive. Sử dụng để Share Link hệ ngoài lề nều cần thiết. |
+| preview_url | varchar(1000) | DEFAULT NULL | URL đã nhúng để chèn thẳng vào bảng <iframe> của web, để user xem trực tiếp văn bản mà không phải nhảy tab. |
+| download_url | varchar(1000) | DEFAULT NULL | Hành động đường liên kết API Endpoint. Khi nhấp vào, trình duyệt tự động tải ngầm file cứng về máy tính. |
+| views_count | int(11) | DEFAULT 0 | Tổng số lượt user đã Mở / Click xem chi tiết tài liệu. Hệ thống đếm cơ học realtime mỗi khi load. |
+| downloads_count| int(11) | DEFAULT 0 | Tổng số lượng khách đã nhấp tải thành công tài liệu về máy cứng. Giải thuật đo đếm xếp hạng tài liệu HOT. |
+| favorites_count| int(11) | DEFAULT 0 | Số lượt người dùng bấm thả tim, nhằm lưu và theo dõi bài viết vào hộp Bookmark cá nhân (Personal Library). |
+| avg_rating | decimal(3,2) | DEFAULT 0.00 | Điểm sao đánh giá chất lượng học thuật trung bình. Biến động từ 0.00 (Chưa nhận xét) đến mốc 5.00 phân mảnh. |
+| review_count | int(11) | DEFAULT 0 | Đếm hệ thống tay thủ công số lượng comment từ các con người đọc thật đã viết phản hồi tại trang tài liệu này. |
+| status | enum('draft','published','archived','removed') | DEFAULT 'draft' | Trạng thái luân chuyển biên tập duyệt văn bản: Bản nháp (draft), công khai (published), lưu kho (archived), gỡ bỏ (removed). |
+| is_featured | tinyint(1) | DEFAULT 0 | Công tắc cờ Boolean (0,1). Cài đặt về 1 cho tài liệu siêu xuất sắc để vinh danh trên Băng chuyền trung tâm Top trang chủ. |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Bản TimeStamp mốc thời gian hệ thống nhận thêm tài liệu đầu tiên. Giúp sắp xếp tính 'Mới nhất' của tài liệu. |
+| updated_at | timestamp | NOT NULL, DEFAULT current_timestamp() ON UPDATE current_timestamp() | Con dấu Auto theo dõi chỉnh sửa DB. Chỉ cần 1 thuộc tính trên thay đổi, cơ sở dữ liệu sẽ cập nhật thời gian lại ở đây. |
 
 ### 8.4. Bảng `document_reviews` (Lưu đánh giá tài liệu)
 
@@ -342,6 +354,16 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 | answer | longtext | NOT NULL | Lời giải trích xuất do Bot trả lời |
 | ai_model | varchar(100) | DEFAULT NULL | Phiên bản AI xử lý giải đáp |
 | created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Lưu giữ thời gian vấn đáp |
+
+### 8.7. Bảng `document_chunks` (Lưu trữ Vector Embedding cho Chatbot RAG)
+
+| Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
+| :--- | :--- | :--- | :--- |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh riêng cho mỗi mảnh văn bản |
+| document_id | int(11) | Khóa ngoại (documents.id), NOT NULL | Mảnh văn bản này thuộc về tài liệu gốc nào |
+| content | longtext | NOT NULL | Nội dung chữ (text thuần) đã được bóc tách từ file PDF ngữ cảnh |
+| embedding | json | NOT NULL | Chuỗi mảng số học đa chiều (Vector array) sinh từ HuggingFace AI để tính toán Cosine |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời điểm nhúng dữ liệu vào máy chủ lưu trữ |
 
 ---
 

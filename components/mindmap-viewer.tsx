@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, Download, Expand, FileImage, FileText, Minimize2, Minus, Plus, RotateCcw, X } from "lucide-react"
+import { ChevronDown, Download, Expand, FileImage, FileText, Minimize2, Minus, Plus, RotateCcw, X, Edit2, Save } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { MindmapNode } from "@/lib/mindmap"
@@ -20,10 +20,19 @@ type LayoutEdge = {
   target: string
 }
 
+type OnDownloadData = {
+  format: "png" | "jpg" | "pdf"
+  nodes: Array<MindmapNode & { x: number; y: number; depth: number }>
+  edges: Array<{ id: string; source: string; target: string }>
+  width: number
+  height: number
+}
+
 type MindmapViewerProps = {
   root: MindmapNode
   className?: string
-  onDownload?: (format: "png" | "jpg" | "pdf") => void
+  onDownload?: (data: OnDownloadData) => void
+  onSave?: (nextMindmap: MindmapNode) => Promise<void> | void
 }
 
 type SelectionRect = {
@@ -87,7 +96,59 @@ function layoutMindmap(root: MindmapNode) {
   return { nodes, edges, width, height }
 }
 
-export function MindmapViewer({ root, className, onDownload }: MindmapViewerProps) {
+type ValidateResult = {
+  isValid: boolean
+  errors: string[]
+}
+
+function updateNodeTitle(node: MindmapNode, nodeId: string, newTitle: string): MindmapNode {
+  if (node.id === nodeId) {
+    return { ...node, title: newTitle }
+  }
+  return {
+    ...node,
+    children: node.children.map((child) => updateNodeTitle(child, nodeId, newTitle)),
+  }
+}
+
+function addChildNode(node: MindmapNode, parentId: string, newNode: MindmapNode): MindmapNode {
+  if (node.id === parentId) {
+    return { ...node, children: [...node.children, newNode] }
+  }
+  return {
+    ...node,
+    children: node.children.map((child) => addChildNode(child, parentId, newNode)),
+  }
+}
+
+function removeNode(node: MindmapNode, nodeId: string): MindmapNode {
+  return {
+    ...node,
+    children: node.children
+      .filter((child) => child.id !== nodeId)
+      .map((child) => removeNode(child, nodeId)),
+  }
+}
+
+function validateMindmap(root: MindmapNode): ValidateResult {
+  const errors: string[] = []
+  function walk(node: MindmapNode, depth: number) {
+    if (!node.title.trim()) {
+      errors.push(`Node "${node.id}" không được để trống tiêu đề.`)
+    }
+    if (depth > 3) {
+      errors.push(`Node "${node.title || node.id}" vượt quá độ sâu tối đa (3).`)
+    }
+    if (node.children.length > 8) {
+      errors.push(`Node "${node.title || node.id}" có quá nhiều node con (tối đa 8).`)
+    }
+    node.children.forEach((child) => walk(child, depth + 1))
+  }
+  walk(root, 0)
+  return { isValid: errors.length === 0, errors }
+}
+
+export function MindmapViewer({ root, className, onDownload, onSave }: MindmapViewerProps) {
   const [zoom, setZoom] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
@@ -118,7 +179,19 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
     originPositions: Record<string, { x: number; y: number }>
   } | null>(null)
 
-  const layout = useMemo(() => layoutMindmap(root), [root])
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [mindmapData, setMindmapData] = useState<MindmapNode>(root)
+  const [draftMindmap, setDraftMindmap] = useState<MindmapNode>(root)
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState("")
+  const [editError, setEditError] = useState<string>("")
+
+  useEffect(() => {
+    setMindmapData(root)
+    setDraftMindmap(root)
+  }, [root])
+
+  const layout = useMemo(() => layoutMindmap(isEditMode ? draftMindmap : mindmapData), [isEditMode, draftMindmap, mindmapData])
 
   const getInitialPositions = () => {
     const initialPositions: Record<string, { x: number; y: number }> = {}
@@ -128,13 +201,25 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
     return initialPositions
   }
 
+  const lastRootIdRef = useRef<string>(root.id)
+
   useEffect(() => {
-    setNodePositions(getInitialPositions())
-    setSelectedNodeIds([])
-    setSelectionRect(null)
-    selectionStateRef.current = null
-    nodeDragStateRef.current = null
-  }, [layout.nodes])
+    const initialPositions = getInitialPositions()
+
+    if (root.id !== lastRootIdRef.current) {
+      setNodePositions(initialPositions)
+      lastRootIdRef.current = root.id
+      setSelectedNodeIds([])
+      setSelectionRect(null)
+      selectionStateRef.current = null
+      nodeDragStateRef.current = null
+    } else {
+      setNodePositions((prev) => ({
+        ...initialPositions,
+        ...prev,
+      }))
+    }
+  }, [layout.nodes, root.id])
 
   const handleResetView = () => {
     setZoom(1)
@@ -217,8 +302,6 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
   )
 
   const nodeMap = useMemo(() => new Map(renderedNodes.map((node) => [node.id, node])), [renderedNodes])
-
-  const sourceCount = Math.max(1, new Set(root.sourceRefs).size)
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -315,6 +398,11 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
       setIsSelecting(true)
     }
 
+    const activeEl = document.activeElement as HTMLElement
+    if (activeEl && activeEl.tagName === "INPUT") {
+      activeEl.blur()
+    }
+
     container.setPointerCapture(event.pointerId)
     event.preventDefault()
   }
@@ -381,7 +469,14 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
   }
 
   const handleNodePointerDown = (nodeId: string) => (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isEditMode) return
+
     if (event.pointerType === "mouse" && event.button !== 0) {
+      return
+    }
+
+    const target = event.target as HTMLElement
+    if (target.closest("button, input")) {
       return
     }
 
@@ -409,6 +504,11 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
       startX: event.clientX,
       startY: event.clientY,
       originPositions,
+    }
+
+    const activeEl = document.activeElement as HTMLElement
+    if (activeEl && activeEl.tagName === "INPUT") {
+      activeEl.blur()
     }
 
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -451,7 +551,7 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
     event.stopPropagation()
   }
 
-  const handleNodePointerUpOrCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleNodePointerUpOrCancel = (nodeId: string) => (event: React.PointerEvent<HTMLDivElement>) => {
     const dragState = nodeDragStateRef.current
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return
@@ -459,6 +559,21 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    const deltaX = Math.abs(event.clientX - dragState.startX)
+    const deltaY = Math.abs(event.clientY - dragState.startY)
+    const isClick = deltaX < 5 && deltaY < 5
+
+    if (isClick && isEditMode) {
+      const target = event.target as HTMLElement
+      if (!target.closest("button, input")) {
+        const currentNode = rawNodeMap.get(nodeId)
+        if (currentNode) {
+          setEditingNodeId(nodeId)
+          setEditingValue(currentNode.title)
+        }
+      }
     }
 
     nodeDragStateRef.current = null
@@ -474,27 +589,82 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-        <div>
-          <p className="text-xl font-medium tracking-tight text-slate-900">{root.title}</p>
-          <p className="mt-1 text-sm text-slate-500">Dựa trên {sourceCount} nguồn</p>
+      <div className={cn("flex border-b border-slate-100 px-6 py-5", isFullscreen ? "items-center gap-6" : "flex-col gap-4")}>
+        <div className="flex items-center flex-wrap gap-4 shrink-0">
+          <p className="text-xl font-bold tracking-tight text-blue-600">Mindmap "{(isEditMode ? draftMindmap.title : mindmapData.title)}"</p>
+          {isEditMode && <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Đang chỉnh sửa</span>}
+          {editError && <span className="text-xs text-red-600 font-medium">{editError}</span>}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-slate-600">
-          <Button variant="ghost" size="icon" onClick={() => setZoom((current) => Math.max(0.7, +(current - 0.1).toFixed(1)))} aria-label="Thu nhỏ">
+        <div className={cn("flex flex-wrap items-center gap-2 text-slate-600", isFullscreen && "flex-1")}>
+          <Button variant="outline" size="icon" onClick={() => setZoom((current) => Math.max(0.7, +(current - 0.1).toFixed(1)))} aria-label="Thu nhỏ">
             <Minus className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(1)))} aria-label="Phóng to">
+          <Button variant="outline" size="icon" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(1)))} aria-label="Phóng to">
             <Plus className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
+          <Button variant="outline" size="icon" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
             <RotateCcw className="h-4 w-4" />
           </Button>
-
-          <Button variant="outline" size="sm" onClick={toggleFullscreen} aria-label="Toàn màn hình" className="gap-2">
+          <Button variant="outline" size="icon" onClick={toggleFullscreen} aria-label="Toàn màn hình">
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
-            {isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
           </Button>
+
+          <div className="h-6 w-px bg-slate-200 mx-2" />
+
+          {isEditMode ? (
+            <>
+              <button
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 gap-2 text-white hover:bg-red-700"
+                style={{ backgroundColor: "#dc2626" }}
+                onClick={() => {
+                  setDraftMindmap(mindmapData)
+                  setIsEditMode(false)
+                  setEditError("")
+                  setEditingNodeId(null)
+                }}
+              >
+                <X className="h-4 w-4" />
+                Hủy
+              </button>
+              <button
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 gap-2 text-white hover:bg-green-700"
+                style={{ backgroundColor: "#16a34a" }}
+                onClick={async () => {
+                  const result = validateMindmap(draftMindmap)
+                  if (!result.isValid) {
+                    setEditError(result.errors[0])
+                    return
+                  }
+                  setMindmapData(draftMindmap)
+                  try {
+                    await onSave?.(draftMindmap)
+                    setIsEditMode(false)
+                    setEditError("")
+                    setEditingNodeId(null)
+                  } catch (err: any) {
+                    setEditError("Lỗi khi lưu: " + err.message)
+                  }
+                }}
+              >
+                <Save className="h-4 w-4" />
+                Lưu lại
+              </button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 bg-yellow-400 text-yellow-950 hover:bg-yellow-500"
+              onClick={() => {
+                setDraftMindmap(mindmapData)
+                setIsEditMode(true)
+              }}
+            >
+              <Edit2 className="h-4 w-4" />
+              Chỉnh sửa
+            </Button>
+          )}
 
           {onDownload ? (
             <DropdownMenu>
@@ -506,15 +676,33 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" portalContainer={viewerRef.current}>
-                <DropdownMenuItem onClick={() => onDownload("pdf")}>
+                <DropdownMenuItem onClick={() => onDownload({
+                  format: "pdf",
+                  nodes: renderedNodes,
+                  edges: layout.edges,
+                  width: canvasWidth,
+                  height: canvasHeight
+                })}>
                   <FileText className="h-4 w-4" />
                   PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDownload("jpg")}>
+                <DropdownMenuItem onClick={() => onDownload({
+                  format: "jpg",
+                  nodes: renderedNodes,
+                  edges: layout.edges,
+                  width: canvasWidth,
+                  height: canvasHeight
+                })}>
                   <FileImage className="h-4 w-4" />
                   JPG
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDownload("png")}>
+                <DropdownMenuItem onClick={() => onDownload({
+                  format: "png",
+                  nodes: renderedNodes,
+                  edges: layout.edges,
+                  width: canvasWidth,
+                  height: canvasHeight
+                })}>
                   <FileImage className="h-4 w-4" />
                   PNG
                 </DropdownMenuItem>
@@ -526,7 +714,7 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
             <Button
               variant="outline"
               size="icon"
-              className="rounded-full border-2 border-red-600 bg-red-600 text-white hover:bg-red-700"
+              className="ml-auto rounded-full border-2 border-red-600 bg-red-600 text-white hover:bg-red-700"
               onClick={toggleFullscreen}
               aria-label="Thoat che do toan man hinh"
             >
@@ -625,9 +813,10 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
               {renderedNodes.map((node) => (
                 <div
                   key={node.id}
-                  data-node-draggable="true"
+                  data-node-draggable={isEditMode ? "true" : "false"}
                   className={cn(
-                    "absolute z-10 flex h-[72px] w-[220px] cursor-move items-center rounded-2xl border px-4 py-3 text-left shadow-sm",
+                    "absolute z-10 flex h-[72px] w-[220px] items-center rounded-2xl border px-4 py-3 text-left shadow-sm group",
+                    isEditMode ? "cursor-move" : "cursor-default",
                     selectedNodeIds.includes(node.id) ? "ring-2 ring-blue-500 ring-offset-1" : "",
                     node.depth === 0
                       ? "border-violet-200 bg-violet-200 text-slate-900 shadow-violet-100"
@@ -641,10 +830,65 @@ export function MindmapViewer({ root, className, onDownload }: MindmapViewerProp
                   }}
                   onPointerDown={handleNodePointerDown(node.id)}
                   onPointerMove={handleNodePointerMove}
-                  onPointerUp={handleNodePointerUpOrCancel}
-                  onPointerCancel={handleNodePointerUpOrCancel}
+                  onPointerUp={handleNodePointerUpOrCancel(node.id)}
+                  onPointerCancel={handleNodePointerUpOrCancel(node.id)}
                 >
-                  <span className="block w-full text-sm font-medium leading-5 text-slate-900">{node.title}</span>
+                  {editingNodeId === node.id ? (
+                    <input
+                      title="Edit Node Title"
+                      type="text"
+                      className="w-full bg-transparent outline-none text-sm font-medium leading-5"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => {
+                        setDraftMindmap((prev) => updateNodeTitle(prev, node.id, editingValue))
+                        setEditingNodeId(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setDraftMindmap((prev) => updateNodeTitle(prev, node.id, editingValue))
+                          setEditingNodeId(null)
+                        } else if (e.key === "Escape") {
+                          setEditingNodeId(null)
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="block w-full text-sm font-medium leading-5 text-slate-900">{node.title}</span>
+                  )}
+                  
+                  {isEditMode && (
+                    <div className="absolute right-0 top-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center gap-1 translate-x-full pl-2">
+                       <button
+                         type="button"
+                         className="flex items-center justify-center p-1.5 text-slate-400 hover:text-blue-600 bg-white rounded-full shadow-sm border border-slate-200 hover:border-blue-200 transition-colors"
+                         onClick={(e) => {
+                           e.stopPropagation()
+                           const newId = "node-" + Math.random().toString(36).substring(2, 9)
+                           setDraftMindmap(prev => addChildNode(prev, node.id, { id: newId, title: "New Node", children: [], important: false, sourceRefs: [] }))
+                         }}
+                         title="Thêm node con"
+                       >
+                         <Plus className="w-3.5 h-3.5" />
+                       </button>
+                       {node.depth > 0 && (
+                         <button
+                           type="button"
+                           className="flex items-center justify-center p-1.5 text-slate-400 hover:text-red-600 bg-white rounded-full shadow-sm border border-slate-200 hover:border-red-200 transition-colors"
+                           onClick={(e) => {
+                             e.stopPropagation()
+                             if (confirm("Bạn có chắc chắn muốn xoá node này và toàn bộ node con?")) {
+                               setDraftMindmap(prev => removeNode(prev, node.id))
+                             }
+                           }}
+                           title="Xoá node"
+                         >
+                           <X className="w-3.5 h-3.5" />
+                         </button>
+                       )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

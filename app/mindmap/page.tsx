@@ -104,8 +104,15 @@ function layoutMindmap(root: MindmapNode): MindmapLayout {
   }
 }
 
-function createMindmapSvg(root: MindmapNode) {
-  const layout = layoutMindmap(root)
+type OnDownloadData = {
+  format: "png" | "jpg" | "pdf"
+  nodes: Array<MindmapNode & { x: number; y: number; depth: number }>
+  edges: Array<{ id: string; source: string; target: string }>
+  width: number
+  height: number
+}
+
+function createMindmapSvg(root: MindmapNode, layout: Omit<OnDownloadData, "format">) {
   const width = layout.width
   const height = layout.height
 
@@ -130,18 +137,33 @@ function createMindmapSvg(root: MindmapNode) {
 
   const nodeMarkup = layout.nodes
     .map((node) => {
-      const fill =
-        node.depth === 0 ? "#059669" : node.important ? "#fef3c7" : "#ffffff"
+      const fill = node.depth === 0 ? "#059669" : node.important ? "#fef3c7" : "#ffffff"
       const stroke = node.depth === 0 ? "#34d399" : node.important ? "#f59e0b" : "#cbd5e1"
       const textFill = node.depth === 0 ? "#ffffff" : "#0f172a"
       const nodeLabel = escapeXml(node.title)
 
+      const maxCharsPerLine = 22
+      const words = nodeLabel.split(" ")
+      let line1 = ""
+      let line2 = ""
+      for (const word of words) {
+        if (line1.length + word.length < maxCharsPerLine) {
+           line1 += (line1 ? " " : "") + word
+        } else if (line2.length + word.length < maxCharsPerLine - 2) {
+           line2 += (line2 ? " " : "") + word
+        } else {
+           line2 += "..."
+           break
+        }
+      }
+
       return `
         <g>
           <rect x="${node.x}" y="${node.y}" rx="18" ry="18" width="${NODE_WIDTH}" height="${NODE_HEIGHT}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" />
-          <text x="${node.x + 16}" y="${node.y + 28}" fill="${textFill}" font-family="Arial, sans-serif" font-size="14" font-weight="700">
-            ${nodeLabel.length > 38 ? `${nodeLabel.slice(0, 38)}...` : nodeLabel}
+          <text x="${node.x + 16}" y="${line2 ? node.y + 32 : node.y + 42}" fill="${textFill}" font-family="Arial, sans-serif" font-size="14" font-weight="700">
+            ${line1}
           </text>
+          ${line2 ? `<text x="${node.x + 16}" y="${node.y + 54}" fill="${textFill}" font-family="Arial, sans-serif" font-size="14" font-weight="700">${line2}</text>` : ""}
         </g>
       `
     })
@@ -149,14 +171,7 @@ function createMindmapSvg(root: MindmapNode) {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
     <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <defs>
-        <linearGradient id="background" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#f8fafc" />
-          <stop offset="60%" stop-color="#ffffff" />
-          <stop offset="100%" stop-color="#ecfdf5" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="${width}" height="${height}" fill="url(#background)" />
+      <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
       ${edgeMarkup}
       ${nodeMarkup}
     </svg>`
@@ -195,17 +210,17 @@ async function svgToCanvas(svgMarkup: string) {
   }
 }
 
-async function downloadMindmap(root: MindmapNode, format: ExportFormat) {
-  const svgMarkup = createMindmapSvg(root)
+async function downloadMindmap(root: MindmapNode, data: OnDownloadData) {
+  const svgMarkup = createMindmapSvg(root, data)
   const canvas = await svgToCanvas(svgMarkup)
 
-  if (format === "png" || format === "jpg") {
-    const mimeType = format === "png" ? "image/png" : "image/jpeg"
-    const quality = format === "jpg" ? 0.92 : undefined
+  if (data.format === "png" || data.format === "jpg") {
+    const mimeType = data.format === "png" ? "image/png" : "image/jpeg"
+    const quality = data.format === "jpg" ? 0.92 : undefined
     const dataUrl = canvas.toDataURL(mimeType, quality)
     const link = document.createElement("a")
     link.href = dataUrl
-    link.download = `${shortenFileName(root.title).replace(/\s+/g, "-").toLowerCase()}.${format}`
+    link.download = `${shortenFileName(root.title).replace(/\s+/g, "-").toLowerCase()}.${data.format}`
     link.click()
     return
   }
@@ -470,7 +485,25 @@ export default function MindmapPage() {
                     <p className="mt-1 max-w-md text-sm text-slate-500">Tải tài liệu từ bên trái và bấm "Tạo sơ đồ" để xem sơ đồ tư duy tại đây.</p>
                   </div>
                 ) : (
-                  <MindmapViewer root={mindmap} onDownload={(format) => downloadMindmap(mindmap, format)} />
+                <MindmapViewer 
+                  root={mindmap} 
+                  onDownload={(data) => downloadMindmap(mindmap, data)}
+                  onSave={async (newMindmap) => {
+                    setMindmap(newMindmap);
+                    try {
+                      const res = await fetch("/api/mindmap/edit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ mindmap: newMindmap }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "Save failed");
+                    } catch (error) {
+                      console.error("Failed to save mindmap remotely:", error);
+                      throw error;
+                    }
+                  }} 
+                />
                 )}
               </CardContent>
             </Card>

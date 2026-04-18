@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { searchDocumentsAdvanced } from "@/lib/repository_advanced_search"
+import { searchDocumentsAdvanced } from "@/lib/advanced-search"
 
 const ALLOWED_DOC_TYPES = new Set(["exam", "lecture", "slides", "assignment", "research", "other"])
 const ALLOWED_UPDATED_WITHIN = new Set(["week", "month", "year"])

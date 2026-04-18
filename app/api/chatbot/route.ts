@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { saveChatbotHistory, searchDocumentsForChatbot, searchDocumentsForChatbotBySubject } from "@/lib/repository_chatbot"
-import type { ChatbotCandidateDocument } from "@/lib/repository_chatbot"
+import { saveChatbotHistory, searchDocumentsForChatbot, searchDocumentsForChatbotBySubject } from "@/lib/chatbot-db-services"
+import type { ChatbotCandidateDocument } from "@/lib/chatbot-db-services"
 import { curriculumGroups } from "@/lib/curriculum"
 import { classifyIntentWithAI } from "@/lib/chatbot-intent"
 import { getDbPool } from "@/lib/mysql"

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getChatbotRecentHistory } from "@/lib/repository_chatbot"
+import { getChatbotRecentHistory } from "@/lib/chatbot-db-services"
 
 export async function GET(request: Request) {
   try {
