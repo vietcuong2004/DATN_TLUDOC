@@ -18,6 +18,7 @@ import {
   Sparkles,
   X,
   Eye,
+  Info,
 } from "lucide-react"
 import PreviewDocument from "@/components/PreviewDocument"
 
@@ -56,8 +57,9 @@ export default function QuizPage() {
   const [score, setScore] = useState(0)
   const [processingProgress, setProcessingProgress] = useState(0)
 
-  // Preview State
+  // Preview & Error State
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,6 +73,7 @@ export default function QuizPage() {
     setRevealedAnswers({})
     setScore(0)
     setProcessingProgress(0)
+    setErrorMessage(null)
     setIsPreviewOpen(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -84,12 +87,14 @@ export default function QuizPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      setErrorMessage(null)
       const selectedFile = e.target.files[0]
       const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
       
       // Bỏ qua check file PDF vì nó đã được xử lý phía client
       if (!isPdf && selectedFile.size > 4.5 * 1024 * 1024) {
-        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc cắt nhỏ trước khi tải lên (File của bạn > 4.5MB).")
+        setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén hoặc chia nhỏ tài liệu trước khi tải lên (Dưới 4.5MB).")
+        setFile(null)
         if (fileInputRef.current) fileInputRef.current.value = ""
         return
       }
@@ -150,7 +155,7 @@ export default function QuizPage() {
       }
     } catch (error) {
       console.error(error)
-      alert(error instanceof Error ? error.message : "Đã xảy ra lỗi hệ thống")
+      setErrorMessage(error instanceof Error ? error.message : "Đã xảy ra lỗi hệ thống")
       setQuizState("idle")
       setProcessingProgress(0)
     } finally {
@@ -305,6 +310,20 @@ export default function QuizPage() {
                       <Progress value={processingProgress} className="h-2" />
                     </div>
                   )}
+
+                  {errorMessage ? <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-xl border border-red-100">{errorMessage}</p> : null}
+
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-sm text-blue-800 flex items-start gap-3 shadow-sm">
+                    <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 flex-shrink-0">
+                      <Info className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-blue-900">Lưu ý:</p>
+                      <p className="leading-relaxed opacity-90">
+                        Tính năng này hoạt động tốt với định dạng file <span className="font-semibold underline decoration-blue-200 underline-offset-2">PDF</span> và <span className="font-semibold underline decoration-blue-200 underline-offset-2">DOCX</span>. Với file PDF lớn, thời gian xử lý có thể lâu hơn. Bạn nên nén file dưới <span className="font-bold text-blue-700">4.5 MB</span> để có trải nghiệm mượt mà nhất.
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 

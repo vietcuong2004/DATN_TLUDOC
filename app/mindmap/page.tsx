@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 // ...existing code...
 import { jsPDF } from "jspdf"
-import { FileUp, FileText, Network, Sparkles } from "lucide-react"
+import { FileUp, FileText, Network, Sparkles, Info } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -148,12 +148,12 @@ function createMindmapSvg(root: MindmapNode, layout: Omit<OnDownloadData, "forma
       let line2 = ""
       for (const word of words) {
         if (line1.length + word.length < maxCharsPerLine) {
-           line1 += (line1 ? " " : "") + word
+          line1 += (line1 ? " " : "") + word
         } else if (line2.length + word.length < maxCharsPerLine - 2) {
-           line2 += (line2 ? " " : "") + word
+          line2 += (line2 ? " " : "") + word
         } else {
-           line2 += "..."
-           break
+          line2 += "..."
+          break
         }
       }
 
@@ -312,10 +312,11 @@ export default function MindmapPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
     const isPdf = file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))
-    
+
     // Bỏ qua giới hạn size của PDF vì PDF đã được xử lý phía client
     if (file && !isPdf && file.size > 4.5 * 1024 * 1024) {
-      alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
+      setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén hoặc chia nhỏ tài liệu trước khi tải lên (Dưới 4.5MB).")
+      setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       return
     }
@@ -340,7 +341,7 @@ export default function MindmapPage() {
     try {
       let fileToProcess = selectedFile
       const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
-      
+
       if (isPdf) {
         const { extractTextFromPDFFile } = await import("@/lib/client-pdf-parser")
         const extractedText = await extractTextFromPDFFile(selectedFile)
@@ -456,15 +457,23 @@ export default function MindmapPage() {
                     </div>
                   </div>
                 )}
-                {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-                <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                  <p className="font-semibold text-slate-900">Lưu ý</p>
-                  <p className="mt-1">Ngay cả tài liệu quét (scan pdf) cũng có thể xử lý được. Hệ thống sẽ trích xuất tất cả nội dung có thể đọc và tạo sơ đồ tư duy dựa trên đó.</p>
+                {errorMessage ? <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-xl border border-red-100">{errorMessage}</p> : null}
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-sm text-blue-800 flex items-start gap-3 shadow-sm">
+                  <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 flex-shrink-0">
+                    <Info className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-blue-900">Lưu ý:</p>
+                    <p className="leading-relaxed opacity-90">
+                      Tính năng này hoạt động tốt với định dạng file <span className="font-semibold underline decoration-blue-200 underline-offset-2">PDF</span> và <span className="font-semibold underline decoration-blue-200 underline-offset-2">DOCX</span>. Với file PDF lớn, thời gian xử lý có thể lâu hơn. Bạn nên nén file dưới <span className="font-bold text-blue-700">4.5 MB</span> để có trải nghiệm mượt mà nhất.
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
             {isPreviewOpen && (
-              <PreviewDocument 
+              <PreviewDocument
                 document={{
                   title: selectedFile?.name || "Xem tài liệu",
                   file: selectedFile || undefined
@@ -485,25 +494,25 @@ export default function MindmapPage() {
                     <p className="mt-1 max-w-md text-sm text-slate-500">Tải tài liệu từ bên trái và bấm "Tạo sơ đồ" để xem sơ đồ tư duy tại đây.</p>
                   </div>
                 ) : (
-                <MindmapViewer 
-                  root={mindmap} 
-                  onDownload={(data) => downloadMindmap(mindmap, data)}
-                  onSave={async (newMindmap) => {
-                    setMindmap(newMindmap);
-                    try {
-                      const res = await fetch("/api/mindmap/edit", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ mindmap: newMindmap }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || "Save failed");
-                    } catch (error) {
-                      console.error("Failed to save mindmap remotely:", error);
-                      throw error;
-                    }
-                  }} 
-                />
+                  <MindmapViewer
+                    root={mindmap}
+                    onDownload={(data) => downloadMindmap(mindmap, data)}
+                    onSave={async (newMindmap) => {
+                      setMindmap(newMindmap);
+                      try {
+                        const res = await fetch("/api/mindmap/edit", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ mindmap: newMindmap }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Save failed");
+                      } catch (error) {
+                        console.error("Failed to save mindmap remotely:", error);
+                        throw error;
+                      }
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -511,7 +520,7 @@ export default function MindmapPage() {
         </div>
       </div>
       <Footer />
-      </>
-    );
-  }
+    </>
+  );
+}
 

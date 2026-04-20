@@ -9,534 +9,296 @@ Tài liệu này mô tả **chi tiết cách code, workflow, thuật toán** đ�
 ### 1.1 Luồng hoạt động End-to-End
 
 ```
-User Upload File (PDF/DOCX/TXT)
+Người dùng tải lên tệp (PDF/DOCX/TXT)
         ↓
-Frontend: POST /api/mindmap/generate + FormData
+Giai đoạn 0: Trích xuất nội dung (Text Extraction)
+  ├─ PDF: Xử lý tại Client (Browser) bằng pdfjs-dist
+  └─ DOCX/TXT: Gửi yêu cầu tới /api/mindmap/extract (Server) bằng mammoth
         ↓
-Backend Pipeline:
-  1. File Extraction (PDF/DOCX → Text UTF-8)
-  2. Preprocessing (normalize whitespace, remove junk)
-  3. Length Check:
-     ├─ < 3000 chars → Direct to Gemini
-     └─ ≥ 3000 chars → Smart Chunking
-  4. Smart Chunking (preserve paragraph boundaries)
-  5. Parallel Summarization (max 3 concurrent)
-  6. Merge Summaries → Core Knowledge
-  7. Gemini API → Generate JSON tree
-  8. Validation & Normalization (zod schema)
-  9. Response with JSON tree
+Frontend: Gửi yêu cầu POST /api/mindmap/generate (kèm nội dung văn bản đã trích xuất)
         ↓
-Frontend: Render mindmap from JSON
-  - Layout calculation (positioning, depth)
-  - SVG edge rendering (Bezier curves)
-  - Positioned div nodes
-  - Zoom/Pan/Fullscreen controls
+Hệ thống xử lý Backend (lib/mindmap.ts):
+  1. Tiền xử lý (Làm sạch văn bản, loại bỏ ký tự rác)
+  2. Chia nhỏ thông minh (Chia theo đoạn văn, giữ nguyên ranh giới nội dung)
+  3. Tóm tắt song song (Xử lý theo lô 2 đoạn để tránh giới hạn API)
+  4. Hợp nhất các bản tóm tắt → Tạo ngữ cảnh tổng thể (Global Context)
+  5. Sinh Sơ đồ tư duy từ ngữ cảnh (Sử dụng API Gemini/Pollinations)
+  6. Sửa lỗi JSON & Xác thực (Thuật toán "vá" JSON, cân bằng dấu ngoặc)
+  7. Chuẩn hóa dữ liệu sang MindmapNode (Gán ID, nguồn tham chiếu, logic cây)
         ↓
-User Interaction: View, zoom, export PNG/JPG/PDF
+Frontend: Hiển thị sơ đồ tư duy từ dữ liệu JSON
+  - Tính toán bố cục (Xác định vị trí, độ sâu của các nút)
+  - Vẽ đường nối SVG (Sử dụng đường cong Bezier)
+  - Sắp xếp các nút (Node) hiển thị trên giao diện
+  - Các bộ điều khiển: Phóng to/Thu nhỏ, Di chuyển, Toàn màn hình
 ```
-
-### 1.2 Nguyên tắc thiết kế
-
-- ✅ **AI chỉ sinh JSON** - không HTML/SVG/UI logic
-- ✅ **Validate trước render** - tránh frontend crash
-- ✅ **Graceful fallback** - error handling ở backend
-- ✅ **Retry intelligent** - 3 lần với prompt khác nhau
-- ✅ **Track sources** - mỗi node biết từ chunk nào sinh ra
-- ✅ **Smart chunking** - giữ paragraph boundaries
 
 ---
 
-## 2) Chuẩn JSON Tree
+## 2) Thuật Toán Chi Tiết (Full Code)
 
-### 2.1 Cấu trúc
+### 3.0 Giai đoạn 0: Trích xuất nội dung (Text Extraction)
+Đây là giai đoạn tạo ra **Input** cho toàn bộ Pipeline. Tùy thuộc vào loại file mà hệ thống sẽ xử lý ở Client hoặc Server.
 
-```json
-{
-  "id": "root-unique-id",
-  "title": "Tiêu Đề Tài Liệu (Max 10 từ)",
-  "important": false,
-  "sourceRefs": ["chunk-0", "chunk-1"],
-  "children": [
-    {
-      "id": "node-001-level-1-index-0",
-      "title": "Nhánh Chính 1 (10 từ max)",
-      "important": true,
-      "sourceRefs": ["chunk-1"],
-      "children": [
-        {
-          "id": "node-001-001-level-2-index-0",
-          "title": "Chi Tiết 1.1",
-          "important": false,
-          "sourceRefs": ["chunk-1"],
-          "children": []
-        }
-      ]
-    }
-  ]
+#### 3.0.1 Trích xuất PDF tại Client (Browser)
+*   **Vị trí code:** `app/mindmap/page.tsx` và `lib/client-pdf-parser.ts`
+*   **Mục đích:** Đọc chữ trực tiếp từ file PDF trên trình duyệt của người dùng.
+
+```typescript
+// Trong app/mindmap/page.tsx
+if (isPdf) {
+  // Import thư viện xử lý PDF tại client
+  const { extractTextFromPDFFile } = await import("@/lib/client-pdf-parser")
+  // Trích xuất chữ
+  const extractedText = await extractTextFromPDFFile(selectedFile)
+  // Tạo một file .txt tạm thời chứa nội dung đã trích xuất
+  fileToProcess = new File([extractedText], selectedFile.name.replace(/\.pdf$/i, ".txt"), { type: "text/plain" })
 }
 ```
 
-### 2.2 Quy ước Validation
+#### 3.0.2 Trích xuất Word (Docx) & Txt tại Server
+*   **Vị trí code:** `app/api/mindmap/extract/route.ts`
+*   **Giải thích:** Đối với Word, hệ thống sử dụng thư viện `mammoth` để trích xuất văn bản thô.
+*   **Input:** File nhị phân (Binary). **Output:** Chuỗi văn bản (String).
 
-| Field | Loại | Giới Hạn | Mô Tả |
-|-------|------|---------|-------|
-| `id` | string | Unique | Format: `node-{parent}-{index}-level-{depth}` |
-| `title` | string | ≤ 10 từ | Ý chính, tránh câu dài |
-| `important` | boolean | true/false | Highlight UI |
-| `sourceRefs` | string[] | 1-5 items | Track chunk origin |
-| `children` | array | 0-5 items | Max 3 depth |
+```typescript
+// Trong app/api/mindmap/extract/route.ts
+if (extension === "docx") {
+  const buffer = Buffer.from(await file.arrayBuffer())
+  // Sử dụng mammoth để đọc chữ từ file Word
+  const parsed = await mammoth.extractRawText({ buffer })
+  const text = normalizeExtractedText(parsed.value ?? "")
+  return NextResponse.json({ text })
+}
+
+if (extension === "txt") {
+  const text = buffer.toString("utf-8")
+  return NextResponse.json({ text })
+}
+```
 
 ---
 
-## 3) Thuật Toán Chi Tiết
+### 3.1 Giai đoạn 1: Làm sạch văn bản (Preprocessing)
+*   **Vị trí code:** `lib/mindmap.ts` (Hàm `cleanMarkdownText`)
+*   **Input:** Văn bản thô từ Giai đoạn 0. **Output:** Văn bản đã được chuẩn hóa.
 
-### 3.1 TEXT EXTRACTION
-
-#### TXT Files
 ```typescript
-async function extractTxt(arrayBuffer: ArrayBuffer): Promise<string> {
-  const buffer = Buffer.from(arrayBuffer)
-  return buffer.toString('utf-8').trim()
+function cleanMarkdownText(text: string): string {
+  // 1. Loại bỏ các ký tự heading (#)
+  text = text.replace(/^#+\s+/gm, "")
+  // 2. Loại bỏ các dấu bullet points (•, ○, -, ...)
+  text = text.replace(/^[\s]*[•○◯●-]\s+/gm, "")
+  // 3. Loại bỏ danh sách đánh số
+  text = text.replace(/^\s*\d+\.\s+/gm, "")
+  // 4. Ghép các dòng bị cắt nhỏ lại với nhau
+  text = text.replace(/([.!?])\n(?=[a-z])/g, "$1 ")
+  // 5. Chuyển đổi mọi loại khoảng trắng/xuống dòng thành 1 dấu cách duy nhất
+  text = text.replace(/\s+/g, " ")
+  return text.trim()
 }
 ```
 
-#### PDF Files
-```typescript
-import pdfParse from 'pdf-parse'
+---
 
-async function extractPdf(arrayBuffer: ArrayBuffer): Promise<string> {
-  const data = await pdfParse(Buffer.from(arrayBuffer))
-  return data.text.trim()
-}
-```
-
-#### DOCX Files
-```typescript
-import mammoth from 'mammoth'
-
-async function extractDocx(arrayBuffer: ArrayBuffer): Promise<string> {
-  const result = await mammoth.extractRawText({
-    arrayBuffer: Buffer.from(arrayBuffer)
-  })
-  return result.value.trim()
-}
-```
-
-### 3.2 PREPROCESSING
+### 3.2 Giai đoạn 2: Chia nhỏ văn bản (Smart Chunking)
+*   **Vị trí code:** `lib/mindmap.ts` (Hàm `chunkText` và `splitLargeParagraph`)
+*   **Giải thích:** Chia văn bản thành các đoạn nhỏ dưới 12,000 ký tự (mặc định) để gửi cho AI.
 
 ```typescript
-function preprocess(text: string): string {
-  return (
-    text
-      .replace(/\s+/g, ' ')           // Multiple spaces → 1 space
-      .replace(/[^\w\s\.\,\;\:\!\?\-]/g, '')  // Keep only necessary chars
-      .trim()
-  )
-}
-```
+function chunkText(inputText: string, maxChunkChars: number, maxChunks: number) {
+  const text = cleanMarkdownText(inputText)
+    .replace(/\u0000/g, " ")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]+/g, " ")
+    .replace(/\r/g, "")
+    .trim()
 
-### 3.3 SMART CHUNKING - Thuật toán chia text
+  if (!text) return [] as string[]
+  if (text.length <= maxChunkChars) return [text]
 
-**Chiến lược:**
-1. Nếu text < 3000 chars → Direct
-2. Nếu text ≥ 3000 chars → Chunk vào 2000-3000 char pieces
-3. **Quan trọng:** Giữ paragraph boundaries, tìm dấu chấm (.) gần nhất
+  // Cắt văn bản theo đoạn (\n\n)
+  const paragraphs = text.split(/\n{2,}/).flatMap((paragraph) => {
+    const trimmed = paragraph.trim()
+    if (!trimmed) return [] as string[]
 
-```typescript
-interface TextChunk {
-  id: string
-  text: string
-  startIdx: number
-  endIdx: number
-}
-
-function smartChunk(text: string, targetSize: number = 2500): TextChunk[] {
-  const chunks: TextChunk[] = []
-  let currentIdx = 0
-  let chunkNumber = 0
-
-  while (currentIdx < text.length) {
-    let endIdx = currentIdx + targetSize
-
-    if (endIdx < text.length) {
-      // Tìm dấu chấm gần nhất
-      const periodIdx = text.indexOf('.', endIdx)
-      
-      if (periodIdx !== -1 && periodIdx < endIdx + 200) {
-        endIdx = periodIdx + 1
-      } else {
-        // Tìm space
-        const spaceIdx = text.lastIndexOf(' ', endIdx)
-        if (spaceIdx > currentIdx + targetSize / 2) {
-          endIdx = spaceIdx
-        }
-      }
-    } else {
-      endIdx = text.length
+    // Nếu một đoạn văn vẫn quá dài, cắt nhỏ tiếp theo câu
+    if (trimmed.length > maxChunkChars) {
+      return splitLargeParagraph(trimmed, Math.max(1600, Math.floor(maxChunkChars * 0.92)))
     }
-
-    const chunkText = text.substring(currentIdx, endIdx).trim()
-    
-    if (chunkText.length > 100) {
-      chunks.push({
-        id: `chunk-${chunkNumber}`,
-        text: chunkText,
-        startIdx: currentIdx,
-        endIdx: endIdx,
-      })
-      chunkNumber++
-    }
-
-    currentIdx = endIdx
-  }
-
-  return chunks
-}
-```
-
-**Ví dụ Output:**
-```
-Input text: "Chương 1. Intro. Content here...Chương 2. Details."
-
-Output chunks:
-[
-  { id: "chunk-0", text: "Chương 1. Intro.", ... },
-  { id: "chunk-1", text: "Content here...Chương 2.", ... }
-]
-```
-
-### 3.4 SUMMARIZATION - Tóm tắt từng chunk
-
-```typescript
-async function summarizeChunk(chunkText: string, apiKey: string): Promise<string> {
-  const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'openai',
-      temperature: 0.3,  // Thấp = tập trung, tránh sáng tạo
-      messages: [
-        {
-          role: 'system',
-          content: 'Tóm tắt nội dung chính trong 2-3 câu. Bảo lưu ý chính, loại chi tiết phụ.',
-        },
-        {
-          role: 'user',
-          content: chunkText,
-        },
-      ],
-    }),
+    return [trimmed]
   })
 
-  const data = await response.json()
-  return data.choices[0].message.content
+  // Group paragraphs into chunks (Xem chi tiết tại lib/mindmap.ts)
+  const chunks: string[] = []
+  let current = ""
+  for (const paragraph of paragraphs) {
+    const candidate = current ? `${current}\n\n${paragraph}` : paragraph
+    if (candidate.length > maxChunkChars && current.length > 0) {
+      chunks.push(current); current = paragraph
+      if (chunks.length >= maxChunks) break
+      continue
+    }
+    current = candidate
+  }
+  if (current.length > 0 && chunks.length < maxChunks) chunks.push(current)
+  return chunks.slice(0, maxChunks)
 }
 
-// Parallel: chạy tối đa 3 cùng 1 lúc
-async function summarizeAllChunks(
-  chunks: TextChunk[],
-  apiKey: string
-): Promise<string[]> {
-  const summaries: string[] = []
-  
-  for (let i = 0; i < chunks.length; i += 3) {
-    const batch = chunks.slice(i, i + 3)
-    const batchSummaries = await Promise.all(
-      batch.map(chunk => summarizeChunk(chunk.text, apiKey))
-    )
-    summaries.push(...batchSummaries)
+// Hàm bổ trợ: Cắt đoạn văn dài theo dấu chấm câu
+function splitLargeParagraph(paragraph: string, maxChars: number) {
+  const parts: string[] = []
+  const sentences = paragraph
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?;:])\s+/) // Cắt theo dấu chấm, chấm phẩy, chấm hỏi, hai chấm
+    .filter((item) => item.length > 0)
+
+  let current = ""
+  for (const sentence of sentences) {
+    const next = current ? `${current} ${sentence}` : sentence
+    if (next.length > maxChars && current.length > 0) {
+      parts.push(current)
+      current = sentence
+      continue
+    }
+    current = next
   }
-  
-  return summaries
+  if (current.length > 0) parts.push(current)
+  return parts.length > 0 ? parts : [paragraph.slice(0, maxChars)]
 }
 ```
 
-### 3.5 MERGE SUMMARIES
+---
+
+### 3.3 Giai đoạn 3: Tóm tắt song song (Batch Summarization)
+*   **Vị trí code:** `lib/mindmap.ts` (Hàm `summarizeChunk`)
 
 ```typescript
-function mergeSummaries(
-  chunks: TextChunk[],
-  summaries: string[]
-): string {
-  let merged = ''
-  
-  for (let i = 0; i < summaries.length; i++) {
-    merged += `[Đoạn ${i + 1}]\n${summaries[i]}\n\n`
-  }
+async function summarizeChunk(chunkText: string, options: { apiKey: string; model: string }): Promise<string> {
+  const prompt = `Bạn là chuyên gia phân tích tài liệu. Hãy tóm tắt nội dung chính dạng bullet points, mỗi dòng <= 15 từ.`
 
-  // Limit to 5000 chars
-  const MAX_MERGED = 5000
-  if (merged.length > MAX_MERGED) {
-    merged = merged.substring(0, MAX_MERGED) + '\n[...còn nội dung khác...]'
-  }
-
-  return merged
-}
-```
-
-### 3.6 GEMINI/POLLINATIONS API - Sinh JSON
-
-```typescript
-interface MindmapResponse {
-  mindmap: MindmapNode | null
-  error: string | null
-}
-
-async function generateMindmap(
-  text: string,
-  fileName: string,
-  apiKey: string
-): Promise<MindmapResponse> {
-  const maxRetries = 3
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const temperature = 0.4 - (attempt - 1) * 0.1  // 0.4, 0.3, 0.2
-
-      const prompt = `Bạn là chuyên gia phân tích tài liệu.
-
-Chuyển nội dung thành sơ đồ tư duy JSON chuẩn.
-
-YÊUCẦU:
-- Trả CHỈ JSON object duy nhất, không markdown, không giải thích
-- Mỗi node: {id, title, important, sourceRefs, children}
-- title ≤ 10 từ
-- Max 3 cấp depth
-- children: mảng (0-5 items)
-- Tập trung ý chính, tránh lặp
-
-SCHEMA:
-{
-  "id": "root",
-  "title": "string",
-  "important": boolean,
-  "sourceRefs": ["chunk-0"],
-  "children": []
-}
-
-CONTENT:
-${text}`
-
-      const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'openai',
-          temperature,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+      const summaryText = await callPollinationsChat({
+        apiKey: options.apiKey,
+        model: options.model,
+        userPrompt: prompt + "\n\nNội dung:\n" + chunkText,
+        temperature: 0.3 + attempt * 0.1,
+        maxTokens: 1500,
       })
-
-      const data = await response.json()
-      const jsonStr = data.choices[0].message.content
-
-      let mindmap: MindmapNode
-      try {
-        mindmap = JSON.parse(jsonStr)
-      } catch (e) {
-        // Try extract từ markdown code block
-        const match = jsonStr.match(/```json\n([\s\S]*?)\n```/)
-        if (match) {
-          mindmap = JSON.parse(match[1])
-        } else {
-          throw new Error('Invalid JSON')
-        }
-      }
-
-      return { mindmap, error: null }
+      if (summaryText) return summaryText
     } catch (error) {
-      if (attempt === maxRetries) {
-        return {
-          mindmap: null,
-          error: `Lỗi (attempt ${attempt}): ${error.message}`,
-        }
-      }
+      await new Promise(r => setTimeout(r, 1500))
     }
   }
-
-  return { mindmap: null, error: 'Không thể tạo' }
-}
-```
-
-### 3.7 VALIDATION & NORMALIZATION
-
-```typescript
-import { z } from 'zod'
-
-const MindmapNodeSchema = z.object({
-  id: z.string(),
-  title: z.string().max(100),
-  important: z.boolean().optional().default(false),
-  sourceRefs: z.array(z.string()).optional().default([]),
-  children: z.array(z.lazy(() => MindmapNodeSchema)).optional().default([]),
-})
-
-type MindmapNode = z.infer<typeof MindmapNodeSchema>
-
-function normalizeMindmap(node: any, depth: number = 0): MindmapNode | null {
-  // Depth check
-  if (depth > 3) return null
-  
-  try {
-    let validated = MindmapNodeSchema.parse(node)
-
-    // Cắt title quá dài
-    const words = validated.title.split(' ')
-    if (words.length > 10) {
-      validated.title = words.slice(0, 10).join(' ')
-    }
-
-    // Normalize children recursively
-    validated.children = validated.children
-      .map(child => normalizeMindmap(child, depth + 1))
-      .filter(Boolean)
-      .slice(0, 5)  // Max 5 children
-
-    return validated
-  } catch (e) {
-    return null
-  }
+  return ""
 }
 ```
 
 ---
 
-## 4) API Route Implementation
+### 3.4 Giai đoạn 4: Thuật toán "Vá" JSON (JSON Repair)
+*   **Vị trí code:** `lib/mindmap.ts`
+*   **Giải thích:** Đảm bảo trích xuất chính xác JSON từ kết quả trả về của AI.
+
+```typescript
+function findBalancedJsonObject(value: string) {
+  const start = value.indexOf("{")
+  if (start < 0) return ""
+
+  // --- PHẦN LOGGING PHẢN HỒI AI ---
+  // Ghi log câu trả lời thô từ AI gửi về terminal để debug
+  console.log("--- AI RAW RESPONSE ---");
+  console.log(value);
+  console.log("-----------------------");
+
+  let depth = 0, inString = false, escaped = false
+
+  // Duyệt qua từng ký tự của chuỗi bắt đầu từ vị trí tìm thấy dấu mở ngoặc '{' đầu tiên
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index]
+
+    // 1. Kiểm tra nếu đang ở bên trong một chuỗi văn bản (nằm giữa cặp ngoặc kép "")
+    if (inString) {
+      if (escaped) { 
+        // Bỏ qua ký tự này nếu ký tự trước đó là dấu gạch chéo ngược '\' (Ký tự thoát)
+        escaped = false; 
+        continue 
+      }
+      if (char === "\\") { 
+        // Đánh dấu ký tự tiếp theo sẽ bị bỏ qua (ví dụ: \")
+        escaped = true; 
+        continue 
+      }
+      if (char === '"') {
+        // Gặp dấu ngoặc kép kết thúc chuỗi văn bản
+        inString = false
+      }
+      continue // Tiếp tục duyệt ký tự kế tiếp bên trong chuỗi
+    }
+
+    // 2. Xử lý khi ở bên ngoài chuỗi văn bản
+    if (char === '"') {
+      // Bắt đầu một chuỗi văn bản mới
+      inString = true
+      continue
+    }
+    if (char === "{") {
+      // Gặp một object con bên trong: Tăng độ sâu (depth)
+      depth += 1
+      continue
+    }
+    if (char === "}") {
+      // Gặp dấu đóng ngoặc: Giảm độ sâu (depth)
+      depth -= 1
+      // Khi độ sâu quay về 0, nghĩa là ta đã tìm thấy điểm kết thúc hoàn chỉnh của object JSON
+      if (depth === 0) return value.slice(start, index + 1)
+    }
+  }
+  // Trả về chuỗi rỗng nếu duyệt hết văn bản mà không tìm được object cân bằng
+  return ""
+}
+```
+
+---
+
+### 3.5 Giai đoạn 5: Chuẩn hóa & Final Logging
+*   **Vị trí code:** `lib/mindmap.ts` (Kết thúc hàm `generateMindmapWithGemini`)
+
+```typescript
+// Chuyển đổi từ Simple Tree (từ AI) sang cấu trúc MindmapNode (dùng để render UI)
+const finalMindmap = toMindmapNode(simpleTree);
+
+// --- PHẦN LOGGING JSON CUỐI CÙNG ---
+// Ghi log cấu trúc JSON hoàn chỉnh dùng để render Mindmap ra terminal
+console.log("--- FINAL MINDMAP JSON FOR RENDERING ---");
+console.log(JSON.stringify(finalMindmap, null, 2));
+console.log("----------------------------------------");
+
+return {
+  simpleTree,
+  mindmap: finalMindmap,
+  chunkCount: chunks.length,
+}
+```
+
+---
+
+## 4) Triển Khai API Route
 
 ### File: `app/api/mindmap/generate/route.ts`
+API nhận văn bản đã trích xuất và gọi hàm trung tâm để thực hiện toàn bộ Pipeline.
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server'
-
-export const maxDuration = 60
-
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const fileName = formData.get('fileName') as string
-
-    if (!file) {
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 400 }
-      )
-    }
-
-    // 1. Extract text based on file type
-    const arrayBuffer = await file.arrayBuffer()
-    let text: string
-
-    if (file.type === 'application/pdf') {
-      text = await extractPdf(arrayBuffer)
-    } else if (file.type === 'text/plain') {
-      text = await extractTxt(arrayBuffer)
-    } else if (file.type.includes('wordprocessingml') || file.type.includes('msword')) {
-      text = await extractDocx(arrayBuffer)
-    } else {
-      return NextResponse.json(
-        { error: 'Unsupported file type' },
-        { status: 400 }
-      )
-    }
-
-    text = preprocess(text)
-
-    if (!text || text.length < 100) {
-      return NextResponse.json(
-        { error: 'File is too short or empty' },
-        { status: 400 }
-      )
-    }
-
-    // 2. Smart chunking and summarization
-    const apiKey = process.env.POLLINATIONS_API_KEY
-    let summaryText = text
-
-    if (text.length > 3000) {
-      const chunks = smartChunk(text, 2500)
-      const summaries = await summarizeAllChunks(chunks, apiKey)
-      summaryText = mergeSummaries(chunks, summaries)
-    }
-
-    // 3. Generate mindmap from Gemini/Pollinations
-    const { mindmap: rawMindmap, error } = await generateMindmap(
-      summaryText,
-      fileName,
-      apiKey
-    )
-
-    if (error || !rawMindmap) {
-      return NextResponse.json(
-        { error: error || 'Failed to generate mindmap' },
-        { status: 500 }
-      )
-    }
-
-    // 4. Validate and normalize
-    const mindmap = normalizeMindmap(rawMindmap)
-
-    if (!mindmap) {
-      return NextResponse.json(
-        { error: 'Invalid JSON from AI' },
-        { status: 500 }
-      )
-    }
-
-    // 5. Return response
-    return NextResponse.json({
-      mindmap,
-      meta: {
-        fileName,
-        nodeCount: countNodes(mindmap),
-        depth: calculateDepth(mindmap),
-      },
-    })
-  } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Server error' },
-      { status: 500 }
-    )
-  }
+export async function POST(request: Request) {
+  const body = await request.json()
+  const result = await generateMindmapWithGemini({
+    fileName: body.fileName,
+    text: body.text, // Đây là kết quả từ Giai đoạn 0
+    apiKey: process.env.POLLINATIONS_API_KEY,
+    model: process.env.MINDMAP_MODEL || "openai",
+    maxChunkChars: 12000,
+    maxChunks: 8
+  })
+  return NextResponse.json(result)
 }
 ```
-
----
-
-## 5) Frontend Implementation
-
-Đã hoàn thành trong [components/mindmap-viewer.tsx](../../components/mindmap-viewer.tsx):
-- Layout calculation
-- SVG edge rendering
-- Zoom/Pan/Fullscreen
-- Download PNG/JPG/PDF
-
----
-
-## 6) Performance Tips
-
-- ✅ Parallel summarization (batch 3)
-- ✅ Smart chunking (preserve boundaries)
-- ✅ Temperature reduction (retry strategy)
-- ✅ Memoized calculations
-- ✅ Virtual rendering nếu cần
-
----
-
-## 7) Checklist
-
-- ✅ Upload PDF/DOCX/TXT works
-- ✅ Long documents handled
-- ✅ JSON always valid
-- ✅ Error handling graceful
-- ✅ Download works
-- ✅ Zoom/Pan/Fullscreen
-- ✅ Performance < 15s average
-

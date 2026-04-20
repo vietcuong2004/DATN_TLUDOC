@@ -9,20 +9,56 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 
+import { toast } from "sonner"
+
 export default function RegisterPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (password !== confirmPassword) {
+      toast.error("Lỗi đăng ký", {
+        description: "Xác nhận mật khẩu không khớp.",
+      });
+      return;
+    }
+
     setIsLoading(true)
 
-    // Giả lập xử lý đăng ký
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Đăng ký thành công!", {
+          description: "Bạn có thể đăng nhập ngay bây giờ.",
+        });
+        router.push("/auth/login");
+      } else {
+        toast.error("Đăng ký thất bại", {
+          description: data.message,
+        });
+      }
+    } catch (error) {
+      toast.error("Lỗi hệ thống", {
+        description: "Không thể kết nối tới máy chủ.",
+      });
+    } finally {
       setIsLoading(false)
-      router.push("/auth/login")
-    }, 1500)
+    }
   }
 
   return (
@@ -135,6 +171,8 @@ export default function RegisterPage() {
                     placeholder="Nguyễn Văn A"
                     className="pl-11 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium"
                     required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                   />
                 </div>
               </div>
@@ -151,6 +189,8 @@ export default function RegisterPage() {
                     placeholder="email@tlu.edu.vn"
                     className="pl-11 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
               </div>
@@ -168,6 +208,8 @@ export default function RegisterPage() {
                       placeholder="••••••••"
                       className="pl-11 pr-12 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium"
                       required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <button
                       type="button"
@@ -191,6 +233,8 @@ export default function RegisterPage() {
                       placeholder="••••••••"
                       className="pl-11 pr-12 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm font-medium"
                       required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                     <button
                       type="button"

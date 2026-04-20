@@ -496,37 +496,20 @@ Nên giới hạn số request song song, ví dụ tối đa 3 chunk cùng lúc.
 
 ```ts
 async function summarizeChunk(chunkText: string, summaryType: string, apiKey: string) {
-  const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "openai",
-      temperature: 0.3,
-      messages: [
-        {
-          role: "system",
-          content:
-            summaryType === "bullets"
-              ? "Hãy tóm tắt nội dung thành các gạch đầu dòng ngắn gọn, tập trung ý chính."
-              : "Hãy tóm tắt nội dung thành một đoạn văn ngắn gọn, rõ ý, dễ đọc.",
-        },
-        {
-          role: "user",
-          content: chunkText,
-        },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`AI error (${response.status})`)
-  }
+  // ... (Gửi request đến Pollinations)
+  const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", { ... })
+  
+  if (!response.ok) throw new Error(`AI error (${response.status})`)
 
   const data = await response.json()
-  return data.choices?.[0]?.message?.content?.trim() ?? ""
+  const content = data.choices?.[0]?.message?.content?.trim() ?? ""
+
+  // Ghi log câu trả lời thô từ AI gửi về terminal để debug
+  console.log("--- SUMMARIZE: AI RAW RESPONSE ---");
+  console.log(content);
+  console.log("----------------------------------");
+
+  return content
 }
 ```
 
@@ -629,6 +612,11 @@ async function generateSummary(options: {
 
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content?.trim() ?? ""
+
+  // Ghi log kết quả tóm tắt cuối cùng gửi về cho người dùng
+  console.log("--- FINAL SUMMARY RESULT ---");
+  console.log(content);
+  console.log("----------------------------");
 
   if (!content) {
     throw new Error("AI returned empty summary")

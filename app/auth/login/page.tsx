@@ -9,21 +9,50 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 
+import { toast } from "sonner"
+
 export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Giả lập xử lý đăng nhập
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Đăng nhập thành công!", {
+          description: `Chào mừng ${data.user.name} trở lại.`,
+        });
+        
+        // Lưu trạng thái đăng nhập
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("user", JSON.stringify(data.user));
+        
+        router.push("/");
+      } else {
+        toast.error("Đăng nhập thất bại", {
+          description: data.message,
+        });
+      }
+    } catch (error) {
+      toast.error("Lỗi hệ thống", {
+        description: "Không thể kết nối tới máy chủ.",
+      });
+    } finally {
       setIsLoading(false)
-      localStorage.setItem("isLoggedIn", "true")
-      router.push("/")
-    }, 1500)
+    }
   }
 
   return (
@@ -136,6 +165,8 @@ export default function LoginPage() {
                     placeholder="email@tlu.edu.vn"
                     className="pl-11 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
               </div>
@@ -157,6 +188,8 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     className="pl-11 h-12 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     type="button"

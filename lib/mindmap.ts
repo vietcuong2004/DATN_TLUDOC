@@ -433,6 +433,11 @@ ${globalContext}`
         continue
       }
 
+      // Ghi log câu trả lời thô từ AI gửi về
+      console.log("--- AI RAW RESPONSE ---");
+      console.log(modelText);
+      console.log("-----------------------");
+
       try {
         const parsed = parseJsonWithRepairs(modelText)
         const validated = SimpleMindmapNodeSchema.parse(parsed)
@@ -524,9 +529,16 @@ export async function generateMindmapWithGemini(options: GenerationOptions) {
       model: options.model,
     })
 
+    const finalMindmap = toMindmapNode(simpleTree);
+
+    // Ghi log cấu trúc JSON hoàn chỉnh dùng để render Mindmap
+    console.log("--- FINAL MINDMAP JSON FOR RENDERING ---");
+    console.log(JSON.stringify(finalMindmap, null, 2));
+    console.log("----------------------------------------");
+
     return {
       simpleTree,
-      mindmap: toMindmapNode(simpleTree),
+      mindmap: finalMindmap,
       chunkCount: chunks.length,
     }
   } catch (error) {

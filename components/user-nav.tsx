@@ -17,11 +17,20 @@ interface UserNavProps {
   user: {
     name: string
     avatar: string
+    role?: string
   }
 }
 
 export function UserNav({ user }: UserNavProps) {
   const router = useRouter()
+
+  const getRoleLabel = (role?: string) => {
+    switch (role?.toLowerCase()) {
+      case 'admin': return 'Quản trị viên';
+      case 'student': return 'Sinh viên';
+      default: return 'Thành viên';
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn")
@@ -56,7 +65,7 @@ export function UserNav({ user }: UserNavProps) {
               <h3 className="text-xl font-black text-slate-800 tracking-tight leading-none">{user.name}</h3>
               <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[10px] font-black text-blue-600 uppercase tracking-widest border border-blue-100">
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-                Sinh viên Thủy Lợi
+                {getRoleLabel(user.role)}
               </div>
             </div>
           </div>
