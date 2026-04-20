@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookOpen, ChevronDown, ChevronUp, Filter, Search } from "lucide-react"
+import { ChevronDown, ChevronUp, Filter, Search } from "lucide-react"
 import { curriculumGroups } from "@/lib/curriculum"
 
 type FilterMode = "all" | "required" | "elective"
@@ -82,22 +82,21 @@ export function SubjectCategoriesSidebar() {
 
   return (
     <aside className={`flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] lg:sticky lg:top-24 ${isExpanded ? "lg:h-[1100px]" : "h-fit"}`}>
-      <div className="relative shrink-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 px-5 py-5 text-white">
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          title={isExpanded ? "Thu gọn" : "Mở rộng"}
-        >
-          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20 backdrop-blur">
-            <BookOpen className="h-5 w-5" />
-          </div>
-          <div>
+      <div className="shrink-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 px-5 py-5 text-white">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 pr-2">
             <h2 className="text-xl font-bold">Danh sách tài liệu</h2>
-            <p className="text-sm text-white/75">Tra cứu theo mã học phần, tên môn hoặc nhóm môn học</p>
+            <p className="text-sm text-white/75 leading-relaxed">
+              Tra cứu theo mã học phần, tên môn hoặc nhóm môn học
+            </p>
           </div>
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 backdrop-blur-sm"
+            title={isExpanded ? "Thu gọn" : "Mở rộng"}
+          >
+            {isExpanded ? <ChevronUp className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+          </button>
         </div>
 
         <div className="mt-4 rounded-xl bg-white/10 p-2 ring-1 ring-white/10 backdrop-blur-sm">
