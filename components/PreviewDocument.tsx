@@ -132,34 +132,35 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
   const getPreviewUrl = (url?: string) => {
     if (!url) return null;
 
-    // Xử lý link Google Docs native
-    const docDMatch = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    if (docDMatch) {
-      return `https://docs.google.com/document/d/${docDMatch[1]}/preview`;
-    }
+    // Check if it's a Google domain before attempting ID extraction for Google Viewer
+    const isGoogleDomain = url.includes("google.com") || url.includes("drive.google.com") || url.includes("docs.google.com");
 
-    // Xử lý link file lưu trên Drive (PDF, DOCX, XLSX,...)
-    let fileId: string | null = null;
+    if (isGoogleDomain) {
+      // Handle native Google Docs
+      const docDMatch = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+      if (docDMatch) {
+        return `https://docs.google.com/document/d/${docDMatch[1]}/preview`;
+      }
 
-    const fileDMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (fileDMatch) {
-      fileId = fileDMatch[1];
-    }
+      // Handle Drive files (PDF, DOCX, XLSX, etc.)
+      let fileId: string | null = null;
+      const fileDMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (fileDMatch) {
+        fileId = fileDMatch[1];
+      }
 
-    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (idMatch) {
-      fileId = idMatch[1];
-    }
+      const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (idMatch && !fileId) {
+        fileId = idMatch[1];
+      }
 
-    if (fileId) {
-      // Nếu là PDF, dùng /preview chuẩn của Drive
-      if (document.title?.toLowerCase().endsWith(".pdf")) {
+      if (fileId) {
+        // Use standard Drive preview for all file types as it's more stable for iframe embedding
         return `https://drive.google.com/file/d/${fileId}/preview`;
       }
-      // Nếu là DOCX hoặc tệp Office khác, dùng Google Docs Viewer để ổn định hơn trong iframe
-      return `https://docs.google.com/viewer?srcid=${fileId}&embedded=true`;
     }
 
+    // For local or other links, return as is
     return url;
   };
 
