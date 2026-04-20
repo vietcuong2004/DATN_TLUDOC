@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Progress } from "@/components/ui/progress"
-import { FileUp, FileText, Brain, Copy, List, AlignLeft, Sparkles, CheckCircle2, Eye, X } from "lucide-react"
+import { FileUp, FileText, Brain, Copy, List, AlignLeft, Sparkles, CheckCircle2, Eye, X, Info } from "lucide-react"
 import PreviewDocument from "@/components/PreviewDocument"
 
 type SummaryFormat = "paragraph" | "bullets"
@@ -57,8 +57,9 @@ export default function Summarize() {
       
       // Bỏ qua check dung lượng PDF vì nó được phân tích phía client
       if (!isPdf && file.size > 4.5 * 1024 * 1024) {
-        alert("Xin lỗi, máy chủ miễn phí giới hạn dung lượng file tối đa là 4.5MB. Vui lòng nén file hoặc chia nhỏ tài liệu trước khi tải lên (File của bạn > 4.5MB).")
-        e.target.value = ""
+        setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén hoặc chia nhỏ tài liệu trước khi tải lên (Dưới 4.5MB).")
+        setSelectedFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ""
         return
       }
       setSelectedFile(file)
@@ -101,6 +102,18 @@ export default function Summarize() {
       formData.append("summaryType", summaryType)
       formData.append("summaryLength", String(summaryLength))
       formData.append("language", summaryLanguage)
+      formData.append("documentName", selectedFile.name)
+
+      // Lấy userId từ localStorage để lưu vào lịch sử
+      const savedUser = localStorage.getItem("user")
+      if (savedUser) {
+        const userData = JSON.parse(savedUser)
+        if (userData.id) {
+          formData.append("userId", String(userData.id))
+        }
+      } else {
+        throw new Error("Vui lòng đăng nhập để thực hiện tóm tắt và lưu kết quả.")
+      }
 
       const response = await fetch("/api/summarize", {
         method: "POST",
@@ -310,11 +323,18 @@ export default function Summarize() {
                     </Button>
                   </div>
 
-                  {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-
-                  <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                    <p className="font-semibold text-slate-900">Lưu ý</p>
-                    <p className="mt-1">Hệ thống ưu tiên giữ ý chính, quan trọng nhất để bạn có bản tóm tắt nội dung cơ bản, dễ dùng để học tập. Tuy nhiên cũng có thể bị mất một số ý quan trọng, hãy đọc lại tài liệu để nắm rõ hơn, tránh mất kiến thức nhé</p>
+                  {errorMessage ? <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-xl border border-red-100">{errorMessage}</p> : null}
+                  
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-sm text-blue-800 flex items-start gap-3 shadow-sm">
+                    <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 flex-shrink-0">
+                      <Info className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-blue-900">Lưu ý:</p>
+                      <p className="leading-relaxed opacity-90">
+                        Hệ thống ưu tiên giữ ý chính, quan trọng nhất để bạn có bản tóm tắt nội dung cơ bản, dễ dùng để học tập. Tuy nhiên cũng có thể bị mất một số ý quan trọng, hãy đọc lại tài liệu để nắm rõ hơn, tránh mất kiến thức nhé
+                      </p>
+                    </div>
                   </div>
                 </div>
               </CardContent>

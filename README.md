@@ -8,7 +8,7 @@
 
 | 📍 Tài Nguyên | 🔗 Link |
 |---|---|
-| **Live Demo** | [https://datn-tludoc.vercel.app/](https://datn-tludoc.vercel.app/) |
+| **Live Demo** | [https://tlu-document.vercel.app/](https://tlu-document.vercel.app/) |
 | **CI/CD Pipeline** | [Vercel Dashboard](https://vercel.com/vietcuong2004s-projects/datn-tludoc) |
 | **Database** | [Railway MySQL](https://railway.com/project/b5fe13e8-018d-439a-9d19-2044737aa298/service/a8c712cc-c366-4c3a-aa4d-d77eea842d32/database?environmentId=6ee76ecc-c4bc-4615-b1a5-616432dd979f) |
 

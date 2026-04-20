@@ -55,7 +55,7 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Xem trước DOCX</title>
+            <title>Xem trước tài liệu</title>
             <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
             <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
             <style>
@@ -152,7 +152,12 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
     }
 
     if (fileId) {
-      return `https://drive.google.com/file/d/${fileId}/preview`;
+      // Nếu là PDF, dùng /preview chuẩn của Drive
+      if (document.title?.toLowerCase().endsWith(".pdf")) {
+        return `https://drive.google.com/file/d/${fileId}/preview`;
+      }
+      // Nếu là DOCX hoặc tệp Office khác, dùng Google Docs Viewer để ổn định hơn trong iframe
+      return `https://docs.google.com/viewer?srcid=${fileId}&embedded=true`;
     }
 
     return url;
@@ -166,10 +171,10 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
       />
       <div
         className={`fixed z-[60] flex flex-col bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] transition-all duration-300 overflow-hidden ${isMinimized
-            ? "bottom-0 right-4 translate-y-full opacity-0 pointer-events-none scale-50"
-            : isMaximized
-              ? "inset-0 w-screen h-screen max-w-none rounded-none opacity-100 scale-100"
-              : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-5xl h-[calc(100vh-2rem)] md:h-[90vh] rounded-2xl opacity-100 scale-100"
+          ? "bottom-0 right-4 translate-y-full opacity-0 pointer-events-none scale-50"
+          : isMaximized
+            ? "inset-0 w-screen h-screen max-w-none rounded-none opacity-100 scale-100"
+            : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-5xl h-[calc(100vh-2rem)] md:h-[90vh] rounded-2xl opacity-100 scale-100"
           }`}
         onClick={(event) => event.stopPropagation()}
       >
@@ -269,6 +274,7 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
             <Maximize2 className="h-4 w-4 text-slate-400 shrink-0" />
             <p className="truncate text-sm font-semibold">{document.title}</p>
           </div>
+
           <div className="flex items-center shrink-0 pl-2 border-l border-slate-600/50">
             <button
               className="rounded p-1 hover:bg-red-500/80 transition-colors"

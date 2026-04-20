@@ -28,13 +28,28 @@ export function Navbar() {
   }
 
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user] = useState({ name: "Nguyễn Văn A", avatar: "/avatar.png" })
+  const [user, setUser] = useState<{ name: string; avatar: string; role?: string }>({ 
+    name: "Khách", 
+    avatar: "/avatar.png" 
+  })
 
   useEffect(() => {
     // Kiểm tra trạng thái đăng nhập từ localStorage
     const status = typeof window !== "undefined" && localStorage.getItem("isLoggedIn") === "true"
     setIsLoggedIn(status)
-  }, [pathname]) // Re-check when path changes (helpful for simulation)
+
+    if (status) {
+      const savedUser = localStorage.getItem("user")
+      if (savedUser) {
+        const userData = JSON.parse(savedUser)
+        setUser({
+          name: userData.name || "Người dùng",
+          avatar: userData.avatar || "/avatar.png",
+          role: userData.role
+        })
+      }
+    }
+  }, [pathname]) 
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

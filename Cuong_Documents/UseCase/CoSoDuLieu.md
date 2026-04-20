@@ -295,10 +295,12 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 | Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
 | :--- | :--- | :--- | :--- |
 | id | int(11) | Khóa chính, Tự tăng, NOT NULL | Mã định danh duy nhất (khóa chính) tự động sinh ra cho mỗi tài liệu khi được đưa vào hệ thống. |
+| user_id | int(11) | Khóa ngoại (users.id), NULL | ID người dùng upload (nếu là tài liệu cá nhân). |
 | title | varchar(500) | FULLTEXT, NOT NULL | Tiêu đề hoặc tên hiển thị chính thức của tài liệu. Hỗ trợ Fulltext cho tính năng tìm kiếm văn bản. |
 | description | text | FULLTEXT, DEFAULT NULL | Lời mô tả chi tiết, phân tích nội dung cốt lõi của tài liệu để người xem đọc lướt trước khi tải. |
-| subject_id | int(11) | Khóa ngoại (subjects.id), NOT NULL | Mã định danh giúp hệ thống phân loại chính xác tài liệu này thuộc về bộ môn / môn học nào. |
-| uploader_id | int(11) | Khóa ngoại (users.id), NOT NULL | ID của tài khoản Admin hoặc sinh viên đã trực tiếp upload và cống hiến tài liệu này lên hệ thống. |
+| subject_id | int(11) | Khóa ngoại (subjects.id), NULL | Mã định danh giúp hệ thống phân loại xem tài liệu này thuộc môn học nào (có thể NULL nếu là upload tự do). |
+| uploader_id | int(11) | Khóa ngoại (users.id), NOT NULL | ID của tài khoản Admin hoặc người đóng góp chính thức. |
+| is_private | tinyint(1) | DEFAULT 0 | 0: Công khai (Hệ thống), 1: Riêng tư (Tài liệu do user cá nhân tải lên). |
 | doc_type | enum('exam','lecture','slides','assignment','research','other') | DEFAULT 'other' | Phân loại thể loại tập tin để dễ lọc: thi thử (exam), bài giảng (lecture), bài trình chiếu (slides)... |
 | storage_provider | enum('gdrive','other') | DEFAULT 'gdrive' | Nền tảng phân phối Cloud đang chứa file gốc. Mặc định là 'gdrive' (Google Drive). |
 | drive_folder_key | varchar(100) | NOT NULL | Tên Khóa (Key) của thư mục Google Drive đang chứa tệp (Ví dụ: TRI_TUE_NHAN_TAO). Dùng để auto-sync. |
@@ -336,12 +338,14 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 
 | Thuộc Tính | Kiểu Dữ Liệu | Ràng Buộc | Mô Tả |
 | :--- | :--- | :--- | :--- |
-| id | int(11) | Khóa chính, Tự tăng, NOT NULL | ID bài tóm tắt |
-| document_id | int(11) | Khóa ngoại (documents.id), UNIQUE, NOT NULL | Ánh xạ 1-1: file tài liệu ứng với đoạn tóm tắt tương ứng |
-| summary_text | longtext | NOT NULL | Cấu trúc chữ, nội dung tổng hợp từ AI |
-| summary_type | enum('short','medium','long') | DEFAULT 'medium' | Độ dài của bản tóm tắt |
-| ai_model | varchar(100) | DEFAULT NULL | Mô hình AI sinh ra kết quả |
-| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời gian AI trả về kết quả vào db |
+| id | int(11) | Khóa chính, Tự tăng, NOT NULL | ID bản ghi tóm tắt |
+| user_id | int(11) | Khóa ngoại (users.id), NOT NULL | Người thực hiện tóm tắt (để quản lý lịch sử cá nhân) |
+| document_id | int(11) | Khóa ngoại (documents.id), NULL | Liên kết tới file trong hệ thống (nếu có) |
+| document_name | varchar(255) | NOT NULL | Tên tệp tin gốc để hiển thị nhanh trên UI |
+| summary_text | longtext | NOT NULL | Nội dung chữ tổng hợp từ AI |
+| summary_type | enum('paragraph','bullets') | DEFAULT 'paragraph' | Kiểu hiển thị kết quả (đoạn văn/gạch đầu dòng) |
+| ai_model | varchar(100) | DEFAULT NULL | Phiên bản AI sinh ra kết quả |
+| created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Thời điểm ghi nhận vào hệ thống |
 
 ### 8.6. Bảng `chatbot_history` (Dữ liệu hội thoại AI)
 

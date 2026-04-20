@@ -112,6 +112,39 @@ const startGeneration = async (selectedFile: File) => {
 - Gỡ rào cản Runtime: Trích xuất Text từ file DOCX (dùng thư viện `mammoth`) và PDF (dùng `pdf-parse`).
 - **Đặc biệt (Fix Bug PDF):** Sử dụng kỹ thuật `eval("require")("pdf-parse")` thay vì `import()`. Điều này giúp né lỗi Crash Webpack CJS/ESM (`TypeError: Object.defineProperty called on non-object`) khét tiếng của NextJS App Router khi parse file PDF bằng Server Components.
 
+### 📌 File 3: Logic trung tâm AI (`lib/quiz.ts`)
+**Công dụng:**
+- **`smartChunk()`**: Chia nhỏ văn bản để AI không bị quá tải.
+- **`callPollinationsChat()`**: Hàm giao tiếp với AI, có cơ chế **tự động thử lại (Retry)** tối đa 3 lần nếu AI trả về dữ liệu rỗng hoặc bị lỗi.
+- **`safeParseQuiz()`**: Sử dụng Regex để "rửa" chuỗi JSON từ AI, loại bỏ các ký tự thừa như ```json để đảm bảo `JSON.parse` không bị lỗi.
+- **`refineQuiz()`**: Giai đoạn tinh chỉnh cuối cùng để đảm bảo văn phong tiếng Việt chuẩn xác và logic các câu hỏi đồng nhất.
+
+---
+
+## 🔍 4. Hệ thống Logging (Terminal Debug)
+Để hỗ trợ việc kiểm soát chất lượng nội dung từ AI, hệ thống đã được thiết kế các dòng log chi tiết trong Terminal tại server:
+
+### 4.1. Giai đoạn gọi AI (AI RAW RESPONSE)
+Mỗi khi hệ thống gửi yêu cầu sinh câu hỏi, Terminal sẽ in ra phản hồi thô của AI. Điều này giúp lập trình viên kiểm tra xem AI có tuân thủ đúng định dạng JSON hay không.
+```bash
+--- QUIZ: AI RAW RESPONSE ---
+{
+  "questions": [ ... ]
+}
+-----------------------------
+```
+
+### 4.2. Giai đoạn hoàn thiện (FINAL QUIZ QUESTIONS)
+Sau khi đã qua các bước lọc trùng, chấm điểm và tinh chỉnh (Refine), danh sách 15 câu hỏi chính thức dùng để render lên giao diện người dùng sẽ được in ra.
+```bash
+--- FINAL QUIZ QUESTIONS FOR RENDERING ---
+[
+  { "question": "...", "options": [...], "correctIndex": 0, "explanation": "..." },
+  ...
+]
+------------------------------------------
+```
+
 ---
 
 ## 🎯 Tổng kết (Sự khác biệt của cấu trúc này)
@@ -121,3 +154,4 @@ Sự kết hợp giữa Flow AI ở `lib/quiz.ts` và Frontend Real-time `page.t
 - ✅ Lời giải đáp luôn có căn cứ và được đánh dấu In Đậm rõ ràng qua Regex.
 - ✅ Số lượng câu hỏi luôn được kiểm soát (Max 15), hạn chế chi phí gọi API.
 - ✅ Vượt qua các lỗi Build-time nội địa của Vercel/NextJS khi parse file PDF tĩnh.
+- ✅ **Khả năng Debug cao:** Dễ dàng theo dõi và tinh chỉnh Prompt qua hệ thống Logging Terminal.

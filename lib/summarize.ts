@@ -622,7 +622,7 @@ async function generateFinalSummary(options: {
     options.refinedText,
   ].join("\n")
 
-  return callWithRetries(
+  const modelResponse = await callWithRetries(
     async (temperature) =>
       callPollinationsChat({
         apiKey: options.apiKey,
@@ -634,6 +634,13 @@ async function generateFinalSummary(options: {
       }),
     [0.3, 0.2, 0.1],
   )
+
+  // Ghi log câu trả lời thô từ AI gửi về
+  console.log("--- SUMMARIZE: AI RAW RESPONSE ---");
+  console.log(modelResponse);
+  console.log("----------------------------------");
+
+  return modelResponse
 }
 
 function mergeSummaries(summaries: string[]) {
@@ -747,6 +754,11 @@ export async function generateSummaryFromFile(options: {
   }
 
   summary = formatStructuredSummary(globalHint, summary, options.summaryType)
+
+  // Ghi log kết quả tóm tắt cuối cùng gửi về cho người dùng
+  console.log("--- FINAL SUMMARY RESULT ---");
+  console.log(summary);
+  console.log("----------------------------");
 
   return {
     summary,

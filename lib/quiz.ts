@@ -122,12 +122,13 @@ async function callPollinationsChat(options: {
       const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> }
       const content = payload?.choices?.[0]?.message?.content?.trim() ?? ""
       
-      if (!content) {
-        console.error(`[quiz] Pollinations returned empty content on attempt ${attempt + 1}. Payload:`, JSON.stringify(payload))
-        throw new Error("Pollinations returned empty content or error payload")
+      if (content) {
+        // Ghi log câu trả lời thô từ AI gửi về
+        console.log("--- QUIZ: AI RAW RESPONSE ---");
+        console.log(content);
+        console.log("-----------------------------");
+        return content
       }
-
-      return content // Nếu ra được chữ, thì văng kết quả ra ngay lập tức
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
       console.warn(`[quiz] Pollinations API attempt ${attempt + 1} failed: ${lastError.message}`)
@@ -356,9 +357,9 @@ export async function generateQuizFromText(options: QuizGenerationOptions) {
         options.apiKey,
         options.model,
       )
-      console.log("[quiz] raw AI response:", raw.slice(0, 300))
-      
-      const parsed = safeParseQuiz(raw)
+        // Đã có logging chi tiết bên trong callPollinationsChat
+        
+        const parsed = safeParseQuiz(raw)
       if (!parsed.length) throw new Error("Empty quiz chunk returned")
       
       allQuestions.push(...parsed)
@@ -396,6 +397,11 @@ export async function generateQuizFromText(options: QuizGenerationOptions) {
   
   // Tổng thanh tra cuối cùng nhỡ Refine lại tự sinh ra trùng hoặc lỗi định dạng
   const strictlyValidQuestions = deduplicateQuestions(finalQuestions).filter(validateQuestion)
+
+  // Ghi log kết quả quiz cuối cùng sau khi sàng lọc
+  console.log("--- FINAL QUIZ QUESTIONS FOR RENDERING ---");
+  console.log(JSON.stringify(strictlyValidQuestions.slice(0, 15), null, 2));
+  console.log("------------------------------------------");
 
   // Đóng hàng, lên xe vận tống về cho Web Frontend nhận.
   return {
