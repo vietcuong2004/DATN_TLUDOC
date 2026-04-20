@@ -28,9 +28,9 @@ export function Navbar() {
   }
 
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState<{ name: string; avatar: string; role?: string }>({ 
-    name: "Khách", 
-    avatar: "/avatar.png" 
+  const [user, setUser] = useState<{ name: string; avatar: string; role?: string }>({
+    name: "Khách",
+    avatar: "/avatar.png"
   })
 
   useEffect(() => {
@@ -49,11 +49,12 @@ export function Navbar() {
         })
       }
     }
-  }, [pathname]) 
+  }, [pathname])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push("/advanced-search")
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn")
+    localStorage.removeItem("user")
+    window.location.href = "/auth/login"
   }
 
   return (
@@ -67,53 +68,48 @@ export function Navbar() {
 
         {!isMobile && (
           <nav className="mx-6 flex items-center space-x-4 lg:space-x-6">
-            <Link 
-              href="/" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                pathname === "/"
+            <Link
+              href="/"
+              className={`text-sm font-medium transition-colors pb-1 ${pathname === "/"
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
-              }`}
+                }`}
             >
               Trang chủ
             </Link>
-            <Link 
-              href="/chatbot" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/chatbot")
+            <Link
+              href="/chatbot"
+              className={`text-sm font-medium transition-colors pb-1 ${isActive("/chatbot")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
-              }`}
+                }`}
             >
               Chatbot
             </Link>
-            <Link 
-              href="/mindmap" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/mindmap")
+            <Link
+              href="/mindmap"
+              className={`text-sm font-medium transition-colors pb-1 ${isActive("/mindmap")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
-              }`}
+                }`}
             >
               Mindmap
             </Link>
-            <Link 
-              href="/quiz" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/quiz")
+            <Link
+              href="/quiz"
+              className={`text-sm font-medium transition-colors pb-1 ${isActive("/quiz")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
-              }`}
+                }`}
             >
               Quiz
             </Link>
-            <Link 
-              href="/summarize" 
-              className={`text-sm font-medium transition-colors pb-1 ${
-                isActive("/summarize")
+            <Link
+              href="/summarize"
+              className={`text-sm font-medium transition-colors pb-1 ${isActive("/summarize")
                   ? "text-blue-500 border-b-2 border-blue-500"
                   : "text-gray-700 hover:text-green-500"
-              }`}
+                }`}
             >
               Tóm tắt
             </Link>
@@ -122,9 +118,9 @@ export function Navbar() {
 
         <div className="hidden md:flex flex-1 max-w-sm mx-4">
           <Link href="/advanced-search" className="relative w-full group">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 group-hover:text-blue-500 transition-colors" />
-            <div className="w-full bg-gray-100 pl-8 pr-4 h-9 flex items-center text-sm text-gray-400 rounded-lg border border-transparent transition-all group-hover:bg-gray-200 cursor-pointer">
-              Tìm kiếm tài liệu, môn học...
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#0b3b8f] group-hover:text-[#072f75] transition-colors" />
+            <div className="w-full bg-white pl-8 pr-4 h-9 flex items-center text-sm text-gray-500 rounded-lg border border-[#0b3b8f] shadow-sm transition-all group-hover:border-[#072f75] group-hover:bg-blue-50/10 cursor-pointer">
+              Tìm kiếm tài liệu...
             </div>
           </Link>
         </div>
@@ -155,74 +151,68 @@ export function Navbar() {
               <nav className="grid gap-6 text-lg font-medium">
                 <div className="mt-12">
                   <Link href="/advanced-search" className="relative w-full block group" onClick={() => (document.querySelector('[data-radix-collection-item]') as any)?.click()}>
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                    <div className="w-full bg-gray-100 pl-8 pr-4 h-10 flex items-center text-sm text-gray-400 rounded-lg border border-transparent">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#0b3b8f]" />
+                    <div className="w-full bg-white pl-8 pr-4 h-10 flex items-center text-sm text-gray-500 rounded-lg border border-[#0b3b8f] shadow-sm">
                       Tìm kiếm tài liệu, môn học...
                     </div>
                   </Link>
                 </div>
                 <Link
                   href="/"
-                  className={`flex items-center pb-2 transition-colors ${
-                    pathname === "/"
+                  className={`flex items-center pb-2 transition-colors ${pathname === "/"
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
-                  }`}
+                    }`}
                 >
                   Trang chủ
                 </Link>
-                <Link 
-                  href="/chatbot" 
-                  className={`flex items-center pb-2 transition-colors ${
-                    isActive("/chatbot")
+                <Link
+                  href="/chatbot"
+                  className={`flex items-center pb-2 transition-colors ${isActive("/chatbot")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
-                  }`}
+                    }`}
                 >
                   Chatbot
                 </Link>
                 <Link
                   href="/mindmap"
-                  className={`flex items-center pb-2 transition-colors ${
-                    isActive("/mindmap")
+                  className={`flex items-center pb-2 transition-colors ${isActive("/mindmap")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
-                  }`}
+                    }`}
                 >
                   Mindmap
                 </Link>
-                <Link 
-                  href="/quiz" 
-                  className={`flex items-center pb-2 transition-colors ${
-                    isActive("/quiz")
+                <Link
+                  href="/quiz"
+                  className={`flex items-center pb-2 transition-colors ${isActive("/quiz")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
-                  }`}
+                    }`}
                 >
                   Quiz
                 </Link>
                 <Link
                   href="/summarize"
-                  className={`flex items-center pb-2 transition-colors ${
-                    isActive("/summarize")
+                  className={`flex items-center pb-2 transition-colors ${isActive("/summarize")
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-700 hover:text-green-500"
-                  }`}
+                    }`}
                 >
                   Tóm tắt
                 </Link>
-                <div className="flex flex-col gap-2 pt-4">
+                <div className="flex flex-col gap-4 pt-4 border-t">
                   {isLoggedIn ? (
-                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                      <div className="h-12 w-12 rounded-full border-2 border-white shadow-md overflow-hidden ring-2 ring-blue-500/10">
-                        <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-base font-bold text-slate-700">{user.name}</span>
-                      </div>
-                    </div>
+                    <Button
+                      onClick={handleLogout}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-bold h-12 rounded-xl shadow-lg flex items-center justify-center gap-2 mt-auto"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      Đăng xuất
+                    </Button>
                   ) : (
-                    <Button className="w-full bg-green-500 text-white font-bold hover:bg-green-600" asChild>
+                    <Button className="w-full bg-green-500 text-white font-bold h-12 rounded-xl shadow-lg" asChild>
                       <Link href="/auth/login" onClick={() => (document.querySelector('[data-radix-collection-item]') as any)?.click()}>Đăng Nhập</Link>
                     </Button>
                   )}

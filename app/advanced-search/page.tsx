@@ -215,7 +215,7 @@ export default function AdvancedSearchPage() {
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     type="search"
-                    placeholder="Nhập từ khóa tìm kiếm (tên tài liệu, môn học, mã môn...)"
+                    placeholder="Nhập từ khóa tìm kiếm (tên tài liệu, tên môn học, mã môn...)"
                     className="h-11 border-0 bg-transparent pl-11 shadow-none focus-visible:ring-0"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -238,15 +238,13 @@ export default function AdvancedSearchPage() {
               <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent flex flex-col">
                 <div className="sticky top-0 z-50 flex items-center justify-between border-b border-blue-100 bg-[radial-gradient(circle_at_top_left,_#f0f7ff_0%,_#ffffff_100%)] px-6 py-4 shadow-sm backdrop-blur-md">
                   <h2 className="text-lg font-extrabold tracking-tight text-blue-900">Bộ lọc tìm kiếm</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={clearFilters}
-                    className="h-8 text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 active:scale-95 group"
                   >
-                    <X className="mr-1 h-3.5 w-3.5" />
-                    Xóa
-                  </Button>
+                    <X className="h-3.5 w-3.5 transition-transform group-hover:rotate-90 group-hover:scale-110" />
+                    <span>Xóa bộ lọc</span>
+                  </button>
                 </div>
 
                 <div className="p-6 space-y-6">
@@ -510,12 +508,11 @@ export default function AdvancedSearchPage() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="w-full text-slate-500 hover:text-red-500 hover:bg-red-50 font-medium"
-                      onClick={() => {
-                        clearFilters()
-                      }}
+                      className="w-full text-slate-500 hover:text-red-500 hover:bg-red-50 font-bold h-12 rounded-xl transition-all flex items-center justify-center gap-2"
+                      onClick={clearFilters}
                     >
-                      Xóa tất cả bộ lọc
+                      <X className="h-4 w-4" />
+                      Làm mới bộ lọc
                     </Button>
                   </div>
                 </div>

@@ -84,11 +84,11 @@ export function SearchResults({ results }: SearchResultsProps) {
         </div>
       </div>
 
-      {sortedResults.map((result) => (
-        <Card key={result.id} className="group overflow-hidden border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-[0_15px_35px_-12px_rgba(30,64,175,0.15)] bg-white rounded-2xl">
-          <CardContent className="p-0">
-            <div className="flex flex-col md:flex-row">
-              <div className="relative h-52 md:h-auto md:w-64 shrink-0 overflow-hidden bg-slate-50 border-r border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {sortedResults.map((result) => (
+          <Card key={result.id} className="group overflow-hidden border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-[0_15px_35px_-12px_rgba(30,64,175,0.15)] bg-white rounded-2xl flex flex-col">
+            <CardContent className="p-0 flex flex-col h-full">
+              <div className="relative h-48 w-full shrink-0 overflow-hidden bg-slate-50 border-b border-blue-100 ring-1 ring-blue-600/10 group-hover:ring-blue-600/30 transition-all">
                 <Image
                   src={result.image || "/placeholder.svg"}
                   alt={result.title}
@@ -101,83 +101,67 @@ export function SearchResults({ results }: SearchResultsProps) {
                 </div>
               </div>
 
-              <div className="p-5 md:p-6 flex flex-col flex-1">
+              <div className="p-5 flex flex-col flex-1">
                 <div className="flex-1">
                   <div className="mb-3">
-                    <span className="inline-block bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                    <span className="inline-block bg-blue-800 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm truncate max-w-full">
                       [{result.subjectCode || "CSE123"}] {result.subjectName || "Tên môn học"}
                     </span>
                   </div>
 
                   <Link href={`/document/${result.id}`} className="block">
-                    <h3 className="font-bold text-xl mb-3 text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight">
+                    <h3 className="font-bold text-base mb-4 text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight h-10">
                       {result.title}
                     </h3>
                   </Link>
 
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-6 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                        <Eye className="h-4 w-4" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Lượt xem</span>
-                        <span className="font-bold text-slate-700">{result.views}</span>
-                      </div>
+                  <div className="flex items-center justify-between gap-1 mb-6 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 min-h-[54px]">
+                    <div className="flex flex-col items-center flex-1">
+                      <Eye className="h-4 w-4 text-blue-600 mb-1" />
+                      <span className="text-sm font-bold text-slate-700 leading-none mb-1">{result.views}</span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 tracking-tighter">Lượt xem</span>
                     </div>
-
-                    <div className="w-px h-8 bg-slate-200 mx-1"></div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-lg text-green-600">
-                        <Download className="h-4 w-4" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Lượt tải</span>
-                        <span className="font-bold text-slate-700">{result.downloads}</span>
-                      </div>
+                    <div className="w-px h-10 bg-slate-200 shrink-0"></div>
+                    <div className="flex flex-col items-center flex-1">
+                      <Download className="h-4 w-4 text-green-600 mb-1" />
+                      <span className="text-sm font-bold text-slate-700 leading-none mb-1">{result.downloads}</span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 tracking-tighter">Lượt tải</span>
                     </div>
-
-                    <div className="w-px h-8 bg-slate-200 mx-1"></div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-                        <Star className="h-4 w-4 fill-current" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">Số sao</span>
-                        <span className="font-bold text-slate-700">{result.rating}</span>
-                      </div>
+                    <div className="w-px h-10 bg-slate-200 shrink-0"></div>
+                    <div className="flex flex-col items-center flex-1">
+                      <Star className="h-4 w-4 text-amber-500 fill-current mb-1" />
+                      <span className="text-sm font-bold text-slate-700 leading-none mb-1">{result.rating}</span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 tracking-tighter">Đánh giá</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-                  <div className="flex flex-col text-sm text-slate-500 gap-0.5">
+                <div className="flex flex-col gap-4 mt-auto">
+                  <div className="flex flex-col text-[10px] text-slate-500 gap-0.5">
                     <p><span className="font-semibold text-slate-700">Ngày đăng:</span> {result.date}</p>
-                    <p><span className="font-semibold text-slate-700">Người đăng:</span> {result.uploaderName || "Quản trị viên"}</p>
+                    <p className="truncate"><span className="font-semibold text-slate-700">Người đăng:</span> {result.uploaderName || "Quản trị viên"}</p>
                   </div>
 
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 hover:bg-slate-50 hover:text-blue-700 font-bold rounded-xl h-11 px-5" asChild>
+                  <div className="flex items-center gap-2 w-full">
+                    <Button variant="outline" className="flex-1 border-slate-200 hover:bg-slate-50 hover:text-blue-700 font-bold rounded-xl h-10 text-xs px-2" asChild>
                       <Link href={`/document/${result.id}`}>
                         <Eye className="mr-2 h-4 w-4" />
-                        Xem tài liệu
+                        Xem
                       </Link>
                     </Button>
-                    <Button className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20 h-11 px-6" asChild>
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg ring-1 ring-blue-700/10 shadow-blue-700/20 h-10 text-xs px-2" asChild>
                       <a href={result.downloadUrl || `/document/${result.id}`}>
                         <Download className="mr-2 h-4 w-4" />
-                        Tải xuống
+                        Tải về
                       </a>
                     </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
