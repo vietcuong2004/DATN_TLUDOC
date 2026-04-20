@@ -102,6 +102,18 @@ export default function Summarize() {
       formData.append("summaryType", summaryType)
       formData.append("summaryLength", String(summaryLength))
       formData.append("language", summaryLanguage)
+      formData.append("documentName", selectedFile.name)
+
+      // Lấy userId từ localStorage để lưu vào lịch sử
+      const savedUser = localStorage.getItem("user")
+      if (savedUser) {
+        const userData = JSON.parse(savedUser)
+        if (userData.id) {
+          formData.append("userId", String(userData.id))
+        }
+      } else {
+        throw new Error("Vui lòng đăng nhập để thực hiện tóm tắt và lưu kết quả.")
+      }
 
       const response = await fetch("/api/summarize", {
         method: "POST",

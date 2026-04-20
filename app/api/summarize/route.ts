@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { generateSummaryFromFile } from "@/lib/summarize"
+import { executeCommand } from "@/lib/mysql"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
     const summaryType = String(formData.get("summaryType") ?? "paragraph")
     const summaryLength = parseNumber(formData.get("summaryLength"), 30)
     const language = String(formData.get("language") ?? "vi")
+    const userId = formData.get("userId")
+    const documentName = String(formData.get("documentName") ?? "Tài liệu không tên")
 
     const parsed = RequestSchema.parse({
       summaryType,
@@ -57,6 +60,19 @@ export async function POST(request: Request) {
       maxChunkChars: Number.isFinite(maxChunkChars) ? maxChunkChars : 2500,
       maxChunks: Number.isFinite(maxChunks) ? maxChunks : 8,
     })
+
+    // Lưu vào cơ sở dữ liệu nếu có userId
+    if (userId && result.summary) {
+      try {
+        await executeCommand(
+          "INSERT INTO document_summaries (user_id, document_name, summary_text, summary_type, ai_model) VALUES (?, ?, ?, ?, ?)",
+          [userId, documentName, result.summary, parsed.summaryType, model]
+        );
+      } catch (dbError) {
+        console.error("[summarize.db_error]", dbError);
+        // Không throw error ở đây để người dùng vẫn nhận được kết quả tóm tắt trên UI
+      }
+    }
 
     return NextResponse.json(result)
   } catch (error) {
