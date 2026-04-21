@@ -22,6 +22,17 @@
 | Chi tiết chi phí | Google Cloud Console | [https://console.cloud.google.com/billing](https://console.cloud.google.com/billing) |
 | Quota sử dụng | Google Cloud Console | [https://console.cloud.google.com](https://console.cloud.google.com) |
 
+
+---
+
+## 💰 Monitoring Pollinations AI
+
+| 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
+|---|---|---|
+| Tạo API Key mới | Pollinations AI | [https://enter.pollinations.ai/](https://enter.pollinations.ai/) |
+| Quản lý & Monitoring | Pollinations AI | [https://enter.pollinations.ai/](https://enter.pollinations.ai/) |
+| API Documentation | Pollinations AI | [Pollinations Docs](https://enter.pollinations.ai/api/docs) |
+
 ---
 
 ## 💰 Monitoring HuggingFace API

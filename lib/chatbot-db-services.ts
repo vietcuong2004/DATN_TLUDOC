@@ -24,6 +24,7 @@ export type ChatbotCandidateDocument = {
 }
 
 export type ChatbotHistoryInput = {
+  id?: number | null
   userId: number
   documentId?: number | null
   question: string
@@ -70,7 +71,8 @@ export async function searchDocumentsForChatbot(query: string, limit = 5): Promi
   const targetSubjectCode = subjectCodeMatch ? subjectCodeMatch[0].toUpperCase() : null
 
   // 2. Tách từ khóa (Tokens)
-  const tokens = normalizedQuery.split(" ").filter(t => t.length >= 2 && !["tim", "kiem", "cho", "minh", "mon", "tai", "lieu", "ve"].includes(t))
+  const stopWords = ["tim", "kiem", "cho", "minh", "mon", "tai", "lieu", "ve", "ban", "co", "ma", "gi", "do", "nao", "voi", "cua", "huong", "dan", "phim"]
+  const tokens = normalizedQuery.split(" ").filter(t => t.length >= 2 && !stopWords.includes(t))
 
   // 3. Xây dựng câu truy vấn xếp hạng (Ranking Query)
   // Trọng số: Khớp mã môn (100) > Khớp tiêu đề chính xác (50) > Khớp từ khóa tiêu đề (10) > Khớp mô tả (1)
@@ -167,18 +169,59 @@ export async function searchDocumentsForChatbotBySubject(
   }))
 }
 
-export async function saveChatbotHistory(input: ChatbotHistoryInput): Promise<void> {
+export async function saveChatbotHistory(input: ChatbotHistoryInput): Promise<number | null> {
   if (!isDbConfigured()) {
-    return
+    return null
   }
   const db = getDbPool()
-  await db.execute(
+
+  if (input.id) {
+    console.log(`[ChatbotHistory] Updating session ${input.id} for user ${input.userId}`)
+    // Cập nhật cuộc hội thoại hiện tại: Nối thêm tin nhắn mới vào nội dung cũ
+    const separator = "\n\n---MESSAGE_SEP---\n\n"
+    
+    try {
+      const [result]: any = await db.execute(
+        `
+          UPDATE chatbot_history 
+          SET 
+            question = CONCAT(question, ?, ?),
+            answer = CONCAT(answer, ?, ?),
+            document_id = COALESCE(?, document_id),
+            ai_model = ?
+          WHERE id = ? AND user_id = ?
+        `,
+        [
+          separator, input.question,
+          separator, input.answer,
+          input.documentId ?? null,
+          input.aiModel ?? null,
+          input.id,
+          input.userId
+        ]
+      )
+      
+      if (result.affectedRows === 0) {
+         console.warn(`[ChatbotHistory] No rows updated for chatId ${input.id}. Mismatch or deleted?`)
+         // Fallback to insert if update failed (though logically shouldn't happen if ID is valid)
+      } else {
+         return input.id
+      }
+    } catch (err) {
+      console.error(`[ChatbotHistory] Error updating:`, err)
+    }
+  }
+
+  // Tạo cuộc hội thoại mới (hoặc fallback nếu update không tìm thấy row)
+  console.log(`[ChatbotHistory] Creating NEW session for user ${input.userId}`)
+  const [result]: any = await db.execute(
     `
       INSERT INTO chatbot_history (user_id, document_id, question, answer, ai_model)
       VALUES (?, ?, ?, ?, ?)
     `,
     [input.userId, input.documentId ?? null, input.question, input.answer, input.aiModel ?? null],
   )
+  return result.insertId
 }
 
 export async function getChatbotRecentHistory(userId: number, limit = 10) {

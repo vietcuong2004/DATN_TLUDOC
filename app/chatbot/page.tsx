@@ -32,12 +32,13 @@ interface Message {
 
 type ChatbotApiResponse = {
   answer: string
-  documents: {
+  chatId?: number | null
+  documents: Array<{
     id: number
     title: string
     image: string
     downloadUrl?: string
-  }[]
+  }>
 }
 
 type HistoryItem = {
@@ -69,6 +70,7 @@ export default function ChatbotPage() {
   const [selectedDoc, setSelectedDoc] = useState<{ id: number, title: string, image?: string, downloadUrl?: string } | null>(null)
   const [dbHistory, setDbHistory] = useState<HistoryItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [currentChatId, setCurrentChatId] = useState<number | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
@@ -147,6 +149,8 @@ export default function ChatbotPage() {
         },
         body: JSON.stringify({
           message: question,
+          userId: 1, // Giả lập user ID hiện tại, thực tế lấy từ auth session
+          chatId: currentChatId,
           history: messages.slice(-8).map((item) => ({
             role: item.role,
             content: item.content,
@@ -170,6 +174,12 @@ export default function ChatbotPage() {
       }
 
       setMessages((prev) => [...prev, botResponse])
+      
+      if (data.chatId) {
+        setCurrentChatId(data.chatId)
+        // Refresh history to show the latest session text
+        fetchHistory()
+      }
     } finally {
       setIsLoading(false)
     }
@@ -190,31 +200,49 @@ export default function ChatbotPage() {
       },
     ])
     setInput("")
+    setCurrentChatId(null)
   }
 
   const handleLoadHistory = (item: HistoryItem) => {
-    setMessages([
+    const separator = "\n\n---MESSAGE_SEP---\n\n"
+    const questions = item.question.split(separator)
+    const answers = item.answer.split(separator)
+
+    const reconstructedMessages: Message[] = [
       {
         id: "intro-message",
         role: "assistant",
         content:
           "Xin chào! Mình là trợ lý học tập của TLU Document. Mình có thể giúp bạn tìm đúng tài liệu theo môn học, gợi ý thứ tự học phù hợp và hỗ trợ giải thích khái niệm theo ngữ cảnh học tập của bạn.",
-        timestamp: new Date(),
-      },
-      {
-        id: `user-${item.id}`,
-        role: "user",
-        content: item.question,
         timestamp: new Date(item.createdAt),
-      },
-      {
-        id: `bot-${item.id}`,
-        role: "assistant",
-        content: item.answer,
-        timestamp: new Date(item.createdAt),
-        documents: item.document ? [item.document] : [],
-      },
-    ])
+      }
+    ]
+
+    // Ghép các cặp câu hỏi và câu trả lời
+    questions.forEach((q, index) => {
+      if (q.trim()) {
+        reconstructedMessages.push({
+          id: `user-${item.id}-${index}`,
+          role: "user",
+          content: q,
+          timestamp: new Date(item.createdAt),
+        })
+
+        if (answers[index]) {
+          reconstructedMessages.push({
+            id: `bot-${item.id}-${index}`,
+            role: "assistant",
+            content: answers[index],
+            timestamp: new Date(item.createdAt),
+            // Lưu ý: Tài liệu gắn với item gốc sẽ được gắn cho câu trả lời CUỐI CÙNG
+            documents: (index === questions.length - 1 && item.document) ? [item.document] : [],
+          })
+        }
+      }
+    })
+
+    setMessages(reconstructedMessages)
+    setCurrentChatId(item.id)
   }
 
   const formatTime = (date: Date) => {
@@ -393,7 +421,7 @@ export default function ChatbotPage() {
                                     <Search className="h-4 w-4 mr-3 text-indigo-400 flex-shrink-0 mt-0.5" />
                                     <span className="block flex-1 min-w-0 text-slate-700 font-medium overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                       <span className="text-slate-500 font-normal mr-1">{formatHistoryDate(item.createdAt)}</span>
-                                      {item.question}
+                                      {item.question.split("\n\n---MESSAGE_SEP---\n\n")[0]}
                                     </span>
                                   </div>
                                 ))
