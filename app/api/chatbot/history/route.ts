@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     try {
       const [result]: any = await pool.execute(
         `INSERT INTO chatbot_history (user_id, document_id, question, answer, created_at) 
-         VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
+         VALUES (?, ?, ?, ?, NOW())`,
         [userId || 1, documentId || null, question, answer]
       )
       console.log("[api/chatbot/history] Insert successful, ID:", result.insertId)

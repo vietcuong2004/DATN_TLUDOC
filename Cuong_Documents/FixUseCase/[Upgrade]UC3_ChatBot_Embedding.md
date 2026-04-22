@@ -207,13 +207,12 @@ docsToScan.forEach(doc => {
 Hệ thống không lưu lắt nhắt từng tin nhắn. Trạng thái lịch sử chỉ được lưu lại khi User kết thúc phiên bằng cách bấm nút "Tạo cuộc trò chuyện mới".
 
 Trong `app/api/chatbot/history/route.ts`:
-```sql
 INSERT INTO chatbot_history (user_id, document_id, question, answer, created_at) 
-VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))
+VALUES (?, ?, ?, ?, NOW())
 ```
 - Lịch sử được gộp lại (Concatenate) từ tất cả các câu hỏi của User và AI.
 - Câu chào mặc định (`intro-message`) được lọc bỏ nghiêm ngặt bằng TypeScript Regex.
-- Thời gian luôn được chuẩn hóa về Giờ Việt Nam (`UTC + 7`) ở tầng cơ sở dữ liệu.
+- Thời gian được lưu trữ dưới dạng UTC chuẩn quốc tế. Khi hiển thị ở Frontend, trình duyệt của người dùng sẽ tự động chuyển đổi sang giờ địa phương (Ví dụ: GMT+7 tại Việt Nam) để đảm bảo độ chính xác tuyệt đối bất kể Server được đặt ở đâu.
 
 ---
 
