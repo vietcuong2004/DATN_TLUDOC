@@ -22,16 +22,123 @@ function fastDot(a: number[], b: number[]) {
 
 /** 1. AI Intent Classifier (Router) */
 async function classifyIntent(message: string, history: string): Promise<"ACADEMIC" | "DISCOVERY" | "CASUAL"> {
+  const cleanMsg = message.toLowerCase().trim()
+
+  // 1. Phân loại cứng (Rule-based)
+  // - Phát hiện từ khóa CASUAL thông dụng
+  const casualWords = ["haha", "hi", "hello", "chào", "cam on", "thanks", "tuyet", "oke", "ok", "bye", "hey", "hê", "hihi", "huhu", "vãi", "vl"]
+  if (casualWords.some(word => cleanMsg.includes(word)) && cleanMsg.length < 15) {
+    return "CASUAL"
+  }
+
+  // - Phát hiện chuỗi vô nghĩa (Gibberish)
+  // Nếu là một từ duy nhất, dài > 10 ký tự và không có nguyên âm hoặc toàn ký tự lạ
+  const words = cleanMsg.split(/\s+/)
+  if (words.length === 1 && words[0].length > 10) {
+    const hasVowels = /[aeiouyàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ]/i.test(words[0])
+    if (!hasVowels) return "CASUAL"
+  }
+
+  // Nếu là chuỗi ký tự linh tinh không có dấu cách và quá dài
+  if (cleanMsg.length > 15 && !cleanMsg.includes(" ") && !/[0-9]/.test(cleanMsg)) {
+    return "CASUAL"
+  }
+
+  // 2. Nếu không phải câu đơn giản, dùng AI để phân loại
   try {
-    const prompt = `Phân loại ý định: "${message}" | Lịch sử: "${history}".
-Trả về duy nhất 1 từ: ACADEMIC, DISCOVERY, hoặc CASUAL.
-- DISCOVERY: Hỏi hệ thống có tài liệu gì, môn học nào, chức năng gì, liệt kê tài liệu.
-- CASUAL: Chào hỏi, khen chê, cảm ơn.
-- ACADEMIC: Hỏi kiến thức bài học, giải thích khái niệm, làm bài tập.`
+    const prompt = `
+Bạn là hệ thống PHÂN LOẠI Ý ĐỊNH cho chatbot học tập.
+
+=====================
+NHIỆM VỤ
+=====================
+Phân loại câu hỏi thành 1 trong 3 nhãn:
+- ACADEMIC
+- DISCOVERY
+- CASUAL
+
+BẮT BUỘC:
+- CHỈ trả về DUY NHẤT 1 TỪ
+- KHÔNG giải thích
+- KHÔNG xuống dòng
+- KHÔNG thêm ký tự khác
+
+=====================
+ĐỊNH NGHĨA CHÍNH XÁC
+=====================
+
+1. ACADEMIC (ưu tiên cao nhất):
+- Hỏi kiến thức học thuật, khái niệm, lý thuyết
+- Nhờ giải bài tập
+- So sánh, phân tích
+- Có thể chứa từ mơ hồ nhưng phụ thuộc lịch sử
+
+Ví dụ:
+- "đạo hàm là gì"
+- "giải bài này"
+- "so sánh OOP và FP"
+- "cái đó hoạt động thế nào" (nếu lịch sử là kiến thức)
+
+---------------------
+
+2. DISCOVERY:
+- Hỏi về tài liệu / môn học / dữ liệu hệ thống
+- Yêu cầu liệt kê / gợi ý tài nguyên
+- Hỏi chatbot có gì / làm được gì
+
+Từ khóa mạnh:
+"tài liệu", "môn", "có gì", "liệt kê", "cho mình", "gợi ý"
+
+Ví dụ:
+- "có tài liệu AI không"
+- "liệt kê các môn bạn biết"
+- "cho mình tài liệu giải tích"
+
+---------------------
+
+3. CASUAL:
+- Chào hỏi, cảm ơn
+- Câu vô nghĩa / spam / ký tự linh tinh
+- Không liên quan học tập
+
+Ví dụ:
+- "hello"
+- "haha"
+- "???"
+- "asdasd"
+- "ok luôn"
+
+=====================
+QUY TẮC ƯU TIÊN
+=====================
+
+1. Nếu có NỘI DUNG HỌC THUẬT → ACADEMIC
+2. Nếu có ý định tìm TÀI LIỆU → DISCOVERY
+3. Nếu KHÔNG LIÊN QUAN → CASUAL
+4. Nếu mơ hồ → dùng LỊCH SỬ để suy luận
+5. Nếu vẫn mơ hồ → mặc định ACADEMIC
+
+=====================
+NGỮ CẢNH
+=====================
+Lịch sử:
+${history || "Không có"}
+
+Câu hỏi:
+"${message}"
+
+=====================
+KẾT QUẢ (CHỈ 1 TỪ):
+`;
     const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&cache=true`)
     const intent = (await res.text()).trim().toUpperCase()
-    return intent.includes("DISCOVERY") ? "DISCOVERY" : intent.includes("CASUAL") ? "CASUAL" : "ACADEMIC"
-  } catch { return "ACADEMIC" }
+
+    if (intent.includes("DISCOVERY")) return "DISCOVERY"
+    if (intent.includes("CASUAL")) return "CASUAL"
+    return "ACADEMIC"
+  } catch {
+    return "ACADEMIC"
+  }
 }
 
 async function expandQueryForSearch(query: string, history: string): Promise<string> {
@@ -110,20 +217,29 @@ export async function POST(request: Request) {
     const intent = await classifyIntent(message, historyContext)
     console.log(`[ROUTER] Detected Intent: ${intent}`)
 
+    if (intent === "CASUAL") {
+      const casualAnswer = "Xin lỗi, mình chưa hiểu câu hỏi của bạn. Bạn có thể hỏi chi tiết hơn hoặc hỏi đúng trọng tâm kiến thức được không? Mình có thể giúp bạn giải đáp những kiến thức trong môn học hoặc tìm tài liệu phù hợp cho bạn."
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(casualAnswer + "\n__METADATA__\n" + JSON.stringify({ documents: [] })))
+          controller.close()
+        }
+      })
+      return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+    }
+
     const pool = getDbPool()
     let systemMap = ""
     let semanticChunks: any[] = []
     let allAvailableDocs: any[] = []
 
-    if (intent !== "CASUAL") {
-      const [subjectRows]: any = await pool.execute(`SELECT id, name, code FROM subjects`)
-      const [allDocs]: any = await pool.execute(`SELECT id, title, subject_id, download_url, drive_file_id FROM documents WHERE status = 'published'`)
-      allAvailableDocs = allDocs
-      systemMap = subjectRows.map((s: any) => {
-        const docs = allDocs.filter((d: any) => d.subject_id === s.id).map((d: any) => `+ ${d.title}`)
-        return `- ${s.name} (${s.code}): ${docs.length} tài liệu\n  ${docs.join("\n  ")}`
-      }).join("\n\n")
-    }
+    const [subjectRows]: any = await pool.execute(`SELECT id, name, code FROM subjects`)
+    const [allDocs]: any = await pool.execute(`SELECT id, title, subject_id, download_url, drive_file_id FROM documents WHERE status = 'published'`)
+    allAvailableDocs = allDocs
+    systemMap = subjectRows.map((s: any) => {
+      const docs = allDocs.filter((d: any) => d.subject_id === s.id).map((d: any) => `+ ${d.title}`)
+      return `- ${s.name} (${s.code}): ${docs.length} tài liệu\n  ${docs.join("\n  ")}`
+    }).join("\n\n")
 
     if (intent === "ACADEMIC") {
       const expandedQuery = await expandQueryForSearch(message, historyContext)
@@ -132,7 +248,7 @@ export async function POST(request: Request) {
       let rows: any[] = []
       try {
         const [sqlRows]: any = await pool.execute(`
-          SELECT dc.content, dc.embedding, d.id, d.title, d.download_url, d.drive_file_id, MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE) as bm25Score
+          SELECT dc.content, dc.embedding, d.id, d.title, d.subject_id, d.download_url, d.drive_file_id, MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE) as bm25Score
           FROM document_chunks dc 
           JOIN documents d ON d.id = dc.document_id 
           WHERE d.status = 'published' AND MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE)
@@ -145,7 +261,7 @@ export async function POST(request: Request) {
         keywords.forEach(k => { likeClause += " OR dc.content LIKE ? OR d.title LIKE ?"; params.push(`%${k}%`, `%${k}%`) })
         likeClause += ")"
         const [sqlRows]: any = await pool.execute(`
-          SELECT dc.content, dc.embedding, d.id, d.title, d.download_url, d.drive_file_id
+          SELECT dc.content, dc.embedding, d.id, d.title, d.subject_id, d.download_url, d.drive_file_id
           FROM document_chunks dc 
           JOIN documents d ON d.id = dc.document_id 
           WHERE d.status = 'published' ${likeClause}
@@ -256,7 +372,7 @@ export async function POST(request: Request) {
           { role: "system", content: getSystemPrompt(intent) },
           { role: "user", content: `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TRÍCH DẪN:\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}` }
         ],
-        temperature: intent === "CASUAL" ? 0.7 : 0.2,
+        temperature: 0.2,
         stream: true
       })
     })
@@ -273,6 +389,13 @@ export async function POST(request: Request) {
             const reader = res.body.getReader()
             let buffer = ""
             while (true) {
+              // Kiểm tra nếu client đã ngắt kết nối (bấm Hủy/Ctrl+C)
+              if (request.signal.aborted) {
+                console.log("[api/chatbot] Client aborted connection. Stopping stream.");
+                reader.cancel(); // Ngắt stream từ phía AI provider
+                return; // Kết thúc start()
+              }
+
               const { value, done } = await reader.read()
               if (done) break
 
@@ -309,15 +432,15 @@ export async function POST(request: Request) {
         }
         const normAnswer = normalizeVietnameseText(textToScan).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ")
 
-        // CHỈ quét tìm trong danh sách tài liệu đã được gửi cho AI làm bối cảnh (semanticChunks)
-        // Điều này ngăn việc bắt nhầm các tài liệu ngẫu nhiên khác trong toàn bộ database
-        const providedDocs = Array.from(new Set(semanticChunks.map(c => c.id))).map(id => semanticChunks.find(c => c.id === id))
+        // Nếu là ACADEMIC: Chỉ quét tìm trong danh sách tài liệu đã được gửi cho AI làm bối cảnh (semanticChunks)
+        // Nếu là DISCOVERY: Quét tìm trong TOÀN BỘ danh sách tài liệu hiện có (allAvailableDocs) vì AI có thể gợi ý bất kỳ tài liệu nào từ systemMap
+        const docsToScan = intent === "DISCOVERY" ? allAvailableDocs : Array.from(new Set(semanticChunks.map(c => c.id))).map(id => semanticChunks.find(c => c.id === id))
 
-        providedDocs.forEach(doc => {
+        docsToScan.forEach(doc => {
           if (!doc) return
           const normTitle = normalizeVietnameseText(doc.title).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
           if (normTitle.length > 2) {
-            const regex = new RegExp(`\\b${normTitle}\\b`)
+            const regex = new RegExp(`\\b${normTitle}\\b`, "i")
             if (regex.test(normAnswer)) {
               usedDocsMap.set(doc.id, doc)
             }

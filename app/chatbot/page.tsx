@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Send, Sparkles, BookOpen, Search, Clock, PlusCircle, Eye } from "lucide-react"
+import { Send, Sparkles, BookOpen, Search, Clock, PlusCircle, Eye, Trash2, Square } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import ChatbotAnswer, { getDriveThumbnail } from "@/components/chatbot/ChatbotAnswer"
@@ -71,6 +71,7 @@ export default function ChatbotPage() {
   const [dbHistory, setDbHistory] = useState<HistoryItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<number | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
@@ -113,15 +114,54 @@ export default function ChatbotPage() {
     }
 
     const container = messagesContainerRef.current
-    if (!container) {
-      return
-    }
+    if (!container) return
 
     container.scrollTo({
       top: container.scrollHeight,
       behavior: "smooth",
     })
   }, [messages])
+
+  // Keyboard Shortcuts: Ctrl+C to Stop, Enter to Send (Enter is native for form submit)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + C to Stop
+      if (e.ctrlKey && e.key.toLowerCase() === 'c' && isLoading) {
+        e.preventDefault()
+        handleStopGeneration()
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoading]);
+
+  const handleDeleteAllHistory = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện không?")) return;
+    
+    try {
+      const res = await fetch(`/api/chatbot/history?userId=1`, { method: "DELETE" });
+      if (res.ok) {
+        setDbHistory([]);
+      }
+    } catch (err) {
+      console.error("Failed to delete all history:", err);
+    }
+  };
+
+  const handleDeleteHistoryItem = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    if (!confirm("Xóa cuộc hội thoại này?")) return;
+    try {
+      const res = await fetch(`/api/chatbot/history?userId=1&id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setDbHistory(prev => prev.filter(item => item.id !== id));
+      }
+    } catch (err) {
+      console.error("Failed to delete history item:", err);
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,12 +181,16 @@ export default function ChatbotPage() {
     setIsLoading(true)
     setRecentSearches((prev) => [question, ...prev.filter((item) => item !== question)].slice(0, 5))
 
+    // Khởi tạo AbortController mới
+    abortControllerRef.current = new AbortController()
+
     try {
       const response = await fetch("/api/chatbot", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           message: question,
           userId: 1, // Giả lập user ID hiện tại, thực tế lấy từ auth session
@@ -221,7 +265,21 @@ export default function ChatbotPage() {
       }
       
       fetchHistory()
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log("[Chatbot] Generation aborted by user")
+      } else {
+        console.error("[Chatbot] Error:", err)
+      }
     } finally {
+      setIsLoading(false)
+      abortControllerRef.current = null
+    }
+  }
+
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
       setIsLoading(false)
     }
   }
@@ -230,10 +288,47 @@ export default function ChatbotPage() {
     setInput(question)
   }
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    // Chỉ lưu nếu đã có ít nhất 1 cặp câu hỏi - câu trả lời (ngoài câu chào đầu tiên)
+    if (messages.length > 1) {
+      try {
+        const separator = "\n\n---MESSAGE_SEP---\n\n"
+        const questions = messages.filter(m => m.role === "user").map(m => m.content).join(separator)
+        const answers = messages
+          .filter(m => m.role === "assistant" && m.id !== "1" && m.id !== "intro-message" && !m.id.toString().startsWith("intro-")) // Loại bỏ câu chào
+          .map(m => m.content)
+          .join(separator)
+        
+        // Lấy document cuối cùng được trích dẫn nếu có
+        const lastDocId = messages.slice().reverse().find(m => m.documents && m.documents.length > 0)?.documents?.[0]?.id || null
+
+        if (questions && answers) {
+          console.log("[Chatbot] Saving session to history...", { questions, answers });
+          const res = await fetch("/api/chatbot/history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: 1,
+              question: questions,
+              answer: answers,
+              documentId: lastDocId
+            })
+          })
+          if (res.ok) {
+            console.log("[Chatbot] History saved successfully");
+            fetchHistory()
+          } else {
+            console.error("[Chatbot] Failed to save history:", await res.text());
+          }
+        }
+      } catch (err) {
+        console.error("Failed to save session history:", err)
+      }
+    }
+
     setMessages([
       {
-        id: Date.now().toString(),
+        id: "intro-" + Date.now(),
         role: "assistant",
         content:
           "Xin chào! Mình là trợ lý học tập của TLU Document. Mình có thể giúp bạn tìm đúng tài liệu theo môn học, gợi ý thứ tự học phù hợp và hỗ trợ giải thích khái niệm theo ngữ cảnh học tập của bạn.",
@@ -335,8 +430,8 @@ export default function ChatbotPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="md:col-span-1">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="md:col-span-4">
                 <div className="sticky top-24 space-y-4">
                   <Card className="rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)]">
                     <CardContent className="p-4">
@@ -441,10 +536,21 @@ export default function ChatbotPage() {
 
                         <TabsContent value="history">
                           <div className="space-y-2">
-                            <h3 className="text-sm font-medium flex items-center">
-                              <Clock className="h-4 w-4 mr-2 text-blue-500" />
-                              Cuộc trò chuyện gần đây
-                            </h3>
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-medium flex items-center">
+                                <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                                Cuộc trò chuyện gần đây
+                              </h3>
+                              {dbHistory.length > 0 && (
+                                <button 
+                                  onClick={handleDeleteAllHistory}
+                                  className="text-[10px] text-red-500 hover:text-red-700 font-semibold uppercase tracking-wider flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Xóa hết
+                                </button>
+                              )}
+                            </div>
                             <div className="space-y-3 mt-4 max-h-[380px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
                               {isLoadingHistory ? (
                                 <div className="text-sm text-gray-500 p-2 text-center flex flex-col items-center justify-center space-y-2">
@@ -455,14 +561,20 @@ export default function ChatbotPage() {
                                 dbHistory.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="flex items-start text-sm p-3 hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-xl cursor-pointer transition-all duration-200"
+                                    className="group flex items-start text-sm p-3 hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-xl cursor-pointer transition-all duration-200"
                                     onClick={() => handleLoadHistory(item)}
                                     title={`${formatHistoryDate(item.createdAt)} ${item.question}`}
                                   >
-                                    <Search className="h-4 w-4 mr-3 text-indigo-400 flex-shrink-0 mt-0.5" />
-                                    <span className="block flex-1 min-w-0 text-slate-700 font-medium overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                      <span className="text-slate-500 font-normal mr-1">{formatHistoryDate(item.createdAt)}</span>
-                                      {item.question.split("\n\n---MESSAGE_SEP---\n\n")[0]}
+                                    <div 
+                                      onClick={(e) => handleDeleteHistoryItem(e, item.id)}
+                                      className="p-1.5 mr-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                                      title="Xóa cuộc trò chuyện này"
+                                    >
+                                      <Trash2 className="h-4 w-4 flex-shrink-0" />
+                                    </div>
+                                    <span className="flex-1 min-w-0 text-slate-700 font-medium truncate flex items-center gap-2">
+                                      <span className="text-[11px] text-slate-500 font-normal bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">{formatHistoryDate(item.createdAt)}</span>
+                                      <span className="truncate">{item.question.split("\n\n---MESSAGE_SEP---\n\n")[0]}</span>
                                     </span>
                                   </div>
                                 ))
@@ -486,7 +598,7 @@ export default function ChatbotPage() {
                 </div>
               </div>
 
-              <div className="md:col-span-3">
+              <div className="md:col-span-8">
                 <Card className="h-[calc(100vh-220px)] rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] flex flex-col">
                   <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
                     <div
@@ -507,15 +619,17 @@ export default function ChatbotPage() {
                                 <AvatarFallback className="bg-blue-100 text-blue-700">AI</AvatarFallback>
                               </Avatar>
                             )}
-                            <div className="space-y-2">
+                            <div className="space-y-2 max-w-full overflow-hidden">
                               <div
-                                className={`p-3 md:p-4 rounded-2xl ${message.role === "user"
+                                className={`p-3 md:p-4 rounded-2xl overflow-hidden max-w-full ${message.role === "user"
                                   ? "bg-indigo-700 text-white shadow-md rounded-tr-none"
                                   : "bg-white text-slate-800 border border-slate-200 shadow-sm rounded-tl-none"
                                   }`}
                               >
                                 {message.role === "assistant" ? (
-                                  <ChatbotAnswer content={message.content} />
+                                  <div className="max-w-full overflow-hidden">
+                                    <ChatbotAnswer content={message.content} />
+                                  </div>
                                 ) : (
                                   <p className="whitespace-pre-line break-words">{message.content}</p>
                                 )}
@@ -604,15 +718,28 @@ export default function ChatbotPage() {
                         onChange={(e) => setInput(e.target.value)}
                         className="flex-1 border-0 shadow-none focus-visible:ring-0"
                       />
-                      <Button
-                        type="submit"
-                        size="icon"
-                        disabled={!input.trim() || isLoading}
-                        className="bg-indigo-700 hover:bg-indigo-800"
-                      >
-                        <Send className="h-4 w-4" />
-                        <span className="sr-only">Gửi</span>
-                      </Button>
+                      {isLoading ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          onClick={handleStopGeneration}
+                          className="relative h-10 w-10 flex items-center justify-center bg-white hover:bg-red-50 border-2 border-red-500 rounded-full transition-all duration-300 group shadow-sm overflow-visible"
+                        >
+                          <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-20"></div>
+                          <Square className="h-4 w-4 text-red-600 fill-red-600 group-hover:scale-110 transition-transform" />
+                          <span className="sr-only">Dừng</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={!input.trim()}
+                          className="bg-indigo-700 hover:bg-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg rounded-xl h-10 w-10"
+                        >
+                          <Send className="h-4 w-4" />
+                          <span className="sr-only">Gửi</span>
+                        </Button>
+                      )}
                     </form>
                   </CardContent>
                 </Card>
