@@ -5,7 +5,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { Download, Eye, Search, Star } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 type SubjectDocument = {
   id: number
@@ -15,6 +16,10 @@ type SubjectDocument = {
   downloads: number
   rating: number
   image: string
+  fileExt?: string
+  downloadUrl?: string
+  subjectCode?: string
+  subjectName?: string
 }
 
 interface ListDocsSubjectProps {
@@ -22,6 +27,8 @@ interface ListDocsSubjectProps {
   subtitle?: string
   documents: SubjectDocument[]
 }
+
+import { DocumentCard } from "@/components/document-card"
 
 export function ListDocsSubject({ title, subtitle, documents }: ListDocsSubjectProps) {
   const [searchTerm, setSearchTerm] = useState("")
@@ -55,58 +62,21 @@ export function ListDocsSubject({ title, subtitle, documents }: ListDocsSubjectP
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredDocuments.map((document) => (
-          <Card
-            key={document.id}
-            className="group overflow-hidden border-slate-200 bg-white shadow-[0_12px_30px_-20px_rgba(15,23,42,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_45px_-22px_rgba(15,23,42,0.55)]"
-          >
-            <Link href={`/document/${document.id}`}>
-              <div className="relative h-44 w-full overflow-hidden bg-slate-100">
-                <Image
-                  src={document.image || "/placeholder.svg"}
-                  alt={document.title}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute left-3 top-3 rounded-lg bg-blue-900 px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
-                  {document.date}
-                </div>
-              </div>
-
-              <CardContent className="p-4">
-                <h3 className="line-clamp-3 min-h-[4.5rem] text-[17px] font-semibold leading-6 text-slate-950 transition-colors group-hover:text-blue-800">
-                  {document.title}
-                </h3>
-              </CardContent>
-
-              <CardFooter className="flex items-center justify-between px-4 pb-4 text-sm text-slate-500">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4" />
-                    <span>{document.views}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Download className="h-4 w-4" />
-                    <span>{document.downloads}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 text-amber-500">
-                  <Star className="h-4 w-4 fill-current" />
-                  <span className="text-slate-600">{document.rating}</span>
-                </div>
-              </CardFooter>
-            </Link>
-          </Card>
+          <DocumentCard key={document.id} document={document} />
         ))}
       </div>
 
       {filteredDocuments.length === 0 && (
-        <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-          Không tìm thấy tài liệu phù hợp với từ khóa bạn nhập.
+        <div className="mt-8 rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3">
+            <Search className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Không tìm thấy tài liệu</h3>
+          <p className="text-sm text-slate-500">Thử tìm kiếm với từ khóa khác xem sao bạn nhé.</p>
         </div>
       )}
     </section>
   )
-}
+}

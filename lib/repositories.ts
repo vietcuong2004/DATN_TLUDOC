@@ -51,6 +51,10 @@ export type HomepageDocument = {
   downloads: number
   rating: number
   image: string
+  fileExt?: string
+  downloadUrl?: string
+  subjectCode?: string
+  subjectName?: string
 }
 
 export type SubjectDocument = {
@@ -61,6 +65,10 @@ export type SubjectDocument = {
   downloads: number
   rating: number
   image: string
+  fileExt?: string
+  downloadUrl?: string
+  subjectCode?: string
+  subjectName?: string
 }
 
 export type DocumentDetail = {
@@ -163,11 +171,13 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
         ? "created_at DESC"
         : "views_count DESC, created_at DESC"
 
-  const rows = await queryRows<DocumentRow>(
+  const rows = await queryRows<DocumentRow & { subject_code: string; subject_name: string }>(
     `
-      SELECT id, title, created_at, views_count, downloads_count, avg_rating, drive_file_id
-      FROM documents
-      WHERE status = 'published'
+      SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.file_ext, d.download_url,
+             s.code as subject_code, s.name as subject_name
+      FROM documents d
+      INNER JOIN subjects s ON s.id = d.subject_id
+      WHERE d.status = 'published'
       ORDER BY ${orderBy}
       LIMIT ?
     `,
@@ -182,6 +192,10 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
     downloads: row.downloads_count ?? 0,
     rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
     image: buildDriveThumbnail(row.drive_file_id, 720),
+    fileExt: row.file_ext?.toUpperCase() || "FILE",
+    downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
+    subjectCode: row.subject_code,
+    subjectName: row.subject_name,
   }))
 }
 
@@ -216,9 +230,10 @@ export async function getDocumentsBySubjectCode(subjectCode: string): Promise<Su
     return []
   }
 
-  const rows = await queryRows<DocumentRow>(
+  const rows = await queryRows<DocumentRow & { subject_code: string; subject_name: string }>(
     `
-      SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id
+      SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.file_ext, d.download_url,
+             s.code as subject_code, s.name as subject_name
       FROM documents d
       INNER JOIN subjects s ON s.id = d.subject_id
       WHERE UPPER(s.code) = UPPER(?) AND d.status = 'published'
@@ -235,6 +250,10 @@ export async function getDocumentsBySubjectCode(subjectCode: string): Promise<Su
     downloads: row.downloads_count ?? 0,
     rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
     image: buildDriveThumbnail(row.drive_file_id, 720),
+    fileExt: row.file_ext?.toUpperCase() || "FILE",
+    downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
+    subjectCode: row.subject_code,
+    subjectName: row.subject_name,
   }))
 }
 
