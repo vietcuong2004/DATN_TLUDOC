@@ -9,10 +9,12 @@ interface ListDocsHomepageProps {
   title: string
 }
 
+import { DocumentCard } from "@/components/document-card"
+
 export async function ListDocsHomepage({ title }: ListDocsHomepageProps) {
   const normalizedTitle = title.toLowerCase()
   const mode = normalizedTitle.includes("nổi bật") ? "featured" : normalizedTitle.includes("mới") ? "latest" : "popular"
-  const documents = await getHomepageDocuments(mode, 8)
+  const documents = await getHomepageDocuments(mode, 6)
 
   return (
     <section className="py-8">
@@ -28,37 +30,9 @@ export async function ListDocsHomepage({ title }: ListDocsHomepageProps) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {documents.map((doc) => (
-          <Card key={doc.id} className="group overflow-hidden border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_-15px_rgba(15,23,42,0.4)]">
-            <Link href={`/document/${doc.id}`}>
-              <div className="relative h-40 w-full overflow-hidden">
-                <Image src={doc.image || "/placeholder.svg"} alt={doc.title} fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                <div className="absolute left-2 top-2 rounded bg-green-600 px-2 py-1 text-[10px] font-bold text-white shadow-sm">{doc.date}</div>
-              </div>
-
-              <CardContent className="p-4">
-                <h3 className="line-clamp-2 font-medium transition-colors hover:text-green-500">{doc.title}</h3>
-              </CardContent>
-
-              <CardFooter className="flex items-center justify-between p-4 pt-0 text-xs text-slate-500">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>{doc.views}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Download className="h-3.5 w-3.5" />
-                    <span>{doc.downloads}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-amber-500">
-                  <Star className="h-3.5 w-3.5 fill-current" />
-                  <span className="font-medium text-slate-600">{doc.rating}</span>
-                </div>
-              </CardFooter>
-            </Link>
-          </Card>
+          <DocumentCard key={doc.id} document={doc} />
         ))}
       </div>
 
