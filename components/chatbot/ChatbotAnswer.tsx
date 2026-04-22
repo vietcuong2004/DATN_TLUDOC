@@ -59,6 +59,15 @@ const ChatbotAnswer: React.FC<ChatbotAnswerProps> = ({ content }) => {
           font-weight: 600;
           margin: 0 0.125rem;
         }
+        /* Fallback êm ái khi AI sinh sai cú pháp LaTeX (ví dụ nhét code C++ chứa & vào LaTeX) */
+        .chatbot-answer-ast .katex-error {
+          color: #be123c !important; /* Rose 700 */
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          background-color: #ffe4e6;
+          padding: 0.125rem 0.375rem;
+          border-radius: 0.25rem;
+          font-size: 0.9em;
+        }
         .chatbot-answer-ast > *:last-child {
           margin-bottom: 0;
         }

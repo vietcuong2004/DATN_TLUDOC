@@ -159,27 +159,68 @@ export default function ChatbotPage() {
         }),
       })
 
-      const data = (await response.json()) as ChatbotApiResponse & { error?: string }
-
       if (!response.ok) {
-        throw new Error(data.error || "Không thể lấy phản hồi chatbot")
+        throw new Error("Không thể lấy phản hồi chatbot")
       }
+      if (!response.body) throw new Error("Stream body missing")
 
-      const botResponse: Message = {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: data.answer,
-        timestamp: new Date(),
-        documents: data.documents || [],
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let done = false
+      let textBuffer = ""
+      let metadataStr = ""
+      let isMetadataPhase = false
+
+      const botMessageId = Date.now().toString()
+      setMessages((prev) => [
+        ...prev,
+        { id: botMessageId, role: "assistant", content: "", timestamp: new Date(), documents: [] },
+      ])
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read()
+        done = readerDone
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true })
+          
+          if (isMetadataPhase) {
+            metadataStr += chunk
+          } else {
+            const metadataSplit = chunk.split("__METADATA__")
+            if (metadataSplit.length > 1) {
+              textBuffer += metadataSplit[0]
+              isMetadataPhase = true
+              metadataStr += metadataSplit[1]
+            } else {
+              textBuffer += chunk
+            }
+          }
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMessageId
+                ? { ...msg, content: textBuffer.trim() }
+                : msg
+            )
+          )
+        }
       }
-
-      setMessages((prev) => [...prev, botResponse])
       
-      if (data.chatId) {
-        setCurrentChatId(data.chatId)
-        // Refresh history to show the latest session text
-        fetchHistory()
+      if (metadataStr) {
+        try {
+          const meta = JSON.parse(metadataStr.trim())
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMessageId
+                ? { ...msg, documents: meta.documents }
+                : msg
+            )
+          )
+          if (meta.chatId) setCurrentChatId(meta.chatId)
+        } catch(e) {}
       }
+      
+      fetchHistory()
     } finally {
       setIsLoading(false)
     }

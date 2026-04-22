@@ -49,7 +49,7 @@ function normalizeText(text: string): string {
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^a-z0-9\s+#]/g, " ") // Giữ lại dấu + và # cho C++, C#
     .replace(/\s+/g, " ")
     .trim()
 }
@@ -80,9 +80,11 @@ export async function searchDocumentsForChatbot(query: string, limit = 5): Promi
     SELECT d.id, d.title, d.description, d.drive_file_id, d.download_url, d.views_count, d.downloads_count, d.created_at,
            s.code as subject_code, s.name as subject_name,
            (
-             (CASE WHEN UPPER(s.code) = UPPER(?) THEN 100 ELSE 0 END) +
-             (CASE WHEN d.title LIKE ? THEN 50 ELSE 0 END) +
-             (CASE WHEN d.title LIKE ? THEN 20 ELSE 0 END)
+             (CASE WHEN UPPER(s.code) = UPPER(?) THEN 150 ELSE 0 END) +
+             (CASE WHEN d.title LIKE ? THEN 100 ELSE 0 END) +
+             (CASE WHEN d.title LIKE ? THEN 60 ELSE 0 END) +
+             (CASE WHEN s.name LIKE ? THEN 40 ELSE 0 END) 
+             ${tokens.length > 0 ? "+ " + tokens.map(() => "(CASE WHEN d.title LIKE ? OR s.name LIKE ? THEN 20 ELSE 0 END)").join(" + ") : ""}
            ) as relevance_score
     FROM documents d
     INNER JOIN subjects s ON s.id = d.subject_id
@@ -94,14 +96,22 @@ export async function searchDocumentsForChatbot(query: string, limit = 5): Promi
         OR s.name LIKE ?
   `
   
+  const relevanceParams = [
+    targetSubjectCode || "___NONE___", 
+    `%${rawQuery}%`,                   
+    `%${normalizedQuery}%`,            
+    `%${rawQuery}%`
+  ]
+  if (tokens.length > 0) {
+    tokens.forEach(t => relevanceParams.push(`%${t}%`, `%${t}%`))
+  }
+
   const params: any[] = [
-    targetSubjectCode || "___NONE___", // relevance_score match code
-    `%${rawQuery}%`,                   // relevance_score exact title match
-    `%${normalizedQuery}%`,            // relevance_score normalized title match
-    targetSubjectCode || "___NONE___", // WHERE match code
-    `%${rawQuery}%`,                   // WHERE title
-    `%${normalizedQuery}%`,            // WHERE normalized title
-    `%${rawQuery}%`                    // WHERE subject name
+    ...relevanceParams,
+    targetSubjectCode || "___NONE___", 
+    `%${rawQuery}%`,                   
+    `%${normalizedQuery}%`,            
+    `%${rawQuery}%`                    
   ]
 
   // Thêm các token vào WHERE và điểm số
@@ -114,7 +124,8 @@ export async function searchDocumentsForChatbot(query: string, limit = 5): Promi
 
   sql += `
       )
-    ORDER BY relevance_score DESC, d.views_count DESC, d.created_at DESC
+    HAVING relevance_score > 0
+    ORDER BY relevance_score DESC, d.views_count DESC
     LIMIT ?
   `
   params.push(limitValue)
