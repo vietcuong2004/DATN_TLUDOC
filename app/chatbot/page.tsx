@@ -139,7 +139,7 @@ export default function ChatbotPage() {
   const handleDeleteAllHistory = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện không?")) return;
-    
+
     try {
       const res = await fetch(`/api/chatbot/history?userId=1`, { method: "DELETE" });
       if (res.ok) {
@@ -226,7 +226,7 @@ export default function ChatbotPage() {
         done = readerDone
         if (value) {
           const chunk = decoder.decode(value, { stream: true })
-          
+
           if (isMetadataPhase) {
             metadataStr += chunk
           } else {
@@ -249,7 +249,7 @@ export default function ChatbotPage() {
           )
         }
       }
-      
+
       if (metadataStr) {
         try {
           const meta = JSON.parse(metadataStr.trim())
@@ -261,9 +261,9 @@ export default function ChatbotPage() {
             )
           )
           if (meta.chatId) setCurrentChatId(meta.chatId)
-        } catch(e) {}
+        } catch (e) { }
       }
-      
+
       fetchHistory()
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -298,7 +298,7 @@ export default function ChatbotPage() {
           .filter(m => m.role === "assistant" && m.id !== "1" && m.id !== "intro-message" && !m.id.toString().startsWith("intro-")) // Loại bỏ câu chào
           .map(m => m.content)
           .join(separator)
-        
+
         // Lấy document cuối cùng được trích dẫn nếu có
         const lastDocId = messages.slice().reverse().find(m => m.documents && m.documents.length > 0)?.documents?.[0]?.id || null
 
@@ -487,10 +487,10 @@ export default function ChatbotPage() {
                               <Button
                                 variant="outline"
                                 className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                                onClick={() => handleQuickQuestion("Đạo hàm trong giải tích là gì")}
+                                onClick={() => handleQuickQuestion("Tìm kiếm DFS hoạt động thế nào")}
                               >
                                 <span className="break-words whitespace-normal text-left block">
-                                  Đạo hàm trong giải tích là gì
+                                  Tìm kiếm DFS hoạt động thế nào
                                 </span>
                               </Button>
                             </div>
@@ -542,7 +542,7 @@ export default function ChatbotPage() {
                                 Cuộc trò chuyện gần đây
                               </h3>
                               {dbHistory.length > 0 && (
-                                <button 
+                                <button
                                   onClick={handleDeleteAllHistory}
                                   className="text-[10px] text-red-500 hover:text-red-700 font-semibold uppercase tracking-wider flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded transition-colors"
                                 >
@@ -565,7 +565,7 @@ export default function ChatbotPage() {
                                     onClick={() => handleLoadHistory(item)}
                                     title={`${formatHistoryDate(item.createdAt)} ${item.question}`}
                                   >
-                                    <div 
+                                    <div
                                       onClick={(e) => handleDeleteHistoryItem(e, item.id)}
                                       className="p-1.5 mr-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
                                       title="Xóa cuộc trò chuyện này"

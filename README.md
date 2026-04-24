@@ -35,10 +35,12 @@
 
 ---
 
-## 💰 Monitoring HuggingFace API
+## 💰 Monitoring HuggingFace & Pinecone API
 
 | 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
 |---|---|---|
 | Xem requests & tokens | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
 | Chi tiết chi phí | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
 | Quota sử dụng | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
+| Quản lý Index & API | Pinecone | [https://console.pinecone.io/](https://console.pinecone.io/) |
+| Duyệt dữ liệu Vector | Pinecone | [Xem tại đây](https://app.pinecone.io/organizations/-OqGbxPcUt7_CDccCDUF/projects/c9cfdcfc-876a-4e46-b1fe-3c223e49531b/indexes/tlu-document-chatbot/browser) |
