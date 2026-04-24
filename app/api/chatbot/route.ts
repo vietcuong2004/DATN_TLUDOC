@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { saveChatbotHistory, searchDocumentsForChatbot } from "@/lib/chatbot-db-services"
 import { getDbPool } from "@/lib/mysql"
 import { getHuggingFaceEmbedding, cosineSimilarity } from "@/lib/hf-embedder"
+import { index as pineconeIndex } from "@/lib/pinecone"
+
 
 // --- CONFIG & UTILS ---
 // Global caches to improve performance
@@ -178,13 +180,12 @@ function getSystemPrompt(intent: string) {
 
   return `${base}\nHỌC THUẬT: Sử dụng "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU". 
 CHỈ THỊ ĐỊNH DẠNG (BẮT BUỘC):
-- Sử dụng ## cho 5 đầu mục chính: ## I. Tổng quan, ## II. Giải thích chi tiết, ## III. Ví dụ minh họa, ## IV. Bước tiếp theo để học, ## V. Tài liệu tham khảo.
-- Mục V: BẮT BUỘC liệt kê TẤT CẢ các tài liệu đã được trích dẫn hoặc thực sự sử dụng nội dung để trả lời ở trên. TUYỆT ĐỐI KHÔNG liệt kê các tài liệu "gợi ý thêm" hoặc tài liệu không dùng đến trong bài viết. CHỈ viết tên file theo dạng: 1. "Tên tài liệu" KHÔNG viết thêm bất kỳ từ nào khác sau tên file (không viết LaTeX, không viết ghi chú).
+- Sử dụng ## cho 4 đầu mục chính: ## I. Tổng quan, ## II. Giải thích chi tiết, ## III. Ví dụ minh họa, ## IV. Bước tiếp theo để học.
+- TUYỆT ĐỐI KHÔNG viết mục "V. Tài liệu tham khảo". Hệ thống sẽ tự động làm việc này.
 - In đậm **thuật ngữ** quan trọng. Sử dụng LaTeX \( \) CHỈ DÀNH CHO công thức toán học. BẮT BUỘC sử dụng markdown code block (\`code\`) cho các đoạn mã lập trình, cú pháp, hoặc tên biến. TUYỆT ĐỐI KHÔNG dùng LaTeX cho code.
 RÀNG BUỘC (QUAN TRỌNG):
-- BẮT BUỘC đi thẳng vào giải thích kiến thức. TUYỆT ĐỐI KHÔNG mở đầu bằng việc nhắc lại câu hỏi (ví dụ: cấm dùng "Bạn hỏi về...", "Theo câu hỏi của bạn...").
-- Phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" là dữ liệu hệ thống tự động trích xuất từ kho TLU, KHÔNG PHẢI do người dùng cung cấp. Tuyệt đối KHÔNG yêu cầu người dùng gửi thêm tài liệu hay trích đoạn.
-- TUYỆT ĐỐI KHÔNG viết cụm từ "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" vào câu trả lời cuối cùng. Hãy dùng các cách diễn đạt tự nhiên như "Theo tài liệu", "Trong hệ thống". Khi nhắc đến tên tài liệu cụ thể trong bài, hãy viết theo mẫu: "(tài liệu [Tên tài liệu])".
+- BẮT BUỘC đi thẳng vào giải thích kiến thức. TUYỆT ĐỐI KHÔNG mở đầu bằng việc nhắc lại câu hỏi.
+- Khi nhắc đến tên tài liệu cụ thể trong bài (Mục I-IV), hãy viết theo mẫu: "(tài liệu [Tên tài liệu])". Đây là căn cứ duy nhất để liệt kê vào mục V.
 - CHỈ sử dụng thông tin trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU". Nếu hệ thống trích xuất thiếu, hãy nói "Kho dữ liệu của hệ thống hiện tại chưa có đủ thông tin chi tiết về phần này".
 - Tuyệt đối không tự bịa kiến thức ngoài tài liệu.`
 }
@@ -194,6 +195,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const message = String(body.message ?? "").trim()
     const historyContext = buildHistoryContext(body.history || [])
+
+    // Force clear cache during debugging to ensure new prompt rules are applied
+    answerCache.clear()
 
     if (!message || message.length < 2) {
       return NextResponse.json({ answer: "Bạn có câu hỏi gì về học tập hay tài liệu không?", documents: [] })
@@ -245,109 +249,88 @@ export async function POST(request: Request) {
       const expandedQuery = await expandQueryForSearch(message, historyContext)
       console.log(`[RAG] Optimized Search Query: ${expandedQuery}`)
 
-      let rows: any[] = []
       try {
-        const [sqlRows]: any = await pool.execute(`
-          SELECT dc.content, dc.embedding, d.id, d.title, d.subject_id, d.download_url, d.drive_file_id, MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE) as bm25Score
-          FROM document_chunks dc 
-          JOIN documents d ON d.id = dc.document_id 
-          WHERE d.status = 'published' AND MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE)
-          LIMIT 200
-        `, [expandedQuery, expandedQuery])
-        rows = sqlRows
-      } catch (err) {
-        const keywords = expandedQuery.split(" ").filter(w => w.length > 2).slice(0, 3)
-        let likeClause = "AND (1=0"; const params: any[] = []
-        keywords.forEach(k => { likeClause += " OR dc.content LIKE ? OR d.title LIKE ?"; params.push(`%${k}%`, `%${k}%`) })
-        likeClause += ")"
-        const [sqlRows]: any = await pool.execute(`
-          SELECT dc.content, dc.embedding, d.id, d.title, d.subject_id, d.download_url, d.drive_file_id
-          FROM document_chunks dc 
-          JOIN documents d ON d.id = dc.document_id 
-          WHERE d.status = 'published' ${likeClause}
-          LIMIT 50
-        `, params)
-        rows = sqlRows
-      }
-
-      if (rows.length > 0) {
         const queryVector = await getCachedEmbedding(message)
-        const maxBm25 = Math.max(...rows.map((r: any) => r.bm25Score || 0), 1)
+        
+        // 1. Nhận diện môn học từ từ khóa trong câu hỏi (nếu có)
         const messageNorm = normalizeVietnameseText(message)
-        const queryWords = messageNorm.split(" ").filter(w => w.length > 2)
-
-        let scored = rows.map((r: any) => {
-          const chunkEmb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding
-          const vectorScore = fastDot(queryVector, chunkEmb)
-          const normBm25 = (r.bm25Score || 0) / maxBm25
-
-          // Trùng khớp tiêu đề theo từng từ khóa (chia tỉ lệ)
-          const normTitle = normalizeVietnameseText(r.title)
-          const titleMatchScore = queryWords.filter(w => normTitle.includes(w)).length / (queryWords.length || 1)
-
-          return { ...r, score: (vectorScore * 0.5) + (normBm25 * 0.3) + (titleMatchScore * 0.2) }
-        }).sort((a: any, b: any) => b.score - a.score)
-
-        // --- RULE TRỪ ĐIỂM LẠC ĐỀ MÔN HỌC (CROSS-SUBJECT PENALTY) ---
-        // 1. Tính tổng điểm của từng môn học trong Top 10 để tìm ra môn học thực sự áp đảo
-        const subjectScores: Record<string, number> = {}
-        scored.slice(0, 10).forEach(c => {
-          if (c.subject_id) {
-            subjectScores[c.subject_id] = (subjectScores[c.subject_id] || 0) + c.score
-          }
-        })
-
-        let dominantSubjectId: number | null = null
-        let maxSubjScore = 0
-        for (const [subj, score] of Object.entries(subjectScores)) {
-          const numScore = score as number
-          if (numScore > maxSubjScore) {
-            maxSubjScore = numScore
-            dominantSubjectId = Number(subj)
+        let forcedSubjectId: number | null = null
+        for (const s of subjectRows) {
+          const sName = normalizeVietnameseText(s.name)
+          const sCode = s.code.toLowerCase()
+          if (messageNorm.includes(sName) || messageNorm.includes(sCode)) {
+            forcedSubjectId = s.id
+            break
           }
         }
 
-        // 2. Trừ điểm RẤT NẶNG các tài liệu thuộc môn học khác để chúng rớt khỏi ngưỡng 0.25
-        if (dominantSubjectId !== null) {
-          scored = scored.map(c => {
-            if (c.subject_id && c.subject_id !== dominantSubjectId) {
-              c.score -= 0.4 // Penalty hủy diệt
+        // 2. Truy vấn trực tiếp từ Pinecone (Lấy nhiều hơn để lọc)
+        const queryResponse = await pineconeIndex.query({
+          vector: queryVector,
+          topK: 25, 
+          includeMetadata: true,
+        })
+
+        // 3. Chuyển đổi kết quả Pinecone
+        let scored = queryResponse.matches.map((match: any) => ({
+          content: match.metadata.content,
+          title: match.metadata.title,
+          id: match.metadata.document_id,
+          subject_id: match.metadata.subject_id,
+          score: match.score || 0,
+          drive_file_id: match.metadata.drive_file_id || null,
+          download_url: match.metadata.download_url || null
+        }))
+
+        // 4. Xác định môn học mục tiêu (Target Subject)
+        let targetSubjectId: number | null = forcedSubjectId
+
+        if (!targetSubjectId) {
+          const subjectScores: Record<string, number> = {}
+          scored.slice(0, 10).forEach(c => {
+            if (c.subject_id) {
+              subjectScores[c.subject_id] = (subjectScores[c.subject_id] || 0) + c.score
             }
-            return c
-          }).sort((a: any, b: any) => b.score - a.score)
+          })
+
+          let maxSubjScore = 0
+          for (const [subj, score] of Object.entries(subjectScores)) {
+            if (score > maxSubjScore) {
+              maxSubjScore = score
+              targetSubjectId = Number(subj)
+            }
+          }
         }
 
-        scored = scored.slice(0, 30)
-
-        // Deduplication
-        const unique = new Map()
-        scored.forEach((c: any) => {
-          const key = normalizeVietnameseText(c.content.slice(0, 100))
-          if (!unique.has(key)) unique.set(key, c)
-        })
-
-        // STRICT FILTERING: Bỏ ngay những chunk điểm thấp (< 0.25)
-        const topCandidates = Array.from(unique.values())
-          .filter((c: any) => c.score >= 0.25)
-          .slice(0, 5) // Chỉ lấy 5 chunk tốt nhất thay vì 8
-
-        semanticChunks = topCandidates
+        // --- CƠ CHẾ THIẾT QUÂN LUẬT (HARD FILTER) ---
+        // CHỈ giữ lại tài liệu thuộc môn học mục tiêu. Xóa bỏ hoàn toàn các môn khác.
+        const targetSubject = subjectRows.find((s: any) => s.id === targetSubjectId)
+        
+        if (targetSubjectId !== null) {
+          console.log(`[RAG_FILTER] 🎯 Đã xác định Môn học: ${targetSubject?.name || targetSubjectId}`)
+          semanticChunks = scored.filter(c => Number(c.subject_id) === targetSubjectId).slice(0, 5)
+        } else {
+          semanticChunks = scored.slice(0, 5)
+        }
 
         // YÊU CẦU TỪ USER: Ghi log chi tiết ra terminal
-        console.log(`\n[RAG_DEBUG] ====== CHI TIẾT TÀI LIỆU (RETRIEVAL) ======`)
+        console.log(`\n[RAG_DEBUG] ====== CHI TIẾT TÀI LIỆU (PINECONE RETRIEVAL) ======`)
         console.log(`[RAG_DEBUG] Câu hỏi: "${message}"`)
+        console.log(`[RAG_DEBUG] Môn học mục tiêu: ${targetSubject?.name || "Không xác định"}`)
+        
         if (semanticChunks.length > 0) {
-          console.log(`[RAG_DEBUG] Các tài liệu được sử dụng làm Context:`)
+          console.log(`[RAG_DEBUG] Các tài liệu được giữ lại sau khi lọc môn học:`)
           semanticChunks.forEach((c: any, i: number) => {
-            console.log(`   ${i + 1}. [Score: ${c.score.toFixed(3)}] ${c.title}`)
+            const chunkSubject = subjectRows.find((s: any) => s.id === Number(c.subject_id))
+            console.log(`   ${i + 1}. [Score: ${c.score.toFixed(3)}] ${c.title} (Môn: ${chunkSubject?.name || "N/A"})`)
           })
         } else {
-          console.log(`[RAG_DEBUG] Không có tài liệu nào đủ điểm (Score >= 0.25)!`)
+          console.log(`[RAG_DEBUG] Không tìm thấy tài liệu nào thuộc môn học mục tiêu!`)
         }
         console.log(`[RAG_DEBUG] ==============================================\n`)
 
         // Retrieval Confidence Gate (Anti-Hallucination)
-        if (semanticChunks.length === 0) {
+        if (semanticChunks.length === 0 || semanticChunks[0].score < 0.2) {
           const stream = new ReadableStream({
             start(controller) {
               controller.enqueue(new TextEncoder().encode("Dựa trên hệ thống dữ liệu hiện tại, mình chưa tìm thấy thông tin phù hợp để trả lời chính xác câu hỏi này. Bạn hãy thử dùng từ khóa khác cụ thể hơn nhé.\n__METADATA__\n" + JSON.stringify({ chatId: body.chatId, documents: [] })))
@@ -356,8 +339,12 @@ export async function POST(request: Request) {
           })
           return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
         }
+      } catch (err) {
+        console.error("[PINECONE_ERROR]", err)
+        // Fallback or error response
       }
     }
+
 
     // Priority weighting added to Context String
     const contextStr = semanticChunks.map((c, i) => `[ĐOẠN ${i + 1} - MỨC ĐỘ: ${i < 2 ? "QUAN TRỌNG" : "BỔ SUNG"}]\nNguồn: ${c.title}\nĐộ liên quan: ${c.score ? c.score.toFixed(2) : "N/A"}\n\n${c.content.length > 500 ? c.content.slice(0, 500) + "..." : c.content}`).join("\n\n")
@@ -370,7 +357,7 @@ export async function POST(request: Request) {
         model: "openai",
         messages: [
           { role: "system", content: getSystemPrompt(intent) },
-          { role: "user", content: `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TRÍCH DẪN:\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}` }
+          { role: "user", content: `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TÀI LIỆU CÓ THỂ SỬ DỤNG (CHỈ TRÍCH DẪN NẾU THỰC SỰ CẦN THIẾT):\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}` }
         ],
         temperature: 0.2,
         stream: true
@@ -423,17 +410,9 @@ export async function POST(request: Request) {
           console.error("Stream error", err)
         }
 
-        // Now run the metadata extraction logic using fullAnswer
+        // --- TỰ ĐỘNG TẠO MỤC V (CHỈ CHO ACADEMIC) ---
         const usedDocsMap = new Map<number, any>()
-        let textToScan = fullAnswer
-        const sectionVMatch = fullAnswer.match(/V\.\s*Tài liệu tham khảo([\s\S]*)/i)
-        if (sectionVMatch) {
-          textToScan = sectionVMatch[1]
-        }
-        const normAnswer = normalizeVietnameseText(textToScan).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ")
-
-        // Nếu là ACADEMIC: Chỉ quét tìm trong danh sách tài liệu đã được gửi cho AI làm bối cảnh (semanticChunks)
-        // Nếu là DISCOVERY: Quét tìm trong TOÀN BỘ danh sách tài liệu hiện có (allAvailableDocs) vì AI có thể gợi ý bất kỳ tài liệu nào từ systemMap
+        const normAnswer = normalizeVietnameseText(fullAnswer).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ")
         const docsToScan = intent === "DISCOVERY" ? allAvailableDocs : Array.from(new Set(semanticChunks.map(c => c.id))).map(id => semanticChunks.find(c => c.id === id))
 
         docsToScan.forEach(doc => {
@@ -446,6 +425,16 @@ export async function POST(request: Request) {
             }
           }
         })
+
+        if (intent === "ACADEMIC" && usedDocsMap.size > 0) {
+          let sectionV = "\n\n## V. Tài liệu tham khảo\n"
+          const sortedDocs = Array.from(usedDocsMap.values())
+          sortedDocs.forEach((d, i) => {
+            sectionV += `${i + 1}. "${d.title}"\n`
+          })
+          controller.enqueue(encoder.encode(sectionV))
+          fullAnswer += sectionV
+        }
 
         const metadata = {
           chatId: body.chatId || null,
