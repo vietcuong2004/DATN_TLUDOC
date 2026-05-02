@@ -251,7 +251,7 @@ export async function POST(request: Request) {
 
       try {
         const queryVector = await getCachedEmbedding(message)
-        
+
         // 1. Nhận diện môn học từ từ khóa trong câu hỏi (nếu có)
         const messageNorm = normalizeVietnameseText(message)
         let forcedSubjectId: number | null = null
@@ -267,7 +267,7 @@ export async function POST(request: Request) {
         // 2. Truy vấn trực tiếp từ Pinecone (Lấy nhiều hơn để lọc)
         const queryResponse = await pineconeIndex.query({
           vector: queryVector,
-          topK: 25, 
+          topK: 25,
           includeMetadata: true,
         })
 
@@ -305,7 +305,7 @@ export async function POST(request: Request) {
         // --- CƠ CHẾ THIẾT QUÂN LUẬT (HARD FILTER) ---
         // CHỈ giữ lại tài liệu thuộc môn học mục tiêu. Xóa bỏ hoàn toàn các môn khác.
         const targetSubject = subjectRows.find((s: any) => s.id === targetSubjectId)
-        
+
         if (targetSubjectId !== null) {
           console.log(`[RAG_FILTER] 🎯 Đã xác định Môn học: ${targetSubject?.name || targetSubjectId}`)
           semanticChunks = scored.filter(c => Number(c.subject_id) === targetSubjectId).slice(0, 5)
@@ -317,7 +317,7 @@ export async function POST(request: Request) {
         console.log(`\n[RAG_DEBUG] ====== CHI TIẾT TÀI LIỆU (PINECONE RETRIEVAL) ======`)
         console.log(`[RAG_DEBUG] Câu hỏi: "${message}"`)
         console.log(`[RAG_DEBUG] Môn học mục tiêu: ${targetSubject?.name || "Không xác định"}`)
-        
+
         if (semanticChunks.length > 0) {
           console.log(`[RAG_DEBUG] Các tài liệu được giữ lại sau khi lọc môn học:`)
           semanticChunks.forEach((c: any, i: number) => {
