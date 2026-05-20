@@ -53,6 +53,7 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 | drive_file_id | varchar(255) | NOT NULL | Chuỗi ID độc quyền do Google Drive cấp riêng cho file để phục vụ trích xuất API, iframe và RAG Chatbot. |
 | file_name | varchar(255) | DEFAULT NULL | Tên phần mềm gốc của tệp chuẩn trên máy tính hệ điều hành lúc tải lên Drive (Vd: BaiTapNhom.pdf). |
 | file_ext | varchar(20) | DEFAULT NULL | Đuôi định dạng kỹ thuật số (pdf, docx, pptx). Dùng để front-end sinh ra các icon minh họa chuẩn xác. |
+| file_hash | varchar(64) | DEFAULT NULL | Mã băm (MD5 hoặc SHA-256) của nội dung file. Dùng để kiểm tra trùng lặp chính xác 100%. |
 | file_url | varchar(1000) | DEFAULT NULL | Đường dẫn chia sẻ trực tiếp bản gốc web trên Drive. Sử dụng để Share Link hệ ngoài lề nều cần thiết. |
 | preview_url | varchar(1000) | DEFAULT NULL | URL đã nhúng để chèn thẳng vào bảng <iframe> của web, để user xem trực tiếp văn bản mà không phải nhảy tab. |
 | download_url | varchar(1000) | DEFAULT NULL | Hành động đường liên kết API Endpoint. Khi nhấp vào, trình duyệt tự động tải ngầm file cứng về máy tính. |
@@ -104,3 +105,15 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 | answer | longtext | NOT NULL | Lời giải trích xuất do Bot trả lời |
 | ai_model | varchar(100) | DEFAULT NULL | Phiên bản AI xử lý giải đáp |
 | created_at | timestamp | NOT NULL, DEFAULT current_timestamp() | Lưu giữ thời gian vấn đáp |
+
+### 8.7. Cơ sở dữ liệu Vector (Pinecone Database)
+
+Hệ thống **không** lưu trữ vector nhúng (embeddings) và các mảnh văn bản (chunks) trong MySQL. Để tối ưu hóa hiệu suất tìm kiếm ngữ nghĩa (Semantic Search) cho Chatbot RAG, dữ liệu được lưu trữ trên dịch vụ **Pinecone Vector Database**.
+
+**Cấu trúc lưu trữ mỗi Vector (Record) trên Pinecone:**
+
+| Thuộc Tính | Kiểu Dữ Liệu | Mô Tả |
+| :--- | :--- | :--- |
+| **id** | String | Mã định danh riêng cho mỗi mảnh văn bản (VD: `doc_12_chunk_1`) |
+| **values** | Float Array | Mảng số thực đa chiều (Vector) sinh từ Embedding Model để tính toán khoảng cách (Cosine Similarity) |
+| **metadata** | JSON Object | Các thông tin đi kèm để lọc (Filter) và làm ngữ cảnh, bao gồm:<br>- `content` (String): Đoạn văn bản chữ thuần để ghép vào prompt cho LLM.<br>- `document_id` (Number): Liên kết với ID tài liệu gốc trong MySQL.<br>- `subject_id` (Number): ID môn học của tài liệu để bộ lọc AI lọc theo ngữ cảnh môn học.<br>- `title` (String): Tên tài liệu hiển thị phần gợi ý nguồn.<br>- `download_url` (String): Link tải trực tiếp file PDF để trỏ nguồn.<br>- `drive_file_id` (String): ID của file trên Google Drive (nếu có). |

@@ -169,3 +169,39 @@ Bảng mô tả Use Case:
 | Luồng sự kiện thay thế (Alternative Flow) | - **Hủy bỏ đánh giá**: Trong lúc nhập liệu trên hộp thoại, user bấm dấu "X" hoặc click ra ngoài viền hộp thoại để đóng popup. Hệ thống không lưu bất kỳ thay đổi nào. |
 | Luồng sự kiện ngoại lệ (Exception Flow) | 6a. Thông tin thiếu hoặc sai định dạng: Nếu user chưa chọn sao (rating < 1), Server trả về lỗi 400 "Rating must be between 1 and 5". Hệ thống báo lỗi yêu cầu chọn sao.<br>6b. Lỗi kết nối Server: Server trả lỗi 500 (Internal Server Error), hộp thoại hiển thị lỗi không thể gửi đánh giá lúc này. |
 | Cơ sở dữ liệu | Bảng `document_reviews`: Thêm bản ghi mới (INSERT) bao gồm các trường `document_id`, `user_id`, `rating` (số nguyên), `comment` (văn bản) và `created_at`. |
+
+
+# 11. UC11 – Tải tài liệu lên (Upload Document):
+
+| Thuộc tính | Mô tả |
+|---|---|
+| Tên use case | UC11 |
+| Tác nhân chính | User (Sinh viên / Giảng viên) |
+| Mục đích (mô tả) | Cho phép user tải lên tài liệu mới vào hệ thống, lưu trữ trên Google Drive, trích xuất dữ liệu AI và cập nhật vào cơ sở dữ liệu. |
+| Mức độ ưu tiên (Priority) | Bắt buộc (Quan trọng) |
+| Điều kiện kích hoạt (Trigger) | User truy cập trang Upload, điền form và bấm "Tải lên". |
+| Điều kiện tiên quyết (Pre-condition) | - User đã đăng nhập hệ thống.<br>- User đã chọn một môn học hợp lệ từ danh mục.<br>- File tải lên phải đúng định dạng hỗ trợ. |
+| Điều kiện thành công (Post-condition) | - Tài liệu vật lý được lưu trữ thành công trên Google Drive.<br>- Metadata được lưu vào cơ sở dữ liệu MySQL.<br>- Dữ liệu Vector (Pinecone) được sinh ra thành công.<br>- Chuyển hướng user đến trang xem chi tiết tài liệu. |
+| Điều kiện thất bại | - Lỗi upload Google Drive, lỗi mạng, lỗi trùng lặp dữ liệu.<br>- Hệ thống báo lỗi và hủy toàn bộ quá trình. |
+| Luồng sự kiện chính (Basic Flow) | 1. User truy cập trang Upload.<br>2. Hệ thống hiển thị form yêu cầu nhập: Chọn môn học (bắt buộc), File tài liệu, Tên tài liệu, Thể loại tài liệu, Mô tả.<br>3. User chọn môn học và upload file. Hệ thống tự điền tên file vào ô Tên tài liệu.<br>4. User bổ sung Mô tả và Thể loại.<br>5. User bấm "Tải lên".<br>6. Hệ thống kích hoạt ngầm **UC12 (Kiểm tra trùng lặp)**.<br>7. Nếu hợp lệ, hệ thống gọi Google Drive API để tải file lên đám mây, nhận về `drive_file_id`.<br>8. Hệ thống sinh các URL (file_url, preview_url, download_url) và lưu toàn bộ metadata vào MySQL.<br>9. Hệ thống trích xuất văn bản từ file, chia nhỏ (chunking), tạo Vector và đẩy lên Pinecone AI.<br>10. Giao diện hiển thị thông báo thành công và chuyển hướng đến trang tài liệu. |
+| Luồng sự kiện thay thế (Alternative Flow) | Không có |
+| Luồng sự kiện ngoại lệ (Exception Flow) | 6a. UC12 báo lỗi trùng lặp nội dung: Dừng tiến trình và báo lỗi cho User trên giao diện.<br>7a. Lỗi API Google Drive: Trả về HTTP 500, quá trình bị hủy.<br>9a. Lỗi trích xuất Vector Pinecone: Quá trình lưu MySQL vẫn thành công nhưng đánh dấu cờ lỗi Vector để admin xử lý sau. |
+| Cơ sở dữ liệu | Bảng `documents`: Thêm bản ghi mới (INSERT) gồm `title`, `description`, `subject_id`, `drive_file_id`, `file_hash`, v.v.<br>Pinecone DB: Thêm các Vector kèm Metadata. |
+
+# 12. UC12 – Kiểm tra trùng lặp nội dung (Duplicate Check):
+
+| Thuộc tính | Mô tả |
+|---|---|
+| Tên use case | UC12 |
+| Quan hệ | **Include** từ UC11 (Tải tài liệu lên) |
+| Tác nhân chính | Hệ thống (System) |
+| Mục đích (mô tả) | Đảm bảo tính duy nhất tuyệt đối 100% của tài liệu trong hệ thống bằng cách tính toán và đối chiếu mã băm (MD5/SHA-256) của file. |
+| Mức độ ưu tiên (Priority) | Bắt buộc (Quan trọng) |
+| Điều kiện kích hoạt (Trigger) | Khi Server API Upload nhận được Binary File từ Client. |
+| Điều kiện tiên quyết (Pre-condition) | - Dữ liệu thô (Buffer) của file được truyền tải thành công lên Backend. |
+| Điều kiện thành công (Post-condition) | - Hệ thống trả về mã băm và kết luận tài liệu chưa tồn tại trong CSDL. |
+| Điều kiện thất bại | - Dữ liệu bị trùng với một tài liệu đã có. |
+| Luồng sự kiện chính (Basic Flow) | 1. API nhận được File Buffer.<br>2. Hệ thống đưa Buffer vào thuật toán mã hóa (Node.js Crypto) để sinh chuỗi Hash MD5.<br>3. Hệ thống tạo truy vấn MySQL tìm kiếm chuỗi Hash này trong bảng `documents`.<br>4. Không tìm thấy kết quả khớp.<br>5. Hệ thống trả lại quyền điều khiển cho tiến trình Upload (kèm theo mã Hash sinh ra). |
+| Luồng sự kiện thay thế (Alternative Flow) | Không có |
+| Luồng sự kiện ngoại lệ (Exception Flow) | 4a. Tìm thấy kết quả khớp trong CSDL: Hệ thống lập tức trả về mã lỗi HTTP 409 Conflict (Kèm thông báo "Nội dung tài liệu đã tồn tại"). Dừng tiến trình Upload. |
+| Cơ sở dữ liệu | Bảng `documents`: Thao tác `SELECT id, title FROM documents WHERE file_hash = ? LIMIT 1`. |

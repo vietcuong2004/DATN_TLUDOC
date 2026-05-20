@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS documents (
   drive_file_id VARCHAR(255) NOT NULL,
   file_name VARCHAR(255),
   file_ext VARCHAR(20),
+  file_hash VARCHAR(64),
   file_url VARCHAR(1000),
   preview_url VARCHAR(1000),
   download_url VARCHAR(1000),
@@ -133,6 +134,7 @@ CREATE TABLE IF NOT EXISTS documents (
   INDEX idx_documents_status (status),
   INDEX idx_documents_created_at (created_at),
   INDEX idx_documents_drive_folder_key (drive_folder_key),
+  INDEX idx_documents_file_hash (file_hash),
   FULLTEXT INDEX ft_documents_search (title, description)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -245,6 +247,7 @@ ON DUPLICATE KEY UPDATE
 - `drive_file_id`
 - `file_name`
 - `file_ext`
+- `file_hash`
 - `file_url`
 - `preview_url`
 - `download_url`
@@ -307,6 +310,7 @@ Dưới đây là bảng giải thích chi tiết mục đích, kiểu dữ li�
 | drive_file_id | varchar(255) | NOT NULL | Chuỗi ID độc quyền do Google Drive cấp riêng cho file để phục vụ trích xuất API, iframe và RAG Chatbot. |
 | file_name | varchar(255) | DEFAULT NULL | Tên phần mềm gốc của tệp chuẩn trên máy tính hệ điều hành lúc tải lên Drive (Vd: BaiTapNhom.pdf). |
 | file_ext | varchar(20) | DEFAULT NULL | Đuôi định dạng kỹ thuật số (pdf, docx, pptx). Dùng để front-end sinh ra các icon minh họa chuẩn xác. |
+| file_hash | varchar(64) | DEFAULT NULL | Mã băm (MD5 hoặc SHA-256) của nội dung file. Dùng để kiểm tra trùng lặp chính xác 100%. |
 | file_url | varchar(1000) | DEFAULT NULL | Đường dẫn chia sẻ trực tiếp bản gốc web trên Drive. Sử dụng để Share Link hệ ngoài lề nều cần thiết. |
 | preview_url | varchar(1000) | DEFAULT NULL | URL đã nhúng để chèn thẳng vào bảng <iframe> của web, để user xem trực tiếp văn bản mà không phải nhảy tab. |
 | download_url | varchar(1000) | DEFAULT NULL | Hành động đường liên kết API Endpoint. Khi nhấp vào, trình duyệt tự động tải ngầm file cứng về máy tính. |
