@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   await fs.mkdir(uploadDir, { recursive: true })
   const uploadPath = path.join(uploadDir, fileName)
   const arrayBuffer = await file.arrayBuffer()
-  await fs.writeFile(uploadPath, Buffer.from(arrayBuffer))
+  await fs.writeFile(uploadPath, new Uint8Array(arrayBuffer))
   // Trả về URL public
   const publicUrl = `/uploads/${fileName}`
   return NextResponse.json({ url: publicUrl })

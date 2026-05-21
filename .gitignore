@@ -31,3 +31,6 @@ next-env.d.ts
 
 # Backups
 backups/
+
+# Local uploads (đã dùng Google Drive thay thế)
+/public/uploads/

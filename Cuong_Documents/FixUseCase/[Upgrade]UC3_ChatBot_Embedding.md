@@ -3,21 +3,21 @@
 Tài liệu này đóng vai trò như một bản đặc tả thiết kế hệ thống (System Design Specification) đi sâu vào tầng mã nguồn (Code-level). Nó giải thích toàn bộ quy trình nhận thức, lưu trữ, và kết xuất của hệ thống Retrieval-Augmented Generation (RAG) đang chạy trực tiếp trên dự án.
 
 Hệ thống hiện hành được thiết kế xoay quanh ba triết lý cốt lõi:
-1.  **Hybrid Search & In-Memory Computation**: Bỏ qua các CSDL Vector đắt đỏ, kết hợp thuật toán tính Cosine Vector trên RAM với tìm kiếm toàn văn BM25 và khớp Keyword trực tiếp từ MySQL.
-2.  **Strict Anti-Hallucination (Chống ảo giác tuyệt đối)**: Áp dụng thuật toán **Cross-Subject Penalty** (Phạt điểm khác môn) và đối soát trích dẫn khép kín để đảm bảo AI không bao giờ bịa ra tài liệu.
-3.  **Resource Efficiency**: Chặn đứng các câu hỏi vô nghĩa (Gibberish) bằng bộ lọc Rule-based, và hỗ trợ ngắt luồng Stream (AbortController) từ xa để tiết kiệm tài nguyên Server.
+1.  **High-Performance Vector Retrieval (Pinecone)**: Sử dụng Managed Vector Database chuyên dụng để xử lý hàng triệu bản ghi với độ trễ cực thấp, thay thế cho việc tính toán thủ công trên MySQL/RAM.
+2.  **Thiết quân luật (Strict Subject Filtering)**: Áp dụng cơ chế **Hard Filtering** dựa trên Metadata môn học để đảm bảo sự cách ly tuyệt đối về kiến thức giữa các môn học khác nhau.
+3.  **Auto-generated Citations (Post-processing)**: Hệ thống tự động quét và tạo Mục V (Tham khảo) bằng code sau khi AI trả lời, đảm bảo tính chính xác 100% giữa nội dung trích dẫn và danh sách tài liệu.
 
 ---
 
 ## 🏗️ PHẦN 1: TỔNG QUAN KIẾN TRÚC LUỒNG ĐI
 
 Hệ thống Chatbot RAG của dự án trải qua 6 bước liên hoàn khi nhận được một tin nhắn từ người dùng:
-- **Bước 1: Nạp liệu (ETL)** - Đọc PDF, chuyển thành vector và lưu vào DB.
-- **Bước 2: Phân loại ý định (Intent Classifier)** - Bộ lọc cứng (Gibberish) kết hợp AI để định tuyến câu hỏi (ACADEMIC, DISCOVERY, CASUAL).
-- **Bước 3: Hybrid Search & Scoring** - Tìm kiếm 3 lớp (Vector + BM25 + Title Match) để kéo dữ liệu lên.
-- **Bước 4: Cross-Subject Penalty** - Thuật toán trừ điểm nặng để loại bỏ tài liệu lạc môn.
-- **Bước 5: Sinh văn bản (LLM Stream)** - Gửi Prompt có chứa ngữ cảnh cho AI và truyền Stream về Client (hỗ trợ Cancel).
-- **Bước 6: Trích xuất Metadata & Render AST** - Quét tên tài liệu trong câu trả lời để tạo Citations và Render giao diện Toán học.
+- **Bước 1: Nạp liệu (ETL)** - Đọc PDF, tạo embedding và đồng bộ Metadata lên Pinecone Index.
+- **Bước 2: Phân loại ý định (Intent Classifier)** - Sử dụng AI để định tuyến câu hỏi (ACADEMIC, DISCOVERY, CASUAL).
+- **Bước 3: Vector Similarity Search** - Truy vấn Pinecone Index để tìm các đoạn văn bản có ngữ nghĩa gần nhất với câu hỏi.
+- **Bước 4: Thiết quân luật (Subject Filter)** - Lọc bỏ hoàn toàn các tài liệu không thuộc môn học chủ đạo để tránh "lạc đề".
+- **Bước 5: Sinh văn bản (LLM Stream)** - AI tổng hợp câu trả lời từ bối cảnh (Context) đã được lọc sạch.
+- **Bước 6: Auto-Citations & Metadata** - Code tự động chèn Mục V (Tham khảo) và trả về metadata để render thẻ tài liệu.
 
 **Bảng Tổng hợp Luồng Dữ liệu (Data Pipeline Overview):**
 
@@ -25,8 +25,8 @@ Hệ thống Chatbot RAG của dự án trải qua 6 bước liên hoàn khi nh�
 | :--- | :--- | :--- | :--- | :--- |
 | **1** | **Nạp liệu (ETL)** | Quét file giáo trình, băm nhỏ và nén ý nghĩa thành không gian toán học (Vector) để máy tính hiểu được. | File tài liệu gốc (PDF) | Vector 384 chiều lưu trong CSDL |
 | **2** | **Phân loại ý định** | Phân tích xem người dùng đang hỏi nghiêm túc hay nói nhảm để quyết định có cho đi tiếp hay không nhằm tiết kiệm API. | Tin nhắn thô của User | Nhãn phân loại: `ACADEMIC`, `DISCOVERY` hoặc `CASUAL` |
-| **3** | **Hybrid Search** | Tính toán khoảng cách Vector kết hợp tần suất từ khóa (BM25) để lôi tài liệu có liên quan từ dưới MySQL lên. | Vector câu hỏi | Danh sách các đoạn văn bản thô (Chunks) |
-| **4** | **Phạt Lạc Môn (Cross-Subject Penalty)** | Đánh giá xem có tài liệu nào trót lọt nhưng thuộc môn học khác không. Nếu có thì trừ điểm cực nặng để diệt ảo giác. | Danh sách Chunks thô | Top 5 Chunks chuẩn xác nhất (Đã lọc) |
+| **3** | **Vector Search** | Truy vấn Pinecone Index để lôi 25 mảnh tri thức có liên quan nhất lên bộ nhớ đệm. | Vector câu hỏi | Top 25 Chunks từ Pinecone |
+| **4** | **Thiết quân luật** | Xác định môn học chủ đạo và xóa bỏ hoàn toàn các tài liệu "lạc môn" ra khỏi bối cảnh. | Top 25 Chunks | Top 5 Chunks chuẩn môn học |
 | **5** | **Sinh văn bản (LLM Stream)** | Nhồi 5 đoạn văn bản chuẩn xác cùng lịch sử chat vào cho AI tổng hợp thành một câu trả lời hoàn chỉnh. | Top 5 Chunks + Lịch sử + Câu hỏi | Luồng dữ liệu chữ (ReadableStream) |
 | **6** | **Trích xuất Metadata** | Đọc lại câu trả lời vừa sinh ra để xem AI nhắc đến tên giáo trình nào, từ đó hiển thị file giáo trình đó ra màn hình. | Luồng chữ hoàn chỉnh | Chuỗi JSON chứa thông tin các File |
 
@@ -34,9 +34,9 @@ Hệ thống Chatbot RAG của dự án trải qua 6 bước liên hoàn khi nh�
 
 ## 🗄️ PHẦN 2: THUẬT TOÁN NẠP LIỆU (ETL - DATA INGESTION)
 
-Để Chatbot có kiến thức, ta phải nạp giáo trình cho nó. Hệ thống sử dụng một script chạy nền để quét toàn bộ file PDF và chuyển ngữ nghĩa của chúng thành Toán học.
+Để Chatbot có kiến thức, ta phải nạp giáo trình cho nó. Hệ thống sử dụng các script chuyên dụng để đẩy dữ liệu lên "đám mây" Pinecone.
 
-**File chịu trách nhiệm chính:** `scripts/sync-to-mysql.mjs`
+**File chịu trách nhiệm chính:** `scripts/sync-to-pinecone.mjs` và `scripts/direct-to-pinecone.mjs`
 
 ### 2.1. Đọc và Cắt nhỏ văn bản (Chunking)
 Vào dòng thứ **84 đến 95** của file `sync-to-mysql.mjs`:
@@ -68,9 +68,11 @@ await pool.query(
 )
 ```
 *Giải thích:*
-- Hàm `getEmbedding` sẽ kết nối tới nền tảng HuggingFace.
-- Mô hình được sử dụng là `sentence-transformers/all-MiniLM-L6-v2`. Mạng Nơ-ron này đọc đoạn văn 1000 ký tự và nén nó lại thành một Mảng chính xác chứa **384 con số** (Vector 384 chiều).
-- Cuối cùng, 384 con số này được ép thành chuỗi JSON và cất thẳng vào MySQL tại bảng `document_chunks`. (Không cần hệ thống Vector Database thứ ba nào cả).
+- Hàm `getEmbedding` kết nối tới HuggingFace (Model: `all-MiniLM-L6-v2`).
+- Kết quả là mảng **384 con số** (Vector) được lưu vào Pinecone kèm theo **Metadata** cực kỳ quan trọng:
+  - `subject_id`: Mã môn học (Dùng để lọc "Thiết quân luật").
+  - `title`: Tên tài liệu (Dùng để trích dẫn).
+  - `drive_file_id`, `download_url`: Dùng để xem trước và tải về.
 - **📌 Input**: Một đoạn văn bản (Chunk) dạng String Text. Ví dụ: `"Đạo hàm là tốc độ thay đổi tức thời của hàm số..."`.
 - **📌 Output**: Một mảng Array gồm 384 con số thực (Float) mang giá trị ngữ nghĩa. Mảng này sau đó được mã hóa (JSON.stringify) thành chuỗi như `"[0.012, 0.45, -0.02, ...]"` và `INSERT` thẳng vào cột `embedding` của MySQL.
 
@@ -107,45 +109,45 @@ Nếu vượt qua bộ lọc cứng, hệ thống gửi một Prompt siêu chặ
 
 ---
 
-## 🔍 PHẦN 4: THUẬT TOÁN TÌM KIẾM 3 LỚP (HYBRID SEARCH) VÀ CHỐNG LẠC ĐỀ
+## 🔍 PHẦN 4: THUẬT TOÁN TÌM KIẾM VECTOR VÀ THIẾT QUÂN LUẬT (STRICT FILTERING)
 
-Khi câu hỏi là `ACADEMIC`, hệ thống bắt đầu quá trình RAG phức tạp nhất.
+Hệ thống sử dụng cơ chế lọc cứng để ngăn chặn việc tài liệu môn học này "nhảy" sang môn học khác.
 
-### 4.1 Truy xuất kết hợp (Vector + BM25)
-Tại `route.ts`, chúng ta không chỉ dùng Cosine. Chúng ta truy vấn MySQL với `MATCH() AGAINST()` để lấy điểm BM25:
-```sql
-SELECT dc.content, dc.embedding, d.id, d.title, d.subject_id, MATCH(dc.content) AGAINST (? IN NATURAL LANGUAGE MODE) as bm25Score
-```
-
-### 4.2 Thuật toán chấm điểm 3 Yếu Tố (3-Factor Scoring)
-Dữ liệu kéo lên RAM sẽ được tính điểm tổng hợp:
+### 4.1 Truy xuất từ Pinecone
+Thay vì quét MySQL, hệ thống gọi trực tiếp API Pinecone:
 ```typescript
-const vectorScore = fastDot(queryVector, chunkEmb)
-const normBm25 = (r.bm25Score || 0) / maxBm25
-const titleMatchScore = queryWords.filter(w => normTitle.includes(w)).length / queryWords.length
-
-// Công thức trọng số:
-const finalScore = (vectorScore * 0.5) + (normBm25 * 0.3) + (titleMatchScore * 0.2)
+const queryResponse = await pineconeIndex.query({
+  vector: queryVector,
+  topK: 25, 
+  includeMetadata: true,
+})
 ```
 
-### 4.3 Thuật toán Phạt Lạc Môn (Cross-Subject Penalty) - Lõi Chống Ảo Giác
-Nếu User hỏi về "Giải tích", nhưng trong DB có từ khóa trùng lặp ở "CTDL & Giải thuật", làm sao để chặn?
-Hệ thống tính tổng điểm các môn học trong Top 10 kết quả để tìm ra **Môn Học Chủ Đạo (Dominant Subject)**.
-```typescript
-// Tìm môn học có tổng điểm cao nhất
-let dominantSubjectId = findDominantSubject(scored.slice(0, 10));
+### 4.2 Cơ chế Thiết quân luật (Hard Filter) - "Đúng môn mới nói"
+Đây là thuật toán quan trọng nhất để chống lại hiện tượng AI trả lời "râu ông nọ cắm cằm bà kia" (ví dụ: đang hỏi về Linux nhưng lại lấy kiến thức Trí tuệ nhân tạo ra trả lời).
 
-// Trừ điểm RẤT NẶNG các tài liệu thuộc môn học khác
-if (dominantSubjectId !== null) {
-  scored = scored.map(c => {
-    if (c.subject_id && c.subject_id !== dominantSubjectId) {
-      c.score -= 0.4 // Penalty hủy diệt
-    }
-    return c
-  })
-}
-```
-Mức phạt `-0.4` đảm bảo các tài liệu lạc môn sẽ rớt xuống dưới ngưỡng Threshold `0.25` và bị loại bỏ hoàn toàn.
+**Quy trình xử lý gồm 3 bước:**
+
+1.  **Bầu chọn Môn học mục tiêu (Subject Voting):**
+    Hệ thống nhìn vào 25 kết quả vừa lấy từ Pinecone. Nó tính tổng điểm của từng môn học xuất hiện trong đó. Môn học nào có tổng điểm cao nhất sẽ được coi là **"Môn học mục tiêu"** (Target Subject).
+    *Ví dụ:* Trong 25 kết quả, có 20 đoạn thuộc môn "Hệ điều hành" và 5 đoạn thuộc môn "Giải tích". Hệ thống sẽ chốt mục tiêu là môn **Hệ điều hành**.
+
+2.  **Thanh lọc tuyệt đối (The Hard Filter):**
+    Sau khi đã chốt được Môn học mục tiêu, hệ thống thực hiện một lệnh lọc (filter) cực kỳ tàn nhẫn:
+    ```typescript
+    // Xóa sổ mọi tài liệu không khớp mã môn học mục tiêu
+    semanticChunks = scored.filter(c => Number(c.subject_id) === targetSubjectId)
+    ```
+    *Ý nghĩa:* Dù một đoạn văn bản môn "Giải tích" có điểm tương đồng là 0.99 (rất cao), nhưng vì nó không phải môn "Hệ điều hành" nên nó sẽ bị **xóa bỏ 100%**.
+
+3.  **Lấy tinh hoa (Top 5):**
+    Sau khi đã lọc sạch "rác" lạc môn, hệ thống mới lấy ra 5 đoạn văn bản xuất sắc nhất của đúng môn đó để gửi cho AI.
+    ```typescript
+    semanticChunks = semanticChunks.slice(0, 5)
+    ```
+
+**📌 Tại sao phải làm vậy?**
+Trong học tập, các môn học thường có từ khóa trùng nhau (ví dụ: từ "Kernel" có trong cả Hệ điều hành và Đại số tuyến tính). Nếu không có "Thiết quân luật", AI sẽ bị nhầm lẫn giữa hai khái niệm này. Cơ chế này đảm bảo kiến thức luôn nằm trong đúng "vùng an toàn" của môn học đó.
 
 *Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 4:*
 - **📌 Input**: Câu hỏi của người dùng đã được tối ưu hóa (String) và Vector của câu hỏi (Array 384 chiều).
@@ -177,23 +179,26 @@ Sự kết hợp giữa `AbortController` (Frontend) và `request.signal.aborted
 
 ---
 
-## 📑 PHẦN 6: ĐỐI SOÁT TRÍCH DẪN (METADATA EXTRACTION)
+## 📑 PHẦN 6: AUTO-GENERATED CITATIONS & METADATA
 
-Sau khi Stream xong, hệ thống quét câu trả lời để tìm ra các tài liệu đã thực sự được AI nhắc tên và nhét chúng vào khối `__METADATA__`.
+Đây là "vũ khí" chống trích dẫn ảo. AI được lệnh **KHÔNG** tự viết Mục V. Hệ thống sẽ tự động làm việc này ở tầng code sau khi stream kết thúc.
 
-Điểm đặc biệt ở phiên bản nâng cấp:
-- **Nếu là ACADEMIC**: Hệ thống CHỈ quét trong tập hợp các `semanticChunks` đã được đưa cho AI. Điều này cấm AI trích dẫn các tài liệu ma.
-- **Nếu là DISCOVERY**: Do AI đang gợi ý tài liệu dựa trên bản đồ hệ thống (`systemMap`), nó có thể nhắc tới bất kỳ tài liệu nào. Nên hệ thống sẽ quét tìm trên `allAvailableDocs` (toàn bộ database).
+### 6.1. Quy trình tự động tạo Mục V
+1.  **Quét nội dung**: Code quét toàn bộ bài giải thích của AI (Mục I-IV).
+2.  **Đối soát**: Chỉ những tài liệu nào thực sự được AI nhắc tên trong bài mới được đưa vào danh sách.
+3.  **Nối thêm (Append)**: Hệ thống tự động chèn chuỗi `## V. Tài liệu tham khảo` vào cuối stream.
 
+### 6.2. Trích xuất Metadata
+Hệ thống đính kèm một gói JSON ẩn ở cuối câu trả lời để Frontend hiển thị thẻ tài liệu.
 ```typescript
-const docsToScan = intent === "DISCOVERY" ? allAvailableDocs : Array.from(new Set(semanticChunks.map(c => c.id)))
-
-docsToScan.forEach(doc => {
-  const regex = new RegExp(`\\b${normTitle}\\b`, "i")
-  if (regex.test(normAnswer)) {
-    usedDocsMap.set(doc.id, doc)
-  }
-})
+const metadata = {
+  chatId: body.chatId,
+  documents: Array.from(usedDocsMap.values()).map(d => ({
+    id: d.id,
+    title: d.title,
+    // ... metadata cho Card UI
+  }))
+}
 ```
 
 *Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 6:*

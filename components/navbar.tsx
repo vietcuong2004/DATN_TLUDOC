@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Bell, Menu, User, Settings, LogOut } from "lucide-react"
+import { Search, Bell, Menu, User, Settings, LogOut, Upload } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,8 +116,8 @@ export function Navbar() {
           </nav>
         )}
 
-        <div className="hidden md:flex flex-1 max-w-sm mx-4">
-          <Link href="/advanced-search" className="relative w-full group">
+        <div className="hidden md:flex flex-1 max-w-sm mx-4 items-center">
+          <Link href="/advanced-search" className="relative flex-1 group">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#0b3b8f] group-hover:text-[#072f75] transition-colors" />
             <div className="w-full bg-white pl-8 pr-4 h-9 flex items-center text-sm text-gray-500 rounded-lg border border-[#0b3b8f] shadow-sm transition-all group-hover:border-[#072f75] group-hover:bg-blue-50/10 cursor-pointer">
               Tìm kiếm tài liệu...
@@ -126,6 +126,12 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center space-x-2">
+          <Button asChild className="hidden md:flex h-9 bg-[#0b3b8f] text-white hover:bg-[#072f75] hover:shadow-md transition-all font-semibold rounded-lg px-4 shadow-sm border border-transparent hover:scale-[1.02]">
+            <Link href="/upload">
+              <Upload className="w-4 h-4 mr-1.5" />
+              Tải lên
+            </Link>
+          </Button>
           <Button variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
             <Bell className="h-5 w-5 fill-current" />
             <span className="sr-only">Thông báo</span>

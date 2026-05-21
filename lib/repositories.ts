@@ -88,10 +88,16 @@ export type DocumentDetail = {
   subjectId: number
   subjectName: string
   subjectCode: string
+  uploaderName?: string
 }
 
 function buildDriveThumbnail(fileId: string | null, size = 1200) {
   if (!fileId) {
+    return "/placeholder.svg?height=200&width=300"
+  }
+
+  // Nhận diện file local (tên file chứa dấu '.' hoặc có ID ngắn hơn 20 ký tự chuẩn của Drive)
+  if (fileId.includes('.') || fileId.length < 20) {
     return "/placeholder.svg?height=200&width=300"
   }
 
@@ -171,12 +177,14 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
         ? "created_at DESC"
         : "views_count DESC, created_at DESC"
 
-  const rows = await queryRows<DocumentRow & { subject_code: string; subject_name: string }>(
+
+  const rows = await queryRows<DocumentRow & { subject_code: string; subject_name: string; uploader_name: string }>(
     `
       SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.file_ext, d.download_url,
-             s.code as subject_code, s.name as subject_name
+             s.code as subject_code, s.name as subject_name, u.full_name as uploader_name
       FROM documents d
       INNER JOIN subjects s ON s.id = d.subject_id
+      LEFT JOIN users u ON u.id = d.uploader_id
       WHERE d.status = 'published'
       ORDER BY ${orderBy}
       LIMIT ?
@@ -196,7 +204,9 @@ export async function getHomepageDocuments(mode: "featured" | "latest" | "popula
     downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
     subjectCode: row.subject_code,
     subjectName: row.subject_name,
+    uploaderName: row.uploader_name || undefined,
   }))
+
 }
 
 export async function getSubjectByCode(code: string): Promise<{ code: string; name: string; groupName: string } | null> {
@@ -223,6 +233,15 @@ export async function getSubjectByCode(code: string): Promise<{ code: string; na
     name: rows[0].name,
     groupName: rows[0].group_name?.trim() || "Chưa phân nhóm",
   }
+}
+
+export async function getSubjectIdByFolderKey(folderKey: string): Promise<number | null> {
+  if (!isDbConfigured()) return null
+  const rows = await queryRows<RowDataPacket & { id: number }>(
+    `SELECT id FROM subjects WHERE folder_key = ? LIMIT 1`,
+    [folderKey]
+  )
+  return rows.length ? rows[0].id : null
 }
 
 export async function getDocumentsBySubjectCode(subjectCode: string): Promise<SubjectDocument[]> {
@@ -262,7 +281,7 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
     return null
   }
 
-  const rows = await queryRows<DocumentRow & { subject_name: string; subject_code: string; review_count: number }>(
+  const rows = await queryRows<DocumentRow & { subject_name: string; subject_code: string; review_count: number; uploader_name: string | null }>(
     `
       SELECT
         d.id,
@@ -281,9 +300,11 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
         d.drive_file_id,
         d.file_url,
         d.preview_url,
-        d.download_url
+        d.download_url,
+        u.full_name as uploader_name
       FROM documents d
       INNER JOIN subjects s ON d.subject_id = s.id
+      LEFT JOIN users u ON u.id = d.uploader_id
       WHERE d.id = ? AND d.status = 'published'
       LIMIT 1
     `,
@@ -294,7 +315,7 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
     return null
   }
 
-  const row = rows[0] as DocumentRow & { review_count: number }
+  const row = rows[0] as DocumentRow & { review_count: number; uploader_name: string | null }
   const format = row.file_ext?.toUpperCase() || (row.file_name?.split(".").pop()?.toUpperCase() ?? "FILE")
 
   return {
@@ -314,6 +335,7 @@ export async function getDocumentDetailById(id: number): Promise<DocumentDetail 
     subjectId: row.subject_id,
     subjectName: row.subject_name,
     subjectCode: row.subject_code,
+    uploaderName: row.uploader_name || undefined,
   }
 }
 
@@ -401,5 +423,67 @@ export async function addDocumentReview(data: { documentId: number; userId: numb
     `,
     [data.documentId, data.documentId, data.documentId],
   )
+}
+
+// ==========================================
+// THÊM MỚI CHO UC10 & UC11 (UPLOAD & CHECK TRÙNG LẶP)
+// ==========================================
+
+export async function checkDuplicateByHash(fileHash: string): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  
+  const rows = await queryRows<RowDataPacket & { id: number }>(
+    `SELECT id FROM documents WHERE file_hash = ? LIMIT 1`,
+    [fileHash]
+  )
+  return rows.length > 0
+}
+
+export type CreateDocumentPayload = {
+  title: string
+  description: string
+  subject_id: number
+  uploader_id: number
+  doc_type: string
+  storage_provider: string
+  drive_folder_key: string
+  drive_file_id: string
+  file_name: string
+  file_ext: string
+  file_hash: string
+  file_url: string
+  preview_url: string
+  download_url: string
+}
+
+export async function createDocument(data: CreateDocumentPayload): Promise<number | null> {
+  if (!isDbConfigured()) return null
+
+  const result = await executeCommand(
+    `
+      INSERT INTO documents (
+        title, description, subject_id, user_id, uploader_id, doc_type, 
+        storage_provider, drive_folder_key, drive_file_id, 
+        file_name, file_ext, file_hash, file_url, preview_url, download_url, 
+        status, is_featured
+      )
+      VALUES (
+        ?, ?, ?, ?, ?, ?, 
+        ?, ?, ?, 
+        ?, ?, ?, ?, ?, ?, 
+        'published', 0
+      )
+    `,
+    [
+      data.title, data.description, data.subject_id, data.uploader_id, data.uploader_id, data.doc_type,
+      data.storage_provider, data.drive_folder_key, data.drive_file_id,
+      data.file_name, data.file_ext, data.file_hash, data.file_url, data.preview_url, data.download_url
+    ]
+  )
+  
+  if (result && 'insertId' in result) {
+    return result.insertId
+  }
+  return null
 }
 

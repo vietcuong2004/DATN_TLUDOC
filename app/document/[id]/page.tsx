@@ -124,6 +124,10 @@ export default async function DocumentPage({
                         <span className="text-gray-500">Ngày đăng:</span>
                         <span className="font-medium">{document.date}</span>
                       </li>
+                      <li className="flex justify-between">
+                        <span className="text-gray-500">Người đăng:</span>
+                        <span className="font-medium">{document.uploaderName || "Ẩn danh"}</span>
+                      </li>
                     </ul>
                   </div>
                   <div>
@@ -271,6 +275,10 @@ export default async function DocumentPage({
                   <li className="flex justify-between text-sm border-b border-slate-100 pb-3">
                     <span className="text-slate-600">Ngày đăng:</span>
                     <span className="font-medium text-slate-900">{document.date}</span>
+                  </li>
+                  <li className="flex justify-between text-sm border-b border-slate-100 pb-3">
+                    <span className="text-slate-600">Người đăng:</span>
+                    <span className="font-medium text-slate-900">{document.uploaderName || "Ẩn danh"}</span>
                   </li>
                   <li className="flex justify-between text-sm border-b border-slate-100 pb-3">
                     <span className="text-slate-600">Lượt xem:</span>

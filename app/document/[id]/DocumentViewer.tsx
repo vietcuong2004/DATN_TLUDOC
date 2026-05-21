@@ -14,6 +14,8 @@ export default function DocumentViewer({ previewUrl, title, downloadUrl }: Docum
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showEmbed, setShowEmbed] = useState(true)
 
+  const isLocal = previewUrl?.startsWith("/uploads/")
+
   const handleFullscreen = () => {
     setIsFullscreen(!isFullscreen)
   }
@@ -29,7 +31,7 @@ export default function DocumentViewer({ previewUrl, title, downloadUrl }: Docum
           <p className="mb-4 text-gray-500">Không có dữ liệu preview</p>
           <Button onClick={handleOpenExternal} className="gap-2">
             <ExternalLink className="h-4 w-4" />
-            Xem trên Google Drive
+            {isLocal ? "Mở tài liệu gốc" : "Xem trên Google Drive"}
           </Button>
         </div>
       </div>
@@ -40,13 +42,13 @@ export default function DocumentViewer({ previewUrl, title, downloadUrl }: Docum
     return (
       <div className="mb-8 rounded-lg bg-white p-8 shadow-sm">
         <div className="flex flex-col items-center justify-center py-12">
-          <p className="mb-4 text-gray-500">Không thể tải preview. Vui lòng mở trên Google Drive.</p>
+          <p className="mb-4 text-gray-500">Không thể tải preview. {isLocal ? "Định dạng này có thể không được hỗ trợ trên trình duyệt." : "Vui lòng mở trên Google Drive."}</p>
           <Button onClick={() => setShowEmbed(true)} className="mr-2">
             Thử lại
           </Button>
           <Button onClick={handleOpenExternal} variant="outline" className="gap-2">
             <ExternalLink className="h-4 w-4" />
-            Mở Google Drive
+            {isLocal ? "Tải xuống / Mở bằng trình duyệt" : "Mở Google Drive"}
           </Button>
         </div>
       </div>
@@ -97,7 +99,7 @@ export default function DocumentViewer({ previewUrl, title, downloadUrl }: Docum
               size="sm"
               variant="ghost"
               onClick={handleOpenExternal}
-              title="Mở trên Google Drive"
+              title={isLocal ? "Mở tài liệu gốc" : "Mở trên Google Drive"}
               className="text-blue-600 hover:bg-blue-50"
             >
               <ExternalLink className="h-4 w-4" />
@@ -128,7 +130,7 @@ export default function DocumentViewer({ previewUrl, title, downloadUrl }: Docum
         {/* Footer Info */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
           <span>Cuộn trong preview để xem tất cả trang</span>
-          <span>Hoặc <button onClick={handleOpenExternal} className="text-blue-600 hover:underline">mở trên Google Drive</button></span>
+          <span>Hoặc <button onClick={handleOpenExternal} className="text-blue-600 hover:underline">{isLocal ? "mở tài liệu gốc" : "mở trên Google Drive"}</button></span>
         </div>
       </div>
     </>

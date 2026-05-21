@@ -14,6 +14,7 @@ type DocumentRow = RowDataPacket & {
   file_name: string | null
   subject_code: string | null
   subject_name: string | null
+  uploader_name: string | null
 }
 
 export type AdvancedSearchFilters = {
@@ -122,9 +123,11 @@ export async function searchDocumentsAdvanced(filters: AdvancedSearchFilters): P
         d.file_ext,
         d.file_name,
         s.code AS subject_code,
-        s.name AS subject_name
+        s.name AS subject_name,
+        u.full_name AS uploader_name
       FROM documents d
       INNER JOIN subjects s ON s.id = d.subject_id
+      LEFT JOIN users u ON u.id = d.uploader_id
       WHERE ${whereClauses.join(" AND ")}
       ORDER BY d.created_at DESC
       LIMIT ?
@@ -144,6 +147,6 @@ export async function searchDocumentsAdvanced(filters: AdvancedSearchFilters): P
     fileExt: row.file_ext || (row.file_name?.split(".").pop()) || "FILE",
     subjectCode: row.subject_code || undefined,
     subjectName: row.subject_name || undefined,
-    uploaderName: "Quản trị viên",
+    uploaderName: row.uploader_name || "Không rõ",
   }))
 }
