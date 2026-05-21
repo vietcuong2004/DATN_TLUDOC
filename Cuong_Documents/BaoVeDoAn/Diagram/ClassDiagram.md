@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
     direction TB
 
@@ -121,3 +122,4 @@ classDiagram
     
     %% Logical relation
     Document "1" ..> "*" Pinecone : trich_xuat_chunks
+```
