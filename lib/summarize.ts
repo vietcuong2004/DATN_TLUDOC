@@ -607,20 +607,55 @@ async function generateFinalSummary(options: {
   language: SummaryLanguage
   apiKey: string
   model: string
+  fileName: string
 }) {
-  const prompt = [
-    "Bạn là chuyên gia phân tích tài liệu.",
-    "Nhiệm vụ:",
-    "- Xác định insight chính",
-    "- Loại bỏ chi tiết phụ",
-    "- Viết lại rõ ràng, dễ hiểu",
-    `Ngôn ngữ: ${options.language === "vi" ? "Tiếng Việt" : "English"}`,
-    `Độ dài mong muốn: ${options.summaryLength}`,
-    `Output: ${options.summaryType === "bullets" ? "Bullet points (5-8 ý)" : "1-2 đoạn văn"}`,
-    "Không được trả lời kiểu xin thêm nội dung hoặc báo thiếu dữ liệu.",
-    "=== NỘI DUNG ===",
-    options.refinedText,
-  ].join("\n")
+  const languageGuide = options.language === "vi" ? "Tiếng Việt" : "English"
+  const systemPrompt = "Bạn là chuyên gia phân tích và tóm tắt tài liệu. Bạn PHẢI trả về kết quả dưới dạng JSON chính xác theo cấu trúc được yêu cầu."
+  
+  const prompt = `Bạn hãy phân tích tài liệu sau và tạo ra một bản tóm tắt có cấu trúc JSON chính xác bằng ${languageGuide}.
+Tên tài liệu: "${options.fileName}"
+Độ dài mong muốn: ${options.summaryLength}%
+
+YÊU CẦU CẤU TRÚC JSON CẦN TRẢ VỀ:
+{
+  "summary": {
+    "title": "Tiêu đề tóm tắt tài liệu ngắn gọn, hấp dẫn và mô tả đúng nội dung",
+    "content": "Một đoạn văn tóm tắt tổng quan toàn bộ tài liệu (khoảng 150-250 từ). Hãy viết mạch lạc, trôi chảy bằng ${languageGuide}.",
+    "highlights": [
+      "Điểm nổi bật/Insight quan trọng 1",
+      "Điểm nổi bật/Insight quan trọng 2",
+      "Điểm nổi bật/Insight quan trọng 3",
+      "Điểm nổi bật/Insight quan trọng 4",
+      "Điểm nổi bật/Insight quan trọng 5"
+    ],
+    "sections": [
+      {
+        "title": "1. Tiêu đề phần 1 (ví dụ: '1. Giới thiệu khái quát')",
+        "summary": "Tóm tắt ngắn gọn nội dung phần này (1-2 câu)"
+      },
+      {
+        "title": "2. Tiêu đề phần 2 (ví dụ: '2. Các khái niệm cốt lõi')",
+        "summary": "Tóm tắt ngắn gọn nội dung phần này (1-2 câu)"
+      },
+      {
+        "title": "3. Tiêu đề phần 3",
+        "summary": "Tóm tắt ngắn gọn nội dung phần này (1-2 câu)"
+      }
+    ],
+    "keywords": ["từ khóa chính 1", "từ khóa chính 2", "từ khóa chính 3", "từ khóa chính 4", "từ khóa chính 5"],
+    "wordCount": 123, // Số lượng từ ước tính của phần content
+    "generatedBy": "${options.model}",
+    "createdAt": "${new Date().toISOString()}"
+  }
+}
+
+LƯU Ý QUAN TRỌNG:
+1. Trả về đúng định dạng JSON. Không thêm bất kỳ văn bản giải thích nào khác ngoài JSON.
+2. Không bọc JSON trong block code \`\`\`json.
+3. Nếu tài liệu không chia chương/phần cụ thể, bạn hãy tự chia logic tài liệu thành 3-5 phần phù hợp.
+
+=== NỘI DUNG TÀI LIỆU ===
+${options.refinedText}`
 
   const modelResponse = await callWithRetries(
     async (temperature) =>
@@ -629,10 +664,13 @@ async function generateFinalSummary(options: {
         model: options.model,
         summaryType: options.summaryType,
         temperature,
-        maxTokens: estimateMaxTokens(options.summaryLength, options.summaryType),
-        messages: [{ role: "user", content: prompt }],
+        maxTokens: 1600,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
       }),
-    [0.3, 0.2, 0.1],
+    [0.2, 0.1, 0.15],
   )
 
   // Ghi log câu trả lời thô từ AI gửi về
@@ -659,36 +697,94 @@ function mergeSummaries(summaries: string[]) {
   return (safeCut > 100 ? sliced.slice(0, safeCut + 1) : sliced).trim()
 }
 
-function buildSummaryPrompt(options: {
-  sourceText: string
-  summaryType: SummaryFormat
-  summaryLength: number
-  language: SummaryLanguage
-  fileName: string
-}) {
-  const lengthGuide =
-    options.summaryLength <= 25
-      ? "Rất ngắn, chỉ giữ ý cốt lõi."
-      : options.summaryLength <= 45
-        ? "Ngắn gọn nhưng vẫn đủ ý chính."
-        : options.summaryLength <= 70
-          ? "Độ dài vừa phải, cân bằng giữa ngắn gọn và đầy đủ."
-          : "Tương đối chi tiết nhưng vẫn súc tích."
+function safeParseSummaryJson(rawText: string, extractedText: string, options: any) {
+  let cleaned = rawText.trim()
+  
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json|markdown)?\s*/i, "")
+    cleaned = cleaned.replace(/\s*```$/i, "")
+  }
+  cleaned = cleaned.trim()
 
-  const languageGuide = options.language === "vi" ? "Tiếng Việt" : "Tiếng Anh"
+  try {
+    const data = JSON.parse(cleaned)
+    if (data && data.summary) {
+      const s = data.summary
+      return {
+        title: s.title || "Tóm tắt tài liệu",
+        content: s.content || "Không có nội dung tóm tắt chính.",
+        highlights: Array.isArray(s.highlights) ? s.highlights : [],
+        sections: Array.isArray(s.sections) ? s.sections : [],
+        keywords: Array.isArray(s.keywords) ? s.keywords : [],
+        wordCount: typeof s.wordCount === "number" ? s.wordCount : (s.content ? s.content.split(/\s+/).filter(Boolean).length : 0),
+        generatedBy: s.generatedBy || options.model,
+        createdAt: s.createdAt || new Date().toISOString()
+      }
+    }
+    if (data && data.title) {
+      return {
+        title: data.title || "Tóm tắt tài liệu",
+        content: data.content || "Không có nội dung tóm tắt chính.",
+        highlights: Array.isArray(data.highlights) ? data.highlights : [],
+        sections: Array.isArray(data.sections) ? data.sections : [],
+        keywords: Array.isArray(data.keywords) ? data.keywords : [],
+        wordCount: typeof data.wordCount === "number" ? data.wordCount : (data.content ? data.content.split(/\s+/).filter(Boolean).length : 0),
+        generatedBy: data.generatedBy || options.model,
+        createdAt: data.createdAt || new Date().toISOString()
+      }
+    }
+  } catch (err) {
+    console.error("[summarize] Failed to parse JSON, trying regex extraction:", err)
+  }
 
-  return [
-    "Bạn là trợ lý học tập chuyên tóm tắt tài liệu.",
-    `Ngôn ngữ đầu ra: ${languageGuide}.`,
-    `Kiểu trình bày: ${options.summaryType === "bullets" ? "danh sách gạch đầu dòng" : "đoạn văn"}.`,
-    `Mức độ ngắn/dài: ${lengthGuide}`,
-    "Không thêm thông tin ngoài tài liệu. Không giải thích về cách làm.",
-    "Nếu là bullets, mỗi dòng là một ý ngắn gọn.",
-    "Nếu là paragraph, viết 1-2 đoạn mạch lạc.",
-    `Tên tài liệu: ${options.fileName}`,
-    "=== NỘI DUNG CẦN TÓM TẮT ===",
-    options.sourceText,
-  ].join("\n")
+  try {
+    const startIdx = cleaned.indexOf("{")
+    const endIdx = cleaned.lastIndexOf("}")
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      const candidate = cleaned.slice(startIdx, endIdx + 1)
+      const data = JSON.parse(candidate)
+      const s = data.summary || data
+      if (s) {
+        return {
+          title: s.title || "Tóm tắt tài liệu",
+          content: s.content || "Không có nội dung tóm tắt chính.",
+          highlights: Array.isArray(s.highlights) ? s.highlights : [],
+          sections: Array.isArray(s.sections) ? s.sections : [],
+          keywords: Array.isArray(s.keywords) ? s.keywords : [],
+          wordCount: typeof s.wordCount === "number" ? s.wordCount : (s.content ? s.content.split(/\s+/).filter(Boolean).length : 0),
+          generatedBy: s.generatedBy || options.model,
+          createdAt: s.createdAt || new Date().toISOString()
+        }
+      }
+    }
+  } catch (err2) {
+    console.error("[summarize] Regex parsing also failed:", err2)
+  }
+
+  // Fallback structure
+  const sentences = (cleaned || extractedText)
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+
+  const content = sentences.slice(0, 5).join(" ")
+  const highlights = sentences.slice(0, 5).map(s => s.replace(/^•\s*/, ""))
+  
+  return {
+    title: `Tóm tắt ${options.file?.name || "tài liệu"}`,
+    content: content || "Không có nội dung tóm tắt.",
+    highlights: highlights.length > 0 ? highlights : ["Không có điểm nổi bật nào được trích xuất."],
+    sections: [
+      {
+        title: "1. Tổng quan",
+        summary: content.slice(0, 100) + "..."
+      }
+    ],
+    keywords: [options.file?.name?.split(".")[0] || "Tài liệu", "Tóm tắt"],
+    wordCount: content.split(/\s+/).filter(Boolean).length,
+    generatedBy: options.model,
+    createdAt: new Date().toISOString()
+  }
 }
 
 export async function generateSummaryFromFile(options: {
@@ -745,23 +841,21 @@ export async function generateSummaryFromFile(options: {
     language: options.language,
     apiKey: options.apiKey,
     model: options.model,
+    fileName: options.file.name,
   })
 
-  let summary = normalizeSummary(summaryRaw, options.summaryType)
-
-  if (!summary || looksLikeMissingContextResponse(summary)) {
-    summary = buildDeterministicSummaryFromSource(extractedText, options.summaryType, options.summaryLength)
-  }
-
-  summary = formatStructuredSummary(globalHint, summary, options.summaryType)
+  const parsedSummary = safeParseSummaryJson(summaryRaw, extractedText, options)
+  
+  // Format as a stringified JSON to be stored in Database and returned to Client
+  const summaryJsonStr = JSON.stringify({ summary: parsedSummary })
 
   // Ghi log kết quả tóm tắt cuối cùng gửi về cho người dùng
-  console.log("--- FINAL SUMMARY RESULT ---");
-  console.log(summary);
+  console.log("--- FINAL SUMMARY RESULT (JSON) ---");
+  console.log(summaryJsonStr);
   console.log("----------------------------");
 
   return {
-    summary,
+    summary: summaryJsonStr,
     meta: {
       fileName: options.file.name,
       fileType: options.file.type || "unknown",

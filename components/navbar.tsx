@@ -41,12 +41,16 @@ export function Navbar() {
     if (status) {
       const savedUser = localStorage.getItem("user")
       if (savedUser) {
-        const userData = JSON.parse(savedUser)
-        setUser({
-          name: userData.name || "Người dùng",
-          avatar: userData.avatar || "/avatar.png",
-          role: userData.role
-        })
+        try {
+          const userData = JSON.parse(savedUser)
+          setUser({
+            name: userData.name || "Người dùng",
+            avatar: userData.avatar || "/avatar.png",
+            role: userData.role
+          })
+        } catch (e) {
+          console.error("Failed to parse user data from localStorage:", e)
+        }
       }
     }
   }, [pathname])

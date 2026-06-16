@@ -8,29 +8,18 @@ export const runtime = "nodejs"
 export const maxDuration = 60
 
 const RequestSchema = z.object({
-  summaryType: z.enum(["paragraph", "bullets"]),
-  summaryLength: z.number().int().min(10).max(100).default(30),
   language: z.enum(["vi", "en"]).default("vi"),
 })
-
-function parseNumber(value: FormDataEntryValue | null, fallback: number) {
-  const parsed = Number(value ?? fallback)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const file = formData.get("file")
-    const summaryType = String(formData.get("summaryType") ?? "paragraph")
-    const summaryLength = parseNumber(formData.get("summaryLength"), 30)
     const language = String(formData.get("language") ?? "vi")
     const userId = formData.get("userId")
     const documentName = String(formData.get("documentName") ?? "Tài liệu không tên")
 
     const parsed = RequestSchema.parse({
-      summaryType,
-      summaryLength,
       language,
     })
 
@@ -54,8 +43,8 @@ export async function POST(request: Request) {
       file,
       apiKey,
       model,
-      summaryType: parsed.summaryType,
-      summaryLength: parsed.summaryLength,
+      summaryType: "paragraph",
+      summaryLength: 30,
       language: parsed.language,
       maxChunkChars: Number.isFinite(maxChunkChars) ? maxChunkChars : 2500,
       maxChunks: Number.isFinite(maxChunks) ? maxChunks : 8,
@@ -65,8 +54,8 @@ export async function POST(request: Request) {
     if (userId && result.summary) {
       try {
         await executeCommand(
-          "INSERT INTO document_summaries (user_id, document_name, summary_text, summary_type, ai_model) VALUES (?, ?, ?, ?, ?)",
-          [userId, documentName, result.summary, parsed.summaryType, model]
+          "INSERT INTO document_summaries (user_id, document_name, summary_text, ai_model) VALUES (?, ?, ?, ?)",
+          [userId, documentName, result.summary, model]
         );
       } catch (dbError) {
         console.error("[summarize.db_error]", dbError);

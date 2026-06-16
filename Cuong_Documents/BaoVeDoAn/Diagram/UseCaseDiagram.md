@@ -1,6 +1,9 @@
+```mermaid
 flowchart LR
-    %% Định nghĩa Tác nhân (Actor)
-    User([Khách truy cập / Sinh viên])
+    %% Định nghĩa các Tác nhân (Actors)
+    User([Sinh viên / Giảng viên])
+    Admin([Quản trị viên hệ thống])
+    SystemActor([Hệ thống])
 
     %% Khối hệ thống
     subgraph Hệ thống TLU Document
@@ -15,9 +18,12 @@ flowchart LR
         UC08([UC08: Chuyển đổi tài liệu thành Sơ đồ tư duy])
         UC09([UC09: Chỉnh sửa Sơ đồ tư duy])
         UC10([UC10: Đánh giá tài liệu])
+        UC11([UC11: Tải tài liệu lên])
+        UC12([UC12: Kiểm tra trùng lặp nội dung])
+        UC13([UC13: Xem/Sửa/Xóa tài liệu])
     end
 
-    %% Các tương tác của Actor với Use Case
+    %% Tương tác của Sinh viên / Giảng viên (User)
     User --> UC01
     User --> UC02
     User --> UC03
@@ -27,6 +33,14 @@ flowchart LR
     User --> UC07
     User --> UC08
     User --> UC10
+    User --> UC11
+
+    %% Tương tác của Admin
+    Admin --> UC13
+
+    %% Tương tác của System
+    SystemActor --> UC12
 
     %% Quan hệ giữa các Use Case (Extend, Include)
     UC09 -.->|<< extend >>| UC08
+    UC11 -.->|<< include >>| UC12

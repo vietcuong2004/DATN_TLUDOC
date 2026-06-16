@@ -1,123 +1,164 @@
+```mermaid
 classDiagram
     direction TB
 
     class User {
         <<Table: users>>
-        +int id_PK
-        +varchar email
-        +varchar password_hash
-        +varchar full_name
-        +varchar avatar_url
-        +varchar phone
-        +enum role
-        +enum status
-        +varchar student_id
-        +varchar department
-        +text bio
-        +timestamp created_at
-        +timestamp updated_at
-        +timestamp last_login_at
+        +id : int
+        -email : string
+        -password_hash : string
+        +full_name : string
+        +avatar_url : string
+        +phone : string
+        +role : string
+        +status : string
+        +student_id : string
+        +department : string
+        +bio : string
+        +created_at : datetime
+        +updated_at : datetime
+        +last_login_at : datetime
+        +login(email: string, password: string) : User
+        +register(email: string, password: string, fullName: string) : User
+        +updateProfile(data: any) : void
+        +getUploadedDocuments() : List~Document~
+        +getReviewHistory() : List~DocumentReview~
+        +getChatbotHistory() : List~ChatbotHistory~
     }
 
     class Subject {
         <<Table: subjects>>
-        +int id_PK
-        +varchar code
-        +varchar name
-        +varchar folder_key
-        +text description
-        +varchar group_name
-        +varchar semester
-        +tinyint is_required
-        +timestamp created_at
-        +timestamp updated_at
+        +id : int
+        +code : string
+        +name : string
+        +folder_key : string
+        +description : string
+        +group_name : string
+        +semester : string
+        +is_required : boolean
+        +created_at : datetime
+        +updated_at : datetime
+        +getDocuments() : List~Document~
+        +getDocumentCount() : int
+        +findByCode(code: string) : Subject
+        +findByFolderKey(key: string) : Subject
+        +getSidebarGroups() : List~Subject~
     }
 
     class Document {
         <<Table: documents>>
-        +int id_PK
-        +int user_id_FK
-        +varchar title
-        +text description
-        +int subject_id_FK
-        +int uploader_id_FK
-        +tinyint is_private
-        +enum doc_type
-        +enum storage_provider
-        +varchar drive_folder_key
-        +varchar drive_file_id
-        +varchar file_name
-        +varchar file_ext
-        +varchar file_url
-        +varchar preview_url
-        +varchar download_url
-        +int views_count
-        +int downloads_count
-        +int favorites_count
-        +decimal avg_rating
-        +int review_count
-        +enum status
-        +tinyint is_featured
-        +timestamp created_at
-        +timestamp updated_at
+        +id : int
+        +user_id : int
+        +title : string
+        +description : string
+        +subject_id : int
+        +uploader_id : int
+        +is_private : boolean
+        -file_hash : string
+        +doc_type : string
+        +storage_provider : string
+        +drive_folder_key : string
+        +drive_file_id : string
+        +file_name : string
+        +file_ext : string
+        +file_url : string
+        +preview_url : string
+        +download_url : string
+        +views_count : int
+        +downloads_count : int
+        +avg_rating : float
+        +review_count : int
+        +status : string
+        +is_featured : boolean
+        +created_at : datetime
+        +updated_at : datetime
+        +getDetailById(id: int) : Document
+        +getBySubjectCode(code: string) : List~Document~
+        +getRelated(subjectId: int) : List~Document~
+        +getHomepage(mode: string, limit: int) : List~Document~
+        +searchAdvanced(filters: any) : List~Document~
+        +create(payload: any) : int
+        +checkDuplicateByHash(hash: string) : boolean
+        +incrementViews(id: int) : void
+        +incrementDownloads(id: int) : void
+        +uploadToDrive(buffer: any, name: string, mime: string) : string
+        +vectorizeAndPush(id: int) : void
     }
 
     class DocumentReview {
         <<Table: document_reviews>>
-        +int id_PK
-        +int document_id_FK
-        +int user_id_FK
-        +tinyint rating
-        +text comment
-        +int helpful_count
-        +int unhelpful_count
-        +timestamp created_at
-        +timestamp updated_at
+        +id : int
+        +document_id : int
+        +user_id : int
+        +rating : int
+        +comment : string
+        +helpful_count : int
+        +unhelpful_count : int
+        +created_at : datetime
+        +updated_at : datetime
+        +addReview(documentId: int, userId: int, rating: int, comment: string) : void
+        +getByDocumentId(documentId: int) : List~DocumentReview~
+        +updateAvgRating(documentId: int) : void
     }
 
     class DocumentSummary {
         <<Table: document_summaries>>
-        +int id_PK
-        +int user_id_FK
-        +int document_id_FK
-        +varchar document_name
-        +longtext summary_text
-        +enum summary_type
-        +varchar ai_model
-        +timestamp created_at
+        +id : int
+        +user_id : int
+        +document_id : int
+        +document_name : string
+        +summary_text : string
+        +summary_type : string
+        +ai_model : string
+        +created_at : datetime
+        +generate(file: any, options: any) : string
+        +extractText(file: any) : string
+        +saveHistory(userId: int, docId: int, summary: string) : void
     }
 
     class ChatbotHistory {
         <<Table: chatbot_history>>
-        +int id_PK
-        +int user_id_FK
-        +int document_id_FK
-        +text question
-        +longtext answer
-        +varchar ai_model
-        +timestamp created_at
+        +id : int
+        +user_id : int
+        +document_id : int
+        +question : string
+        +answer : string
+        +ai_model : string
+        +created_at : datetime
+        +save(question: string, answer: string, userId: int) : int
+        +getRecentByUserId(userId: int, limit: int) : List~ChatbotHistory~
+        +deleteByUserId(userId: int) : void
+        +classifyIntent(message: string) : string
+        +searchContext(query: string, subjectId: int) : List~DocumentChunk~
     }
 
-    class Pinecone {
-        <<Vector DB / External>>
-        +String id_VectorID
-        +FloatArray values
-        +JSON metadata
+    class DocumentChunk {
+        <<Vector DB: Pinecone>>
+        +id : string
+        +values : float[]
+        +document_id : int
+        +subject_id : int
+        +content : string
+        +title : string
+        +download_url : string
+        +drive_file_id : string
+        +upsert(vectors: any) : void
+        +query(vector: float[], topK: int) : List~DocumentChunk~
+        +deleteByDocumentId(docId: int) : void
+        +getEmbedding(text: string) : float[]
     }
 
     %% Relationships
-    Subject "1" -- "*" Document : phan_loai
-    User "1" -- "*" Document : upload_admin
-    User "1" -- "*" Document : upload_canhan
-    
-    User "1" -- "*" DocumentReview : viet_danh_gia
-    Document "1" -- "*" DocumentReview : nhan_danh_gia
-    
-    User "1" -- "*" ChatbotHistory : hoi_AI
-    Document "0..1" -- "*" ChatbotHistory : ngu_canh
-    
-    User "1" -- "*" DocumentSummary : yeu_cau_tom_tat
-    Document "0..1" -- "*" DocumentSummary : tai_lieu_nguon
-    
-    %% Logical relation
-    Document "1" ..> "*" Pinecone : trich_xuat_chunks
+    Subject "1" --> "*" Document : classifies
+
+    User "1" --> "*" Document : uploads
+    User "1" --> "*" DocumentReview : writes
+    User "1" --> "*" ChatbotHistory : asks
+    User "1" --> "*" DocumentSummary : requests
+
+    Document "1" --> "*" DocumentReview : receives
+    Document "0..1" --> "*" ChatbotHistory : provides context
+    Document "0..1" --> "*" DocumentSummary : is source of
+    Document "1" ..> "*" DocumentChunk : vectorizes
+```
+

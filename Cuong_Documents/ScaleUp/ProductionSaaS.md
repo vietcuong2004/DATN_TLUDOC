@@ -139,20 +139,23 @@ Hãy quên mức giá $5 bèo bọt hiện tại đi. Dưới đây là giá duy
 
 ---
 
-## 8. LỜI KẾT & LỘ TRÌNH THỰC THI (ROADMAP EXECUTION PHASE)
+## 8. LỜI KẾT & LỘ TRÌNH PHÁT TRIỂN (FUTURE ROADMAP CONFIGURATION)
 
-Việc dịch chuyển từ Đồ án ($5/mo) sang SaaS ($200/mo) là một chặng đường đại trùng tu. Bạn hãy tái cấu trúc từng mảng một theo các Giai đoạn Trọng tâm:
+Để hiện thực hóa định hướng phát triển của hệ thống **TLU Document** nhằm đáp ứng yêu cầu chuyển dịch từ một đồ án tốt nghiệp thử nghiệm quy mô nhỏ sang một hệ thống vận hành thực tế ổn định, đáng tin cậy cho hàng trăm người dùng đồng thời, lộ trình triển khai kỹ thuật được phân hoạch thành các giai đoạn trọng tâm dưới đây:
 
-- 🟩 **Giai Đoạn 1 (Phase 1): Cổ Máy Hậu Cần Dữ Liệu (Fixing Storage + DB Engine)**
-  - Tháo file ra khỏi Google Drive API, kéo R2/AWS S3 làm trung tâm. Xây mã CDN Front.
-  - Làm Redis cho các Middleware chống Spam click làm nghẽn máy chủ. Đầu tư Vercel Pro.
-  
-- 🟦 **Giai Đoạn 2 (Phase 2): Căn Nhà Tỷ Vector (Scaling RAG Knowledge Base)**
-  - Bỏ lưu Vector trong Column MySQL. Định tuyến đường dẫn Pipeline sang mô hình đẩy ngầm vào Pinecone.
-  - Tích hợp kỹ thuật Hybrid Search + Cohere Re-rank cho ra KQ thần tốc. Kéo lại Auth NextAuth chắc chắn.
+- 🟩 **Giai Đoạn 1: Xây dựng Phân hệ Quản trị hệ thống (Admin Dashboard Portal)**
+  - Phát triển giao diện Web Admin chuyên biệt phục vụ các chức năng CRUD trực quan: quản lý danh sách sinh viên, giảng viên, môn học, phân khoa viện.
+  - Cấu hình phân quyền vai trò dựa trên RBAC (Admin, Teacher, Student) để kiểm soát nghiêm ngặt các hoạt động trên hệ thống.
+  - Thiết kế luồng kiểm duyệt tài liệu (Content Moderation Pipeline): Toàn bộ tài liệu do người dùng tải lên sẽ chuyển sang trạng thái "Chờ duyệt" (Pending) trước khi được duyệt công khai.
+  - Tích hợp các biểu đồ thống kê trực quan (sử dụng Recharts/Chart.js) hiển thị: lượng truy cập thời gian thực, tài liệu được đọc/tải nhiều nhất, và tần suất sử dụng tài nguyên AI (token consumed).
 
-- 🟪 **Giai Đoạn 3 (Phase 3): Đánh Sập Lõi Pollinations Ảo, Mở OpenAI (LLM Core Shift)**
-  - Nhập khóa API Key thương mại (OpenAI GPT). Cấp phát luồng Event Driven/Jobs Async cho Background để Web không bao giờ Loading Quá timeout cho chức năng Summarize & Sinh Quizz.
+- 🟦 **Giai Đoạn 2: Tối ưu hóa Chi phí vận hành AI (AI Cost & Resource Optimization)**
+  - Tích hợp giải pháp **Semantic Caching** (sử dụng Redis kết hợp GPTCache) làm bộ đệm câu trả lời. Hệ thống tự động chuyển câu hỏi của sinh viên thành vector nhúng, so sánh độ tương đồng cosine ($\ge 0.95$) với các cặp câu hỏi-trả lời cũ để trả về kết quả ngay lập tức, giúp tiết kiệm 40-60% chi phí gọi API LLM.
+  - Áp dụng các thuật toán nén prompt (Prompt Compression) và Re-ranking (Cohere Rerank) để chọn lọc 3-5 ngữ cảnh (context chunks) liên quan nhất, thu nhỏ kích thước Context Window gửi tới LLM.
+  - Nghiên cứu và triển khai tự vận hành các mô hình ngôn ngữ lớn mã nguồn mở có kích thước nhỏ và tối ưu cao (Llama-3-8B, Qwen-2-7B, Phi-3) chạy trực tiếp trên VPS GPU thuê theo tháng (RunPod/Vast.ai) để đưa chi phí biến đổi về chi phí cố định.
 
-- 🟧 **Giai Đoạn 4 (Phase 4): Dòng Chảy Tiền Tệ (SaaS Business Activation)**
-  - Khởi động Landing Page bảng Giá Pricing, cắm cổng Cổng Thanh toán Việt Nam tích hợp thẳng webhook đếm Token. Quản lý hạn ngạch API/User nghiêm chỉnh. Mở cửa phát hành hệ thống! (Public Launch). 🚀
+- 🟪 **Giai Đoạn 3: Nâng cấp và Mở rộng hạ tầng (System Scaling from 10 to 100+ Concurrent Users)**
+  - **Container hóa ứng dụng (Dockerized Dedicated VM)**: Viết Dockerfile đóng gói mã nguồn Next.js, chuyển đổi từ mô hình Serverless trên Vercel sang chạy trên VPS/Dedicated Cloud Server (AWS EC2, DigitalOcean) để loại bỏ hoàn toàn giới hạn thời gian thực thi (Serverless Timeout).
+  - **Quản lý kết nối Database (Database Connection Pooling)**: Cấu hình connection proxy pool (như Prisma Accelerate hoặc ProxySQL) để duy trì và tái sử dụng các kết nối MySQL, ngăn chặn triệt để lỗi nghẽn hoặc sập database ("Too many connections") khi có hàng trăm request đồng thời.
+  - **Xử lý bất đồng bộ thông qua hàng đợi tin nhắn (Message Queue)**: Cấu hình hệ thống **BullMQ** (dựa trên Redis) hoặc **RabbitMQ** để đẩy các job xử lý tệp nặng (trích xuất text từ file PDF, cắt chunk, sinh vector nhúng và upsert Pinecone) xuống worker chạy ngầm, giúp luồng chính phản hồi tức thì cho người dùng dưới 1 giây.
+  - **Cân bằng tải và mở rộng ngang (Load Balancing & Scale-Out)**: Cấu hình Web Server Nginx đứng trước làm Load Balancer, phân phối đều lưu lượng truy cập tới các container Next.js chạy song song để tăng tính sẵn sàng cao (High Availability).

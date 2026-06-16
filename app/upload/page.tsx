@@ -120,7 +120,7 @@ export default function UploadPage() {
       const formData = new FormData(e.currentTarget)
       formData.set("file", file)
       formData.set("subject", selectedSubject)
-      
+
       // Lấy user_id từ phiên đăng nhập (lưu dưới dạng object JSON với key 'user')
       let uploaderId = '1'
       if (typeof window !== 'undefined') {
@@ -132,7 +132,7 @@ export default function UploadPage() {
             console.log('[Upload] Parsed user object:', userObj) // DEBUG
             uploaderId = String(userObj.id || userObj.user_id || 1)
           }
-        } catch {}
+        } catch { }
       }
       console.log('[Upload] Final uploaderId being sent:', uploaderId) // DEBUG
       formData.set("uploader_id", uploaderId)
@@ -162,7 +162,7 @@ export default function UploadPage() {
         } catch (e) {
           console.warn(e)
         }
-        
+
         // Vẫn báo success sau 1 giây (không bắt User chờ Pinecone)
         setTimeout(() => setUploadStatus("success"), 1000)
       } else {
@@ -265,7 +265,7 @@ export default function UploadPage() {
                   <div className="space-y-1">
                     <p className="font-bold text-blue-900">Lưu ý:</p>
                     <p className="leading-relaxed opacity-90">
-                      Hệ thống sẽ tự động băm (MD5) để kiểm tra trùng lặp nội dung với cơ sở dữ liệu. Vui lòng không upload lại các file đã có sẵn trên thư viện.
+                      Hệ thống sẽ tự động kiểm tra trùng lặp nội dung với cơ sở dữ liệu. Vui lòng không upload lại các file đã có sẵn trên hệ thống.
                     </p>
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function UploadPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-slate-900 font-semibold">Mô tả tài liệu <span className="text-red-500">*</span></Label>
-                  <Textarea id="description" name="description" placeholder="Viết mô tả chi tiết khoảng vài câu để người khác hiểu được tài liệu này nói về gì..." rows={4} required className="border-slate-200 focus-visible:ring-blue-500" />
+                  <Textarea id="description" name="description" placeholder="Viết mô tả chi tiết khoảng vài câu để người khác hiểu được tài liệu này nói về nội dung gì..." rows={4} required className="border-slate-200 focus-visible:ring-blue-500" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

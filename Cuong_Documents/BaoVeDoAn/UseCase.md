@@ -205,3 +205,20 @@ Bảng mô tả Use Case:
 | Luồng sự kiện thay thế (Alternative Flow) | Không có |
 | Luồng sự kiện ngoại lệ (Exception Flow) | 4a. Tìm thấy kết quả khớp trong CSDL: Hệ thống lập tức trả về mã lỗi HTTP 409 Conflict (Kèm thông báo "Nội dung tài liệu đã tồn tại"). Dừng tiến trình Upload. |
 | Cơ sở dữ liệu | Bảng `documents`: Thao tác `SELECT id, title FROM documents WHERE file_hash = ? LIMIT 1`. |
+
+# 13. UC13 – Xem/Sửa/Xóa tài liệu (dành cho Admin):
+
+| Thuộc tính | Mô tả |
+|---|---|
+| Tên use case | UC13 |
+| Tác nhân chính | Admin (Quản trị viên hệ thống) |
+| Mục đích (mô tả) | Cho phép Admin xem danh sách tất cả tài liệu, chỉnh sửa các thông tin mô tả, hoặc xóa các tài liệu vi phạm/không hợp lệ khỏi hệ thống. |
+| Mức độ ưu tiên (Priority) | Bắt buộc (Quan trọng) |
+| Điều kiện kích hoạt (Trigger) | Admin truy cập trang Quản trị tài liệu và thực hiện các hành động Xem chi tiết, Sửa hoặc Xóa. |
+| Điều kiện tiên quyết (Pre-condition) | - Admin đã đăng nhập hệ thống thành công với tài khoản có vai trò quản trị. |
+| Điều kiện thành công (Post-condition) | - Xem: Thông tin chi tiết tài liệu được hiển thị.<br>- Sửa: Dữ liệu chỉnh sửa được cập nhật thành công vào CSDL MySQL.<br>- Xóa: Bản ghi tài liệu bị xóa/ẩn khỏi CSDL MySQL và tệp tin trên Google Drive của Admin được thu hồi/xóa bỏ. |
+| Điều kiện thất bại | - Lỗi truy xuất cơ sở dữ liệu MySQL hoặc lỗi gọi API Google Drive.<br>- Hiển thị thông báo lỗi tương ứng. |
+| Luồng sự kiện chính (Basic Flow) | 1. Admin truy cập màn hình Quản lý tài liệu trên trang Admin.<br>2. Hệ thống tải và hiển thị danh sách toàn bộ tài liệu (gồm: Tiêu đề, Môn học, Người tải lên, Ngày tạo, Trạng thái).<br>3. **[Hành động Xem]**: Admin chọn xem chi tiết một tài liệu. Hệ thống hiển thị đầy đủ thông tin metadata và bản xem trước tài liệu.<br>4. **[Hành động Sửa]**: Admin chọn nút chỉnh sửa tài liệu. Hệ thống hiển thị Form chỉnh sửa (Tiêu đề, Mô tả, Môn học). Admin cập nhật thông tin và bấm "Lưu". Hệ thống ghi nhận vào MySQL và hiển thị thông báo thành công.<br>5. **[Hành động Xóa]**: Admin chọn nút xóa tài liệu. Hệ thống hiển thị hộp thoại xác nhận. Admin bấm "Xác nhận". Hệ thống gọi Google Drive API xóa tệp vật lý qua `drive_file_id`, xóa bản ghi tài liệu trong MySQL và cập nhật lại danh sách. |
+| Luồng sự kiện thay thế (Alternative Flow) | Không có |
+| Luồng sự kiện ngoại lệ (Exception Flow) | 4a. Nhập thông tin sửa không hợp lệ (để trống tiêu đề): Hệ thống hiển thị cảnh báo và không cho lưu.<br>5a. Lỗi kết nối Google Drive API khi xóa: Hệ thống thông báo lỗi, giữ nguyên bản ghi MySQL để admin kiểm tra lại hoặc thử lại sau. |
+| Cơ sở dữ liệu | Truy vấn bảng `documents`:<br>- Xem: `SELECT * FROM documents`<br>- Sửa: `UPDATE documents SET title = ?, description = ?, subject_id = ? WHERE id = ?`<br>- Xóa: `DELETE FROM documents WHERE id = ?` |

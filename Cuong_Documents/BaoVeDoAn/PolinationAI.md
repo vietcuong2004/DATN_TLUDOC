@@ -81,4 +81,54 @@ Dự án hiện đang vận hành theo cơ chế của Pollinations AI năm 2026
 3. **Mã nguồn mở:** Phù hợp với tiêu chí minh bạch và học thuật của một đồ án tốt nghiệp.
 
 ---
+Để kiểm tra chính xác mô hình nào đang chạy đằng sau bí danh "openai" của Pollinations AI, bạn có thể thực hiện kiểm tra theo 2 cách (chạy lệnh trực tiếp từ Terminal/PowerShell hoặc trình duyệt):
+
+Cách 1: Kiểm tra cấu hình ánh xạ hệ thống của Pollinations (Khuyên dùng)
+Pollinations AI cung cấp một Endpoint công khai hiển thị toàn bộ danh sách mô hình đang hoạt động và các bí danh (aliases) tương ứng của chúng.
+
+Lệnh chạy trên PowerShell (Windows):
+
+powershell
+Invoke-RestMethod -Uri "https://text.pollinations.ai/models" | ConvertTo-Json -Depth 5
+Hoặc chạy bằng cURL (mọi nền tảng):
+
+bash
+curl -s https://text.pollinations.ai/models
+Hoặc mở link trực tiếp trên trình duyệt:
+
+👉 https://text.pollinations.ai/models
+Cách đọc kết quả: Hệ thống sẽ trả về một chuỗi JSON. Bạn sẽ thấy một đối tượng mô hình có cấu trúc dạng:
+
+json
+[
+  {
+    "name": "openai-fast",
+    "description": "GPT-OSS 20B Reasoning LLM (OVH)",
+    "aliases": [
+      "openai",
+      "gpt-oss",
+      "gpt-oss-20b",
+      "ovh-reasoning"
+    ],
+    ...
+  }
+]
+Dòng name / aliases: Chứng minh rằng khi code của bạn truyền tham số "openai", hệ thống Pollinations sẽ tự động ánh xạ nó về mô hình thực tế chạy ở backend là openai-fast (hiện tại do hãng OVH host dưới dạng GPT-OSS Reasoning).
+Cách 2: Hỏi trực tiếp "Bộ não AI" thông qua API của dự án
+Bạn có thể gửi một câu hỏi thẳng tới mô hình thông qua API Endpoint của Pollinations để xem nó tự nhận diện mình là gì.
+
+Lệnh chạy trên PowerShell/Terminal:
+
+bash
+curl.exe -s "https://text.pollinations.ai/What%20model%20are%20you%20exactly?%20Answer%20very%20shortly%20in%20one%20or%20two%20words."
+Kết quả nhận được (Response):
+
+text
+GPT-4 architecture / OpenAI GPT
+(Mô hình tự nhận diện nó được xây dựng và huấn luyện dựa trên kiến trúc GPT của OpenAI).
+
+💡 Gợi ý trả lời Hội đồng Bảo vệ:
+"Để kiểm tra chính xác, em có thể truy vấn trực tiếp Endpoint quản lý mô hình của Pollinations AI tại địa chỉ https://text.pollinations.ai/models. Dữ liệu JSON trả về từ hệ thống chứng minh bí danh openai mà em cấu hình trong code thực chất là alias được định tuyến về mô hình openai-fast (dòng GPT-OSS / GPT-4o-mini tương thích OpenAI)."
+
+
 *Tài liệu này được soạn thảo phục vụ cho hội đồng bảo vệ đồ án tốt nghiệp.*
