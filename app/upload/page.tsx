@@ -35,6 +35,7 @@ export default function UploadPage() {
   const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const MAX_FILE_SIZE_BYTES = 4.5 * 1024 * 1024
 
   // Custom dropdown state cho môn học
   const [subjectSearch, setSubjectSearch] = useState("")
@@ -108,6 +109,12 @@ export default function UploadPage() {
     }
     if (!file) {
       alert("Vui lòng chọn tài liệu để tải lên.")
+      return
+    }
+
+    if (file.size >= MAX_FILE_SIZE_BYTES) {
+      setUploadStatus("error")
+      setErrorMsg("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén tài liệu trước khi tải lên.")
       return
     }
 
@@ -222,7 +229,7 @@ export default function UploadPage() {
                   >
                     <Upload className="mb-3 h-10 w-10 text-blue-600" />
                     <span className="text-sm font-medium text-slate-900">Kéo thả tài liệu vào đây</span>
-                    <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, DOCX (Tối đa 50MB)</span>
+                    <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, DOCX (Tối đa 4.5MB)</span>
                   </label>
                 ) : (
                   <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>

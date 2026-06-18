@@ -315,7 +315,7 @@ export default function MindmapPage() {
 
     // Bỏ qua giới hạn size của PDF vì PDF đã được xử lý phía client
     if (file && !isPdf && file.size > 4.5 * 1024 * 1024) {
-      setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén hoặc chia nhỏ tài liệu trước khi tải lên (Dưới 4.5MB).")
+      setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén tài liệu trước khi tải lên.")
       setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       return

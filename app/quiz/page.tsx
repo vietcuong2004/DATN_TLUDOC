@@ -93,7 +93,7 @@ export default function QuizPage() {
       
       // Bỏ qua check file PDF vì nó đã được xử lý phía client
       if (!isPdf && selectedFile.size > 4.5 * 1024 * 1024) {
-        setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén hoặc chia nhỏ tài liệu trước khi tải lên (Dưới 4.5MB).")
+        setErrorMessage("Rất tiếc, máy chủ hiện tại chỉ hỗ trợ tệp tin có dung lượng tối đa 4.5 MB. Vui lòng nén tài liệu trước khi tải lên.")
         setFile(null)
         if (fileInputRef.current) fileInputRef.current.value = ""
         return
