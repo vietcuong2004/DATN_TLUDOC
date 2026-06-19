@@ -491,11 +491,23 @@ function LocalPdfViewer({ file }: { file: File }) {
 function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
+  const [targetWidth, setTargetWidth] = useState(300);
+  const [targetHeight, setTargetHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setTargetWidth(Math.min(600, window.innerWidth - 32));
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     let active = true;
     const renderPage = async () => {
       try {
+        setLoading(true);
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(pageNum);
@@ -508,8 +520,9 @@ function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
         if (!context) return;
 
         const viewport = page.getViewport({ scale: 1.0 });
-        const deviceWidth = window.innerWidth;
-        const targetWidth = Math.min(600, deviceWidth - 32); 
+        const calculatedHeight = targetWidth * (viewport.height / viewport.width);
+        setTargetHeight(calculatedHeight);
+
         const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
         const scale = (targetWidth / viewport.width) * dpr;
         
@@ -517,8 +530,6 @@ function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
         
         canvas.width = scaledViewport.width;
         canvas.height = scaledViewport.height;
-        canvas.style.width = `${targetWidth}px`;
-        canvas.style.height = `${scaledViewport.height / dpr}px`;
 
         const renderContext = {
           canvasContext: context,
@@ -534,16 +545,21 @@ function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
     return () => {
       active = false;
     };
-  }, [file, pageNum]);
+  }, [file, pageNum, targetWidth]);
+
+  const currentHeight = targetHeight || (targetWidth * 1.414);
 
   return (
-    <div className="relative bg-white shadow-md rounded-lg overflow-hidden border border-slate-200">
+    <div 
+      style={{ width: targetWidth, height: currentHeight }} 
+      className="relative bg-white shadow-md rounded-lg overflow-hidden border border-slate-200"
+    >
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
           Đang tải trang {pageNum}...
         </div>
       )}
-      <canvas ref={canvasRef} />
+      <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );
 }
