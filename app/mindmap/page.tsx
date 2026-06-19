@@ -374,7 +374,7 @@ export default function MindmapPage() {
                   Mindmap Generator
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Chuyển đổi tài liệu thành sơ đồ tư duy</h1>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base text-justify">
                   Tải tài liệu của bạn lên, hệ thống sẽ tự động trích xuất nội dung và tạo sơ đồ tư duy chi tiết. Sau đó, bạn có thể xuất dưới dạng PNG, JPG hoặc PDF.
                 </p>
               </div>
@@ -388,7 +388,7 @@ export default function MindmapPage() {
             </div>
           </div>
           <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-slate-200 shadow-sm w-full min-w-0 overflow-hidden">
               <CardHeader>
                 <CardTitle>Tải lên tài liệu</CardTitle>
                 <CardDescription>Chọn PDF hoặc Word (.doc, .docx) để bắt đầu</CardDescription>
@@ -397,14 +397,14 @@ export default function MindmapPage() {
                 {!selectedFile ? (
                   <label
                     htmlFor="mindmap-file"
-                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
+                    className="w-full flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
                   >
                     <FileUp className="mb-3 h-10 w-10 text-blue-600" />
                     <span className="text-sm font-medium text-slate-900">Kéo thả tài liệu của bạn vào đây</span>
                     <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, Word (.doc, .docx)</span>
                   </label>
                 ) : (
-                  <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
+                  <div className="w-full max-w-full min-w-0 relative flex cursor-pointer flex-col items-stretch justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
                     <button
                       type="button"
                       aria-label="Bỏ file đã chọn"
@@ -416,9 +416,9 @@ export default function MindmapPage() {
                     >
                       <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                     </button>
-                    <div className="w-full rounded-xl border border-blue-200 bg-white p-4">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-10 w-10 text-blue-600" />
+                    <div className="w-full min-w-0 rounded-xl border border-blue-200 bg-white p-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="h-10 w-10 text-blue-600 flex-shrink-0" />
                         <div className="min-w-0 flex-1 text-left">
                           <p className="truncate font-semibold text-slate-900">{selectedFile.name}</p>
                           <p className="text-sm text-slate-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -486,7 +486,7 @@ export default function MindmapPage() {
                 <CardTitle>Sơ đồ tư duy</CardTitle>
                 <CardDescription>Mindmap của bạn được hiển thị tại đây</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-3 sm:p-6 space-y-4">
                 {!mindmap ? (
                   <div className="flex h-[373px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
                     <Network className="h-12 w-12 text-slate-300" />

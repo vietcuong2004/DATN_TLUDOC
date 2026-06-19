@@ -198,7 +198,7 @@ export default function UploadPage() {
                   DOCUMENT UPLOAD
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Tải tài liệu lên hệ thống</h1>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base text-justify">
                   Đóng góp tài liệu học tập của bạn để chia sẻ kiến thức với cộng đồng sinh viên Thủy Lợi. Tài liệu sẽ được AI phân tích và đưa vào nguồn tri thức chung.
                 </p>
               </div>
@@ -215,7 +215,7 @@ export default function UploadPage() {
           <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
 
             {/* Left Column: Upload File */}
-            <Card className="border-slate-200 shadow-sm h-fit">
+            <Card className="border-slate-200 shadow-sm h-fit w-full min-w-0 overflow-hidden">
               <CardContent className="space-y-4 p-6">
                 <div className="mb-2">
                   <h3 className="font-semibold text-slate-900">Tải lên tài liệu</h3>
@@ -225,14 +225,14 @@ export default function UploadPage() {
                 {!file ? (
                   <label
                     htmlFor="file-upload"
-                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
+                    className="w-full flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
                   >
                     <Upload className="mb-3 h-10 w-10 text-blue-600" />
                     <span className="text-sm font-medium text-slate-900">Kéo thả tài liệu vào đây</span>
                     <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, DOCX (Tối đa 4.5MB)</span>
                   </label>
                 ) : (
-                  <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
+                  <div className="w-full max-w-full min-w-0 relative flex cursor-pointer flex-col items-stretch justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
                     <button
                       type="button"
                       aria-label="Bỏ file đã chọn"
@@ -244,9 +244,9 @@ export default function UploadPage() {
                     >
                       <X className="h-4 w-4" />
                     </button>
-                    <div className="w-full rounded-xl border border-blue-200 bg-white p-4">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-10 w-10 text-blue-600" />
+                    <div className="w-full min-w-0 rounded-xl border border-blue-200 bg-white p-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="h-10 w-10 text-blue-600 flex-shrink-0" />
                         <div className="min-w-0 flex-1 text-left">
                           <p className="truncate font-semibold text-slate-900">{file.name}</p>
                           <p className="text-sm text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>

@@ -305,25 +305,59 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
 
   useEffect(() => {
     const syncFullscreenState = () => {
-      setIsFullscreen(document.fullscreenElement === viewerRef.current)
+      const isCurrentlyFullscreen = document.fullscreenElement === viewerRef.current || (document as any).webkitFullscreenElement === viewerRef.current;
+      setIsFullscreen(isCurrentlyFullscreen)
     }
 
     document.addEventListener("fullscreenchange", syncFullscreenState)
-    return () => document.removeEventListener("fullscreenchange", syncFullscreenState)
+    document.addEventListener("webkitfullscreenchange", syncFullscreenState)
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreenState)
+      document.removeEventListener("webkitfullscreenchange", syncFullscreenState)
+    }
   }, [])
 
-  const toggleFullscreen = async () => {
-    try {
-      if (document.fullscreenElement === viewerRef.current) {
-        await document.exitFullscreen()
-        return
-      }
+  // Prevent background scroll in virtual fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isFullscreen])
 
-      if (viewerRef.current) {
-        await viewerRef.current.requestFullscreen()
+  const toggleFullscreen = async () => {
+    const doc = document as any
+    const isNativeSupported = document.fullscreenEnabled || doc.webkitFullscreenEnabled;
+    if (isNativeSupported) {
+      try {
+        const isCurrentlyFullscreen = document.fullscreenElement === viewerRef.current || doc.webkitFullscreenElement === viewerRef.current;
+        if (isCurrentlyFullscreen) {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen()
+          } else if (doc.webkitExitFullscreen) {
+            await doc.webkitExitFullscreen()
+          }
+          return
+        }
+
+        const el = viewerRef.current as any
+        if (el) {
+          if (el.requestFullscreen) {
+            await el.requestFullscreen()
+          } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen()
+          }
+        }
+      } catch (error) {
+        console.error("Failed to toggle native fullscreen:", error)
+        setIsFullscreen(!isFullscreen)
       }
-    } catch (error) {
-      console.error("Khong the chuyen doi che do toan man hinh", error)
+    } else {
+      setIsFullscreen(!isFullscreen)
     }
   }
 
@@ -585,37 +619,37 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
       ref={viewerRef}
       className={cn(
         "relative overflow-hidden bg-white",
-        isFullscreen ? "rounded-none border-0 shadow-none" : "rounded-[28px] border border-slate-200 shadow-sm",
+        isFullscreen ? "fixed inset-0 z-[9999] h-screen w-screen rounded-none border-0 shadow-none" : "rounded-[28px] border border-slate-200 shadow-sm",
         className,
       )}
     >
-      <div className={cn("flex border-b border-slate-100 px-6 py-5", isFullscreen ? "items-center gap-6" : "flex-col gap-4")}>
-        <div className="flex items-center flex-wrap gap-4 shrink-0">
+      <div className={cn("flex border-b border-slate-100 px-3 py-2 md:px-6 md:py-5 bg-white", isFullscreen ? "flex-col md:flex-row md:items-center gap-4 md:gap-6" : "flex-col gap-4")}>
+        <div className={cn("flex items-center flex-wrap gap-4 shrink-0", isFullscreen && "pr-12")}>
           <p className="text-xl font-bold tracking-tight text-blue-600">Mindmap "{(isEditMode ? draftMindmap.title : mindmapData.title)}"</p>
           {isEditMode && <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Đang chỉnh sửa</span>}
           {editError && <span className="text-xs text-red-600 font-medium">{editError}</span>}
         </div>
 
-        <div className={cn("flex flex-wrap items-center gap-2 text-slate-600", isFullscreen && "flex-1")}>
-          <Button variant="outline" size="icon" onClick={() => setZoom((current) => Math.max(0.7, +(current - 0.1).toFixed(1)))} aria-label="Thu nhỏ">
+        <div className={cn("flex flex-wrap items-center gap-1 sm:gap-2 text-slate-600", isFullscreen && "flex-1")}>
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.max(0.7, +(current - 0.1).toFixed(1)))} aria-label="Thu nhỏ">
             <Minus className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(1)))} aria-label="Phóng to">
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(1)))} aria-label="Phóng to">
             <Plus className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
             <RotateCcw className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={toggleFullscreen} aria-label="Toàn màn hình">
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={toggleFullscreen} aria-label="Toàn màn hình">
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
           </Button>
 
-          <div className="h-6 w-px bg-slate-200 mx-2" />
+          <div className="h-5 sm:h-6 w-px bg-slate-200 mx-0.5 sm:mx-2" />
 
           {isEditMode ? (
             <>
               <button
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 gap-2 text-white hover:bg-red-700"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 sm:h-9 px-2 sm:px-3 gap-1 sm:gap-2 text-white hover:bg-red-700"
                 style={{ backgroundColor: "#dc2626" }}
                 onClick={() => {
                   setDraftMindmap(mindmapData)
@@ -623,12 +657,13 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                   setEditError("")
                   setEditingNodeId(null)
                 }}
+                title="Hủy"
               >
                 <X className="h-4 w-4" />
-                Hủy
+                <span className="hidden md:inline">Hủy</span>
               </button>
               <button
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 gap-2 text-white hover:bg-green-700"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 sm:h-9 px-2 sm:px-3 gap-1 sm:gap-2 text-white hover:bg-green-700"
                 style={{ backgroundColor: "#16a34a" }}
                 onClick={async () => {
                   const result = validateMindmap(draftMindmap)
@@ -646,33 +681,34 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                     setEditError("Lỗi khi lưu: " + err.message)
                   }
                 }}
+                title="Lưu lại"
               >
                 <Save className="h-4 w-4" />
-                Lưu lại
+                <span className="hidden md:inline">Lưu lại</span>
               </button>
             </>
           ) : (
             <Button
               variant="ghost"
-              size="sm"
-              className="gap-2 bg-yellow-400 text-yellow-950 hover:bg-yellow-500"
+              className="gap-1 sm:gap-2 bg-yellow-400 text-yellow-950 hover:bg-yellow-500 px-2 sm:px-3 h-8 sm:h-9"
               onClick={() => {
                 setDraftMindmap(mindmapData)
                 setIsEditMode(true)
               }}
+              title="Chỉnh sửa"
             >
               <Edit2 className="h-4 w-4" />
-              Chỉnh sửa
+              <span className="hidden md:inline">Chỉnh sửa</span>
             </Button>
           )}
 
           {onDownload ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="gap-2 bg-blue-600 text-white hover:bg-blue-700">
+                <Button className="gap-1 sm:gap-2 bg-blue-600 text-white hover:bg-blue-700 px-2 sm:px-3 h-8 sm:h-9" title="Tải xuống">
                   <Download className="h-4 w-4" />
-                  Tải xuống
-                  <ChevronDown className="h-4 w-4" />
+                  <span className="hidden md:inline">Tải xuống</span>
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" portalContainer={viewerRef.current}>
@@ -710,17 +746,7 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
             </DropdownMenu>
           ) : null}
 
-          {isFullscreen ? (
-            <Button
-              variant="outline"
-              size="icon"
-              className="ml-auto rounded-full border-2 border-red-600 bg-red-600 text-white hover:bg-red-700"
-              onClick={toggleFullscreen}
-              aria-label="Thoat che do toan man hinh"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          ) : null}
+          {/* Exit Fullscreen will be handled by floating button */}
         </div>
       </div>
 
@@ -896,6 +922,18 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
         </div>
 
       </div>
+
+      {isFullscreen && (
+        <Button
+          variant="destructive"
+          size="icon"
+          className="absolute right-4 top-4 z-[10000] rounded-full h-10 w-10 border-2 border-white shadow-lg bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-transform"
+          onClick={toggleFullscreen}
+          aria-label="Thoát chế độ toàn màn hình"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      )}
     </div>
   )
 }
