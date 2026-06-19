@@ -1,9 +1,15 @@
+"use client"
+
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Facebook, Instagram, Mail, MapPin, Phone, Send, Youtube } from "lucide-react"
 
 export function Footer() {
+  const pathname = usePathname()
+  const isHomePage = pathname === "/"
+
   return (
-    <footer className="mt-16 border-t border-slate-200 bg-gradient-to-b from-white to-slate-50">
+    <footer className={`mt-16 border-t border-slate-200 bg-gradient-to-b from-white to-slate-50 ${isHomePage ? "block" : "hidden md:block"}`}>
       <div className="container mx-auto px-4 pb-5 pt-12">
         <div className="mb-10 flex flex-col items-center justify-center text-center">
           <span className="text-4xl font-bold italic text-green-600">

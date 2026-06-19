@@ -261,7 +261,7 @@ export default function Summarize() {
                   Summary Document
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Tóm tắt tài liệu bằng AI</h1>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base text-justify">
                   Tải tài liệu lên và nhận bản tóm tắt rõ ràng theo dạng đoạn văn hoặc gạch đầu dòng. Tối ưu cho việc đọc nhanh, ghi chú và ôn tập.
                 </p>
               </div>
@@ -278,7 +278,7 @@ export default function Summarize() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <Card className="border-slate-200 shadow-sm lg:h-[700px] flex flex-col">
+            <Card className="border-slate-200 shadow-sm lg:h-[700px] flex flex-col w-full min-w-0 overflow-hidden">
               <CardHeader className="flex-shrink-0">
                 <CardTitle>Tải lên tài liệu</CardTitle>
                 <CardDescription>Chọn PDF hoặc Word (.docx) để bắt đầu</CardDescription>
@@ -289,7 +289,7 @@ export default function Summarize() {
                     {!selectedFile ? (
                       <label
                         htmlFor="summary-file"
-                        className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
+                        className="w-full flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
                       >
                         <FileUp className="mb-3 h-10 w-10 text-blue-600" />
                         <span className="text-sm font-medium text-slate-900">Kéo thả tài liệu của bạn vào đây</span>
@@ -297,7 +297,7 @@ export default function Summarize() {
                       </label>
                     ) : (
                       <div
-                        className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center"
+                        className="w-full max-w-full min-w-0 relative flex cursor-pointer flex-col items-stretch justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <button
@@ -311,9 +311,9 @@ export default function Summarize() {
                         >
                           <X className="h-4.5 w-4.5" />
                         </button>
-                        <div className="w-full rounded-xl border border-blue-200 bg-white p-4">
-                          <div className="flex items-center gap-3">
-                            <FileText className="h-10 w-10 text-blue-600" />
+                        <div className="w-full min-w-0 rounded-xl border border-blue-200 bg-white p-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="h-10 w-10 text-blue-600 flex-shrink-0" />
                             <div className="min-w-0 flex-1 text-left">
                               <p className="truncate font-semibold text-slate-900">{selectedFile.name}</p>
                               <p className="text-sm text-slate-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>

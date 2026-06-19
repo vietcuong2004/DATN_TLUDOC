@@ -19,12 +19,14 @@ interface UserNavProps {
     avatar: string
     role?: string
   }
+  isLoggedIn: boolean
 }
 
-export function UserNav({ user }: UserNavProps) {
+export function UserNav({ user, isLoggedIn }: UserNavProps) {
   const router = useRouter()
 
   const getRoleLabel = (role?: string) => {
+    if (!isLoggedIn) return 'Khách';
     switch (role?.toLowerCase()) {
       case 'admin': return 'Quản trị viên';
       case 'student': return 'Sinh viên';
@@ -34,13 +36,14 @@ export function UserNav({ user }: UserNavProps) {
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn")
+    localStorage.removeItem("user")
     window.location.href = "/auth/login" // Refresh to clear state properly
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-full bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all cursor-pointer group outline-none focus:ring-2 focus:ring-blue-500/20 active:scale-95">
+        <button className="flex items-center gap-3 p-0 lg:pl-1 lg:pr-3 lg:py-1 rounded-full bg-transparent lg:bg-slate-50 border-0 lg:border lg:border-slate-100 hover:bg-slate-100/50 lg:hover:bg-slate-100 transition-all cursor-pointer group outline-none focus:ring-2 focus:ring-blue-500/20 active:scale-95">
           <div className="h-9 w-9 rounded-full border-2 border-white shadow-sm overflow-hidden ring-2 ring-blue-500/10 transition-transform group-hover:scale-105">
             <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
           </div>
@@ -71,38 +74,50 @@ export function UserNav({ user }: UserNavProps) {
           </div>
         </div>
 
-        <div className="p-2 space-y-1">
-          <DropdownMenuGroup>
-            <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
-                <User size={20} />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-slate-700 text-sm">Thông tin cá nhân</span>
-                <span className="text-[10px] text-slate-400 font-medium">Cập nhật hồ sơ & ảnh đại diện</span>
-              </div>
-            </DropdownMenuItem>
+        {isLoggedIn && (
+          <div className="p-2 space-y-1">
+            <DropdownMenuGroup>
+              <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
+                  <User size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-slate-700 text-sm">Thông tin cá nhân</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Cập nhật hồ sơ & ảnh đại diện</span>
+                </div>
+              </DropdownMenuItem>
 
-            <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
-                <Settings size={20} />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-slate-700 text-sm">Cài đặt hệ thống</span>
-                <span className="text-[10px] text-slate-400 font-medium">Bảo mật & Tùy chỉnh</span>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </div>
+              <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
+                  <Settings size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-slate-700 text-sm">Cài đặt hệ thống</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Bảo mật & Tùy chỉnh</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </div>
+        )}
 
         <div className="p-4 bg-slate-50/50">
-          <Button
-            onClick={handleLogout}
-            className="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-[0_8px_20px_rgba(239,68,68,0.25)] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <LogOut size={18} />
-            Đăng xuất
-          </Button>
+          {isLoggedIn ? (
+            <Button
+              onClick={handleLogout}
+              className="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-[0_8px_20px_rgba(239,68,68,0.25)] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <LogOut size={18} />
+              Đăng xuất
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push("/auth/login")}
+              className="w-full h-12 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-[0_8px_20px_rgba(34,197,94,0.25)] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <LogOut size={18} className="rotate-180" />
+              Đăng nhập
+            </Button>
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

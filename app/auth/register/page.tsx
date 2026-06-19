@@ -141,19 +141,19 @@ export default function RegisterPage() {
         {/* Right Side: Register Form */}
         <div className="flex flex-col justify-center p-8 md:p-12 lg:p-16 bg-white/40 overflow-y-auto max-h-[90vh] lg:max-h-none">
           <div className="w-full max-w-sm mx-auto">
-            <div className="mb-10 flex items-center justify-between gap-6">
-              <div className="text-center lg:text-left space-y-2">
+            <div className="mb-10 flex items-center justify-between gap-4">
+              <div className="text-left space-y-2">
                 <div className="relative inline-block">
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tight uppercase">Đăng ký</h2>
+                  <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight uppercase">Đăng ký</h2>
                   <div className="absolute -bottom-3 left-0 w-full h-1.5 bg-blue-600 rounded-full"></div>
                 </div>
-                <p className="text-slate-500 font-bold text-sm tracking-tight opacity-80 leading-relaxed uppercase pt-4">Tạo tài khoản mới tại <br /><span className="text-blue-600">TLU-Document</span></p>
+                <p className="text-slate-500 font-bold text-xs sm:text-sm tracking-tight opacity-80 leading-relaxed uppercase pt-4">Tạo tài khoản mới tại <br /><span className="text-blue-600">TLU-Document</span></p>
               </div>
-              <div className="shrink-0 hidden sm:block pointer-events-none">
+              <div className="shrink-0 pointer-events-none">
                 <img
                   src="/chatbot.png"
                   alt="Chatbot Tutor"
-                  className="h-24 w-24 object-contain"
+                  className="h-16 w-16 sm:h-24 sm:w-24 object-contain"
                 />
               </div>
             </div>

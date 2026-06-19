@@ -216,7 +216,7 @@ export default function QuizPage() {
                     AI Quiz Generator
                   </div>
                   <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Chuyển đổi tài liệu thành bài kiểm tra</h1>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base text-justify">
                     Tải tài liệu của bạn lên, hệ thống sẽ tự động phát hiện kiến thức trọng tâm và tạo bộ câu hỏi trắc nghiệm có kèm giải thích chi tiết.
                   </p>
                 </div>
@@ -233,7 +233,7 @@ export default function QuizPage() {
             <div className={`grid gap-6 ${(quizState === 'playing' || quizState === 'result') && questions.length > 0 ? "lg:grid-cols-[300px_minmax(0,1fr)_300px]" : "lg:grid-cols-[360px_minmax(0,1fr)]"}`}>
 
               {/* Left Column: Upload & Setup */}
-              <Card className="border-slate-200 shadow-sm h-fit">
+              <Card className="border-slate-200 shadow-sm h-fit w-full min-w-0 overflow-hidden">
                 <CardContent className="space-y-4 p-6">
                   <div className="mb-2">
                     <h3 className="font-semibold text-slate-900">Tải lên tài liệu</h3>
@@ -243,14 +243,14 @@ export default function QuizPage() {
                   {!file ? (
                     <label
                       htmlFor="quiz-file"
-                      className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
+                      className="w-full flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center transition hover:bg-blue-50"
                     >
                       <Upload className="mb-3 h-10 w-10 text-blue-600" />
                       <span className="text-sm font-medium text-slate-900">Kéo thả tài liệu vào đây</span>
                       <span className="mt-1 text-xs text-slate-500">Hỗ trợ: PDF, Word (.doc, .docx), TXT</span>
                     </label>
                   ) : (
-                    <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
+                    <div className="w-full max-w-full min-w-0 relative flex cursor-pointer flex-col items-stretch justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-8 text-center" onClick={() => fileInputRef.current?.click()}>
                       <button
                         type="button"
                         aria-label="Bỏ file đã chọn"
@@ -262,9 +262,9 @@ export default function QuizPage() {
                       >
                         <X className="h-4 w-4" />
                       </button>
-                      <div className="w-full rounded-xl border border-blue-200 bg-white p-4">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-10 w-10 text-blue-600" />
+                      <div className="w-full min-w-0 rounded-xl border border-blue-200 bg-white p-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="h-10 w-10 text-blue-600 flex-shrink-0" />
                           <div className="min-w-0 flex-1 text-left">
                             <p className="truncate font-semibold text-slate-900">{file.name}</p>
                             <p className="text-sm text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>

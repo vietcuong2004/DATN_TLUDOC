@@ -22,12 +22,22 @@ interface PreviewDocumentProps {
 export default function PreviewDocument({ document, onClose }: PreviewDocumentProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // States for local file processing
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [localPreviewText, setLocalPreviewText] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!document?.file) {
@@ -55,13 +65,75 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
         <html>
         <head>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Xem trước tài liệu</title>
             <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
             <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
             <style>
-                body { margin: 0; padding: 0; background: #e2e8f0; display: flex; flex-direction: column; align-items: center; overflow-y: auto; font-family: sans-serif; }
-                #container { width: 100%; max-width: 900px; margin: 20px auto; }
+                body { 
+                  margin: 0; 
+                  padding: 0; 
+                  background: #e2e8f0; 
+                  display: flex; 
+                  flex-direction: column; 
+                  align-items: center; 
+                  overflow-y: auto; 
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                }
+                #container { 
+                  width: 100%; 
+                  max-width: 900px; 
+                  margin: 0 auto; 
+                  box-sizing: border-box;
+                }
                 .loading { margin-top: 50px; text-align: center; color: #64748b; font-size: 15px; }
+                
+                /* Responsive DOCX Styles */
+                .docx-preview {
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                  margin: 0 auto !important;
+                  padding: 10px !important;
+                  box-shadow: none !important;
+                }
+                
+                .docx-preview section {
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  box-sizing: border-box !important;
+                  padding: 15px !important;
+                  margin: 10px auto !important;
+                  border-radius: 8px !important;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+                }
+                
+                /* Responsive Tables inside DOCX */
+                table {
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  display: block !important;
+                  overflow-x: auto !important;
+                  white-space: normal !important;
+                  border-collapse: collapse !important;
+                  margin: 15px 0 !important;
+                }
+                
+                td, th {
+                  min-width: 80px !important;
+                }
+
+                @media (max-width: 768px) {
+                  body { background: #fff; }
+                  #container { margin: 0; }
+                  .docx-preview { padding: 0 !important; }
+                  .docx-preview section { 
+                    padding: 10px !important; 
+                    margin: 0 !important;
+                    border-radius: 0 !important;
+                    box-shadow: none !important;
+                  }
+                }
             </style>
         </head>
         <body>
@@ -164,6 +236,15 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
     return url;
   };
 
+  const fileName = document.file ? document.file.name.toLowerCase() : "";
+  const isLocalPdf = document.file && (document.file.type === "application/pdf" || fileName.endsWith(".pdf"));
+  const isPdf = isLocalPdf || !!(document.downloadUrl && (document.downloadUrl.toLowerCase().includes(".pdf") || document.downloadUrl.toLowerCase().includes("pdf")));
+  
+  const hasDriveOrExternalPreview = !!getPreviewUrl(document.downloadUrl);
+  
+  // Show mobile fallback card for non-PDF external previews on mobile
+  const showMobileFallback = isMobile && (isLocalPdf || hasDriveOrExternalPreview) && !isPdf;
+
   return (
     <>
       <div
@@ -173,55 +254,71 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
       <div
         className={`fixed z-[60] flex flex-col bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] transition-all duration-300 overflow-hidden ${isMinimized
           ? "bottom-0 right-4 translate-y-full opacity-0 pointer-events-none scale-50"
-          : isMaximized
+          : isMaximized || isMobile
             ? "inset-0 w-screen h-screen max-w-none rounded-none opacity-100 scale-100"
             : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-5xl h-[calc(100vh-2rem)] md:h-[90vh] rounded-2xl opacity-100 scale-100"
           }`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={`flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 select-none ${isMaximized ? "rounded-t-none" : "rounded-t-2xl"}`}>
-          <div className="flex min-w-0 flex-col">
+        <div className={`flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 select-none ${isMaximized || isMobile ? "rounded-t-none" : "rounded-t-2xl"}`}>
+          <div className="flex min-w-0 flex-col flex-1">
             <p className="truncate text-[15px] font-bold text-slate-800 leading-tight">{document.title}</p>
-            {/* <p className="truncate text-xs text-slate-500 font-medium mt-0.5">Xem trước tài liệu đã chọn</p> */}
           </div>
-          <div className="flex items-center gap-3 ml-4 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-3">
             {(document.downloadUrl || document.id || localPreviewUrl) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white hover:bg-slate-50 text-sm px-3 h-9 shadow-sm font-medium text-slate-700"
-                onClick={() => {
-                  const targetUrl = localPreviewUrl || getPreviewUrl(document.downloadUrl) || document.downloadUrl
-                  window.open(targetUrl || (document.id ? `/document/${document.id}` : ""), "_blank", "noopener,noreferrer")
-                }}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Mở trong tab mới
-              </Button>
+              isMobile ? (
+                <button
+                  className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200 shadow-sm"
+                  onClick={() => {
+                    const targetUrl = localPreviewUrl || getPreviewUrl(document.downloadUrl) || document.downloadUrl;
+                    window.open(targetUrl || (document.id ? `/document/${document.id}` : ""), "_blank", "noopener,noreferrer");
+                  }}
+                  title="Mở trong tab mới"
+                >
+                  <Eye className="h-5 w-5 text-blue-600" />
+                </button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white hover:bg-slate-50 text-sm px-3 h-9 shadow-sm font-medium text-slate-700"
+                  onClick={() => {
+                    const targetUrl = localPreviewUrl || getPreviewUrl(document.downloadUrl) || document.downloadUrl
+                    window.open(targetUrl || (document.id ? `/document/${document.id}` : ""), "_blank", "noopener,noreferrer")
+                  }}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Mở trong tab mới
+                </Button>
+              )
             )}
-            <div className={`flex items-center gap-1 ${(document.downloadUrl || document.id || localPreviewUrl) ? 'pl-3 border-l' : ''} border-slate-200`}>
-              <button
-                className="p-1.5 hover:bg-slate-100 text-slate-600 rounded transition-colors"
-                onClick={() => setIsMinimized(true)}
-                title="Thu nhỏ"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <button
-                className="p-1.5 hover:bg-slate-100 text-slate-600 rounded transition-colors"
-                onClick={() => setIsMaximized(!isMaximized)}
-                title={isMaximized ? "Thu gọn cửa sổ" : "Phóng to cửa sổ"}
-              >
-                {isMaximized ? <Copy className="h-4 w-4 scale-90" /> : <Square className="h-4 w-4" />}
-              </button>
-              <button
-                className="p-1.5 hover:bg-red-50 hover:text-red-500 text-slate-600 rounded transition-colors ml-1"
-                onClick={onClose}
-                title="Đóng"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            
+            {!isMobile && (
+              <div className={`flex items-center gap-1 ${(document.downloadUrl || document.id || localPreviewUrl) ? 'pl-3 border-l' : ''} border-slate-200`}>
+                <button
+                  className="p-1.5 hover:bg-slate-100 text-slate-600 rounded transition-colors"
+                  onClick={() => setIsMinimized(true)}
+                  title="Thu nhỏ"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <button
+                  className="p-1.5 hover:bg-slate-100 text-slate-600 rounded transition-colors"
+                  onClick={() => setIsMaximized(!isMaximized)}
+                  title={isMaximized ? "Thu gọn cửa sổ" : "Phóng to cửa sổ"}
+                >
+                  {isMaximized ? <Copy className="h-4 w-4 scale-90" /> : <Square className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
+
+            <button
+              className="p-2 hover:bg-red-50 hover:text-red-500 text-slate-600 rounded-lg transition-colors border border-slate-200 shadow-sm ml-1"
+              onClick={onClose}
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
@@ -232,6 +329,44 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
           ) : document.content ? (
             document.content
+          ) : showMobileFallback ? (
+            <div className="flex flex-col h-full items-center justify-center p-6 bg-slate-50">
+              <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200/80 p-6 shadow-md text-center flex flex-col items-center">
+                <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-5 border border-blue-100 shadow-sm">
+                  {isLocalPdf ? (
+                    <span className="text-xs font-bold text-red-600 tracking-wider">PDF</span>
+                  ) : (
+                    <Eye className="h-7 w-7 text-blue-600" />
+                  )}
+                </div>
+                
+                <h3 className="text-base font-bold text-slate-800 mb-2 leading-snug line-clamp-2 px-2">
+                  {document.title}
+                </h3>
+                
+                <p className="text-xs text-slate-500 mb-6 leading-relaxed max-w-xs mx-auto">
+                  Trình duyệt di động hạn chế hiển thị trực tiếp tài liệu trong khung nhỏ. Vui lòng mở tài liệu trong tab mới để có trải nghiệm xem đầy đủ và tốt nhất.
+                </p>
+                
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-5 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+                  onClick={() => {
+                    const targetUrl = localPreviewUrl || getPreviewUrl(document.downloadUrl) || document.downloadUrl;
+                    window.open(targetUrl || (document.id ? `/document/${document.id}` : ""), "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                  Mở tài liệu (Tab mới)
+                </Button>
+                
+                <button
+                  onClick={onClose}
+                  className="mt-4 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors py-2 px-4"
+                >
+                  Đóng cửa sổ
+                </button>
+              </div>
+            </div>
           ) : localPreviewUrl ? (
             <iframe
               src={localPreviewUrl}
@@ -239,8 +374,8 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
               className="absolute inset-0 h-full w-full border-0"
             />
           ) : localPreviewText ? (
-            <div className="h-full overflow-auto p-6">
-              <article className="mx-auto max-w-3xl whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700">
+            <div className="h-full overflow-auto p-4 md:p-6">
+              <article className="mx-auto max-w-3xl whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-4 md:p-6 text-sm leading-7 text-slate-700">
                 {localPreviewText}
               </article>
             </div>

@@ -15,6 +15,12 @@ export function SubjectCategoriesSidebar() {
   const [isExpanded, setIsExpanded] = useState(true)
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsExpanded(false)
+    }
+  }, [])
+
+  useEffect(() => {
     let isMounted = true
 
     const loadCounts = async () => {
