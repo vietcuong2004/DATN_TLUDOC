@@ -243,7 +243,7 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
   const hasDriveOrExternalPreview = !!getPreviewUrl(document.downloadUrl);
   
   // Show mobile fallback card for non-PDF external previews on mobile
-  const showMobileFallback = isMobile && (isLocalPdf || hasDriveOrExternalPreview) && !isPdf;
+  const showMobileFallback = isMobile && (isLocalPdf || isPdf || hasDriveOrExternalPreview);
 
   return (
     <>
