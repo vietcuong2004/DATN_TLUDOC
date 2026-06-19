@@ -10,15 +10,19 @@ Dự án hướng tới việc kết hợp kho tài liệu học tập với cá
 
 ## ✨ Tổng quan dự án
 
-* 🌐 **Dự án đang chạy golive tại:**
-  https://tlu-document.vercel.app/
-
-* 📁 **Tài liệu quản lý tài nguyên dự án:**
-  [QuanLyTaiNguyen.md](QuanLyTaiNguyen.md)
-
+* 🌐 **Dự án đang chạy golive tại:** [tlu-document.vercel.app](https://tlu-document.vercel.app/)
+* 📁 **Tài liệu quản lý tài nguyên dự án:** [QuanLyTaiNguyen.md](QuanLyTaiNguyen.md)
 * 🎓 **Đối tượng sử dụng:** Sinh viên Đại học Thủy Lợi.
-
 * 🤖 **Điểm nổi bật:** Tích hợp AI để hỗ trợ học tập thông qua các chức năng Chatbot RAG, Tóm tắt tài liệu, Sinh Quiz và Sinh Mindmap.
+
+### 📺 Video Demo Trải Nghiệm Website
+
+<div align="center">
+  <a href="https://youtu.be/cL55LpIoGxs" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.youtube.com/vi/cL55LpIoGxs/maxresdefault.jpg" alt="TLU Document Video Demo" width="100%" style="max-width: 750px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 2px solid #eaeaea;" />
+  </a>
+  <p><i>Nhấp vào hình ảnh để xem video giới thiệu chi tiết trên YouTube</i></p>
+</div>
 
 
 ## 🧭 Giới thiệu

@@ -8,9 +8,9 @@
 
 | 📍 Tài Nguyên | 🔗 Link |
 |---|---|
-| **Live Demo** | [https://tlu-document.vercel.app/](https://tlu-document.vercel.app/) |
-| **CI/CD Pipeline** | [Vercel Dashboard](https://vercel.com/vietcuong2004s-projects/datn-tludoc) |
-| **Database** | [Railway MySQL](https://railway.com/project/b5fe13e8-018d-439a-9d19-2044737aa298/service/a8c712cc-c366-4c3a-aa4d-d77eea842d32/database?environmentId=6ee76ecc-c4bc-4615-b1a5-616432dd979f) |
+| **Live Demo** | <a href="https://tlu-document.vercel.app/" target="_blank" rel="noopener noreferrer">tlu-document.vercel.app</a> |
+| **CI/CD Pipeline** | <a href="https://vercel.com/vietcuong2004s-projects/datn-tludoc" target="_blank" rel="noopener noreferrer">Vercel Dashboard</a> |
+| **Database** | <a href="https://railway.com/project/b5fe13e8-018d-439a-9d19-2044737aa298/service/a8c712cc-c366-4c3a-aa4d-d77eea842d32/database?environmentId=6ee76ecc-c4bc-4615-b1a5-616432dd979f" target="_blank" rel="noopener noreferrer">Railway MySQL</a> |
 
 ---
 
@@ -18,9 +18,9 @@
 
 | 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
 |---|---|---|
-| Xem requests & tokens | Google AI Studio | [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
-| Chi tiết chi phí | Google Cloud Console | [https://console.cloud.google.com/billing](https://console.cloud.google.com/billing) |
-| Quota sử dụng | Google Cloud Console | [https://console.cloud.google.com](https://console.cloud.google.com) |
+| Xem requests & tokens | Google AI Studio | <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> |
+| Chi tiết chi phí | Google Cloud Console | <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer">Google Cloud Billing</a> |
+| Quota sử dụng | Google Cloud Console | <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> |
 
 
 ---
@@ -29,9 +29,9 @@
 
 | 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
 |---|---|---|
-| Tạo API Key mới | Pollinations AI | [https://enter.pollinations.ai/](https://enter.pollinations.ai/) |
-| Quản lý & Monitoring | Pollinations AI | [https://enter.pollinations.ai/](https://enter.pollinations.ai/) |
-| API Documentation | Pollinations AI | [Pollinations Docs](https://enter.pollinations.ai/api/docs) |
+| Tạo API Key mới | Pollinations AI | <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer">Pollinations AI Portal</a> |
+| Quản lý & Monitoring | Pollinations AI | <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer">Pollinations Dashboard</a> |
+| API Documentation | Pollinations AI | <a href="https://enter.pollinations.ai/api/docs" target="_blank" rel="noopener noreferrer">Pollinations Docs</a> |
 
 ---
 
@@ -39,8 +39,8 @@
 
 | 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
 |---|---|---|
-| Xem requests & tokens | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
-| Chi tiết chi phí | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
-| Quota sử dụng | HuggingFace | [https://huggingface.co/settings/billing](https://huggingface.co/settings/billing) |
-| Quản lý Index & API | Pinecone | [https://console.pinecone.io/](https://console.pinecone.io/) |
-| Duyệt dữ liệu Vector | Pinecone | [Xem tại đây](https://app.pinecone.io/organizations/-OqGbxPcUt7_CDccCDUF/projects/c9cfdcfc-876a-4e46-b1fe-3c223e49531b/indexes/tlu-document-chatbot/browser) |
+| Xem requests & tokens | HuggingFace | <a href="https://huggingface.co/settings/billing" target="_blank" rel="noopener noreferrer">HuggingFace Billing</a> |
+| Chi tiết chi phí | HuggingFace | <a href="https://huggingface.co/settings/billing" target="_blank" rel="noopener noreferrer">HuggingFace Settings</a> |
+| Quota sử dụng | HuggingFace | <a href="https://huggingface.co/settings/billing" target="_blank" rel="noopener noreferrer">HuggingFace Usage</a> |
+| Quản lý Index & API | Pinecone | <a href="https://console.pinecone.io/" target="_blank" rel="noopener noreferrer">Pinecone Console</a> |
+| Duyệt dữ liệu Vector | Pinecone | <a href="https://app.pinecone.io/organizations/-OqGbxPcUt7_CDccCDUF/projects/c9cfdcfc-876a-4e46-b1fe-3c223e49531b/indexes/tlu-document-chatbot/browser" target="_blank" rel="noopener noreferrer">Xem tại đây</a> |
