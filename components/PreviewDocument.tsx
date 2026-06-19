@@ -1,9 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Eye, X, Minus, Square, Copy, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import * as pdfjsLib from 'pdfjs-dist';
+
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 interface DocumentInfo {
   id?: number | string;
@@ -322,13 +327,15 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-50 relative">
+        <div className="flex-1 bg-slate-50 relative overflow-hidden">
           {isLoading ? (
             <div className="flex h-full items-center justify-center text-sm text-slate-600">Đang tải tài liệu...</div>
           ) : error ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
           ) : document.content ? (
             document.content
+          ) : isLocalPdf && document.file ? (
+            <LocalPdfViewer file={document.file} />
           ) : showMobileFallback ? (
             <div className="flex flex-col h-full items-center justify-center p-6 bg-slate-50">
               <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200/80 p-6 shadow-md text-center flex flex-col items-center">
@@ -427,4 +434,113 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
       )}
     </>
   )
+}
+
+// Local PDF Viewer using PDF.js canvas rendering
+function LocalPdfViewer({ file }: { file: File }) {
+  const [pages, setPages] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const loadPdf = async () => {
+      try {
+        setLoading(true);
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        if (!active) return;
+        const pagesList = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          pagesList.push(i);
+        }
+        setPages(pagesList);
+        setLoading(false);
+      } catch (err: any) {
+        console.error("PDF load error:", err);
+        if (active) {
+          setError("Không thể hiển thị PDF: " + err.message);
+          setLoading(false);
+        }
+      }
+    };
+    loadPdf();
+    return () => {
+      active = false;
+    };
+  }, [file]);
+
+  if (loading) {
+    return <div className="flex h-full items-center justify-center text-sm text-slate-500 p-4">Đang chuẩn bị hiển thị PDF...</div>;
+  }
+
+  if (error) {
+    return <div className="flex h-full items-center justify-center text-sm text-red-500 p-4">{error}</div>;
+  }
+
+  return (
+    <div className="h-full overflow-y-auto bg-slate-100 p-2 space-y-4 flex flex-col items-center select-none">
+      {pages.map((pageNum) => (
+        <PdfPage key={pageNum} file={file} pageNum={pageNum} />
+      ))}
+    </div>
+  );
+}
+
+function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const renderPage = async () => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(pageNum);
+        if (!active) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        const viewport = page.getViewport({ scale: 1.0 });
+        const deviceWidth = window.innerWidth;
+        const targetWidth = Math.min(600, deviceWidth - 32); 
+        const scale = targetWidth / viewport.width;
+        
+        const scaledViewport = page.getViewport({ scale });
+        
+        canvas.height = scaledViewport.height;
+        canvas.width = scaledViewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: scaledViewport,
+        };
+        await page.render(renderContext).promise;
+        if (active) setLoading(false);
+      } catch (err) {
+        console.error("Page render error:", err);
+      }
+    };
+    renderPage();
+    return () => {
+      active = false;
+    };
+  }, [file, pageNum]);
+
+  return (
+    <div className="relative bg-white shadow-md rounded-lg overflow-hidden border border-slate-200">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
+          Đang tải trang {pageNum}...
+        </div>
+      )}
+      <canvas ref={canvasRef} />
+    </div>
+  );
 }
