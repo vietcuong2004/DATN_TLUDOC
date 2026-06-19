@@ -510,12 +510,15 @@ function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
         const viewport = page.getViewport({ scale: 1.0 });
         const deviceWidth = window.innerWidth;
         const targetWidth = Math.min(600, deviceWidth - 32); 
-        const scale = targetWidth / viewport.width;
+        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+        const scale = (targetWidth / viewport.width) * dpr;
         
         const scaledViewport = page.getViewport({ scale });
         
-        canvas.height = scaledViewport.height;
         canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        canvas.style.width = `${targetWidth}px`;
+        canvas.style.height = `${scaledViewport.height / dpr}px`;
 
         const renderContext = {
           canvasContext: context,
