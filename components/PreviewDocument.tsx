@@ -552,7 +552,7 @@ function PdfPage({ file, pageNum }: { file: File; pageNum: number }) {
   return (
     <div 
       style={{ width: targetWidth, height: currentHeight }} 
-      className="relative bg-white shadow-md rounded-lg overflow-hidden border border-slate-200"
+      className="relative bg-white shadow-md rounded-lg overflow-hidden border border-slate-200 shrink-0"
     >
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
