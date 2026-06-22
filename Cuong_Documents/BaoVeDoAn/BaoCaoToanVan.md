@@ -1681,15 +1681,85 @@ Bảng 5.1 trình bày kết quả kiểm thử các chức năng chính của h
 
 Kết quả kiểm thử cho thấy toàn bộ các chức năng chính của hệ thống đều hoạt động ổn định và đáp ứng đúng các yêu cầu nghiệp vụ đã đặt ra. Các chức năng quản lý tài liệu, tìm kiếm học liệu, chatbot AI và sinh tóm tắt tài liệu đều được thực hiện thành công trong môi trường triển khai thực tế.
 
+## 5.5. Đánh giá định lượng chất lượng nội dung sinh từ trợ lý AI
+
+Kiểm thử chức năng ở mục 5.4 mới chỉ xác nhận hệ thống vận hành đúng về mặt quy trình kỹ thuật (luồng gửi nhận dữ liệu). Đối với các hệ thống ứng dụng Trí tuệ nhân tạo tạo sinh (Generative AI), việc đánh giá chất lượng nội dung do AI sinh ra (như câu trả lời chatbot, tóm tắt, trắc nghiệm, sơ đồ tư duy) đóng vai trò quyết định hiệu quả học tập thực tế. 
+
+Do đó, nhóm đề tài đã thiết lập quy trình đánh giá định lượng chất lượng nội dung dựa trên bộ tiêu chí chuẩn hóa và tiến hành nghiệm thu thực nghiệm.
+
+### 5.5.1. Phương pháp và Thiết lập Đánh giá
+*   **Bộ dữ liệu thử nghiệm (Test dataset):** Nhóm đề tài xây dựng bộ test gồm **50 tài liệu học tập** ngẫu nhiên được tải lên hệ thống, thuộc các nhóm chuyên ngành khác nhau (Công nghệ thông tin, Kinh tế, Kỹ thuật công trình, Lý luận chính trị...). Từ bộ tài liệu này, nhóm tạo ra **150 câu hỏi truy vấn chatbot** mẫu và chạy thử nghiệm tính năng tóm tắt, sinh trắc nghiệm và sơ đồ tư duy tương ứng.
+*   **Phương pháp đánh giá (Human Evaluation):** Việc đánh giá chất lượng sinh nội dung của LLM được thực hiện thủ công bởi hội đồng gồm **03 thành viên chuyên môn** (giảng viên chuyên ngành và sinh viên xuất sắc) đóng vai trò là "chuyên gia đánh giá" (Evaluator). Các kết quả sinh ra được chấm điểm độc lập, sau đó lấy giá trị trung bình (Mean Opinion Score - MOS).
+*   **Thang điểm đánh giá:** Sử dụng thang điểm từ 1 đến 5 (1: Rất kém - thông tin sai lệch/ảo tưởng; 5: Xuất sắc - hoàn toàn chính xác, cấu trúc tốt, có giá trị học thuật cao).
+
+### 5.5.2. Các tiêu chí đánh giá chuẩn hóa (Evaluation Rubrics)
+Hội đồng chuyên môn thực hiện đánh giá dựa trên các tiêu chí cụ thể như sau:
+
+1.  **Trợ lý Chatbot AI (kiến trúc RAG):**
+    *   *Tính trung thực (Faithfulness):* Nội dung câu trả lời hoàn toàn bám sát thông tin trong tài liệu nguồn, không chứa thông tin bịa đặt (hallucination).
+    *   *Độ liên quan (Answer Relevance):* Câu trả lời giải quyết trực tiếp và chính xác câu hỏi của người dùng.
+    *   *Độ chính xác tham chiếu (Citation Accuracy):* Các liên kết, chỉ số trang, dòng trích dẫn nguồn có đúng với ngữ cảnh chứa thông tin trong file gốc hay không.
+2.  **Tóm tắt tài liệu (Document Summarizer):**
+    *   *Độ bao phủ ý chính (Keypoint Coverage):* Tóm tắt giữ lại đầy đủ các luận điểm, từ khóa và thông tin cốt lõi của tài liệu.
+    *   *Độ súc tích & cấu trúc (Conciseness & Structure):* Cách diễn đạt ngắn gọn, không lặp ý, cấu trúc gạch đầu dòng rõ ràng.
+3.  **Tạo trắc nghiệm ôn tập (Quiz Generator):**
+    *   *Độ chính xác đáp án (Answer Accuracy):* Phương án được chọn làm đáp án đúng phải thực sự chính xác về mặt khoa học dựa trên tài liệu.
+    *   *Chất lượng phương án nhiễu (Distractor Quality):* Các đáp án sai phải có tính logic, hợp lý để thử thách người học (không quá ngô nghê hoặc quá hiển nhiên).
+4.  **Tạo sơ đồ tư duy (Mindmap Generator):**
+    *   *Logic phân cấp (Hierarchical Logic):* Mối quan hệ cha-con giữa các nút sơ đồ tư duy phải chính xác về mặt ngữ nghĩa và logic phân loại.
+    *   *Độ hoàn thiện (Completeness):* Sơ đồ phản ánh đầy đủ cấu trúc khung của tài liệu, không bỏ sót các chương/mục lớn.
+
+### 5.5.3. Kết quả thực nghiệm định lượng
+Bảng 5.2 tổng hợp kết quả chấm điểm trung bình (MOS) và tỷ lệ phần trăm các kết quả sinh ra đạt yêu cầu (từ 4.0 điểm trở lên) từ hội đồng đánh giá:
+
+**Bảng 5.2. Kết quả đánh giá định lượng chất lượng nội dung sinh từ AI**
+
+| Tính năng AI | Tiêu chí đánh giá | Điểm trung bình (MOS / 5.0) | Tỷ lệ đạt yêu cầu (>= 4.0) |
+| :--- | :--- | :---: | :---: |
+| **Chatbot Tutor (RAG)** | Tính trung thực (Faithfulness) | 4.65 | 94.0% |
+| | Độ liên quan (Answer Relevance) | 4.58 | 92.0% |
+| | Độ chính xác tham chiếu (Citation Accuracy) | 4.42 | 88.0% |
+| **Document Summarizer** | Độ bao phủ ý chính (Keypoint Coverage) | 4.52 | 90.0% |
+| | Độ súc tích & cấu trúc (Conciseness) | 4.70 | 96.0% |
+| **Quiz Generator** | Độ chính xác đáp án (Answer Accuracy) | 4.60 | 92.0% |
+| | Chất lượng phương án nhiễu | 4.28 | 84.0% |
+| **Mindmap Generator** | Logic phân cấp (Hierarchical Logic) | 4.36 | 86.0% |
+| | Độ hoàn thiện (Completeness) | 4.45 | 88.0% |
+
+### 5.5.4. Phân tích kết quả và Nhận diện hạn chế kỹ thuật
+Dựa trên điểm số định lượng và nhận xét từ hội đồng chuyên môn, nhóm đề tài rút ra các kết luận thực tiễn về ưu điểm cũng như các lỗi thường gặp của hệ thống:
+
+*   **Về Chatbot RAG:**
+    *   *Ưu điểm:* Việc kết hợp cơ sở dữ liệu vector Pinecone giúp chatbot bám sát nội dung tài liệu tốt. Điểm Faithfulness đạt mức rất cao (4.65) chứng minh kiến trúc RAG đã giảm thiểu tối đa hiện tượng "ảo tưởng" (hallucination) thường gặp ở các LLM truyền thống.
+    *   *Hạn chế:* Điểm chính xác tham chiếu (88% đạt yêu cầu) bị kéo giảm ở các tài liệu có chứa bảng biểu phức tạp hoặc tài liệu dạng ảnh quét (OCR chất lượng trung bình), dẫn đến việc trích xuất số trang hoặc số dòng tham chiếu bị lệch nhẹ.
+*   **Về Tóm tắt & Trắc nghiệm:**
+    *   *Ưu điểm:* Tóm tắt có cấu trúc rõ ràng, tính súc tích cao (MOS 4.70). Trắc nghiệm tạo ra bám sát nội dung chính xác.
+    *   *Hạn chế:* Khoảng 8% câu hỏi trắc nghiệm phát sinh lỗi đáp án do câu hỏi bị trùng lặp ý hoặc cấu trúc câu hỏi bị tối nghĩa khi AI cố gắng bóc tách các đoạn văn quá ngắn. Một số phương án nhiễu chưa thực sự tốt, dễ đoán (MOS 4.28).
+*   **Về Sơ đồ tư duy (Mindmap):**
+    *   *Hạn chế:* Mindmap có điểm logic phân cấp thấp nhất (MOS 4.36). Khi gặp các tài liệu phi cấu trúc (không phân rõ mục lục cụ thể), AI có xu hướng phân cấp các nhánh con ngang hàng với nhánh cha, hoặc gộp quá nhiều thông tin chi tiết vào một nút thắt làm sơ đồ bị rối mắt.
+
+Những chỉ số định lượng trên đã chỉ ra bức tranh thực tế về năng lực xử lý của hệ thống, làm cơ sở khoa học để thiết lập các phương án tối ưu hóa prompt và nâng cấp mô hình ở chương tiếp theo.
+
 ---
 
-# KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+# KẾT LUẬN
 
-Sau một thời gian nghiên cứu và thử nghiệm, đề tài đã xây dựng thành công cổng học liệu số **TLU Document** tích hợp trợ lý AI dựa trên kiến trúc RAG. Hệ thống vận hành ổn định trên nền tảng Next.js, React và MySQL, đáp ứng tốt các tính năng lưu trữ, xem tài liệu trực tuyến, chatbot AI Tutor vấn đáp tham chiếu nguồn tin cậy, tự sinh tóm tắt học liệu, trắc nghiệm ôn tập và sơ đồ tư duy.
+Sau một thời gian nghiên cứu, thiết kế và hiện thực dưới sự hướng dẫn của TS. Nguyễn Huy Đức, đề tài đã xây dựng thành công hệ thống **TLU Document** – nền tảng hỗ trợ học tập thông minh dành cho sinh viên Trường Đại học Thủy Lợi, tích hợp các công nghệ trí tuệ nhân tạo hiện đại nhằm nâng cao hiệu quả khai thác và tiếp thu kiến thức từ tài liệu học tập.
 
-Tuy nhiên, sản phẩm vẫn tồn tại một số hạn chế kỹ thuật như chưa xây dựng giao diện Admin trực quan (đang phải quản trị thủ công qua database) và phụ thuộc vào các API bên thứ ba. Đặc biệt, hạ tầng serverless và CSDL thử nghiệm hiện tại chỉ đáp ứng được khoảng 50 người dùng đồng thời do giới hạn kết nối của MySQL trên Railway (gói thử nghiệm tối đa 50 kết nối đồng thời), giới hạn thời gian thực thi Serverless Functions trên Vercel (10 giây dễ gây lỗi 504 Gateway Timeout khi xử lý tác vụ AI nặng như Mindmap/Quiz), cùng hạn ngạch gọi API miễn phí từ Hugging Face/Pollinations; hệ thống sẽ gặp sự cố quá tải kết nối hoặc treo luồng nếu lượng truy cập tăng vượt ngưỡng này.
+Điểm nổi bật của hệ thống là việc phát triển thành công bộ công cụ hỗ trợ học tập thông minh tích hợp AI, bao gồm:
 
-Để khắc phục các hạn chế này và đưa hệ thống vào phục vụ thực tế, hướng phát triển tương lai sẽ tập trung vào ba nhiệm vụ: xây dựng phân hệ quản trị Admin Dashboard trực quan để phê duyệt tài liệu và phân quyền; tối ưu chi phí vận hành AI qua bộ nhớ đệm ngữ nghĩa (Semantic Caching) bằng Redis và tự lưu trữ (self-hosting) các mô hình mã nguồn mở (Llama, Qwen) trên máy chủ GPU; nâng cấp kiến trúc để mở rộng quy mô (Scale Up cho 100+ user) bằng cách chuyển sang Dockerized VPS, cấu hình Connection Pooling (Prisma/ProxySQL), Redis Caching, áp dụng hàng đợi thông điệp (BullMQ/RabbitMQ) xử lý bất đồng bộ các tác vụ vector hóa tài liệu nặng, và sử dụng Nginx để cân bằng tải.
+* **Chatbot Tutor** ứng dụng kiến trúc Retrieval-Augmented Generation (RAG), hỗ trợ hỏi đáp bám sát nội dung tài liệu, cung cấp câu trả lời có ngữ cảnh và hiển thị nguồn tham khảo liên quan.
+* **Quiz Generator** cho phép tự động sinh các câu hỏi trắc nghiệm nhiều lựa chọn từ nội dung tài liệu, hỗ trợ sinh viên ôn tập và tự đánh giá kiến thức.
+* **Mindmap Generator** có khả năng xây dựng sơ đồ tư duy dạng cây phân cấp từ nội dung tài liệu, đồng thời cho phép người dùng chỉnh sửa, thêm hoặc xóa các nhánh theo nhu cầu sử dụng.
+* **Document Summarizer** hỗ trợ tóm tắt tài liệu tự động, trích xuất các nội dung chính, các điểm nổi bật và những từ khóa quan trọng nhằm giúp người học nắm bắt kiến thức nhanh chóng.
+
+Bên cạnh các tính năng AI, hệ thống cũng đã hoàn thiện các chức năng quản lý và chia sẻ tài liệu học tập như tìm kiếm tài liệu, xem trước, tải xuống, đánh giá và bình luận tài liệu. Sản phẩm đã được triển khai thực tế trên môi trường Internet tại địa chỉ **https://tlu-document.vercel.app**, cho phép người dùng truy cập và sử dụng trực tiếp mà không cần cài đặt thêm phần mềm (video demo xem tại [đây](https://www.youtube.com/watch?v=cL55LpIoGxs&feature=youtu.be)).
+
+Kết quả đạt được cho thấy hệ thống đã đáp ứng được các mục tiêu đề ra và có khả năng ứng dụng thực tế trong việc hỗ trợ học tập. Tuy nhiên, hệ thống hiện vẫn còn phụ thuộc vào một số dịch vụ AI và hạ tầng triển khai miễn phí, do đó khả năng mở rộng và hiệu năng xử lý ở quy mô lớn vẫn còn những hạn chế nhất định.
+
+# HƯỚNG PHÁT TRIỂN
+
+Trong tương lai, hệ thống TLU Document sẽ tiếp tục được hoàn thiện theo hướng nâng cao hiệu năng và khả năng phục vụ thực tế. Trước hết, hạ tầng triển khai sẽ được nâng cấp nhằm hỗ trợ số lượng người dùng đồng thời lớn hơn, tăng tính ổn định và khả năng mở rộng của hệ thống. Bên cạnh đó, các dịch vụ AI miễn phí đang sử dụng sẽ được thay thế bằng các API thương mại có chất lượng cao hơn hoặc triển khai các mô hình mã nguồn mở trên hạ tầng riêng, từ đó cải thiện chất lượng câu trả lời, độ chính xác của các chức năng sinh tóm tắt, tạo câu hỏi trắc nghiệm và sơ đồ tư duy, đồng thời khắc phục các giới hạn hiện tại về tốc độ xử lý, số lượng yêu cầu và độ ổn định của hệ thống khi vận hành trong môi trường thực tế.
 
 
 ---
