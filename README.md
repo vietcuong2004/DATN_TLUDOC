@@ -239,7 +239,7 @@ DATN_TLUDOCUMENT/
 ├── lib/                        # Thư viện dùng chung, dịch vụ database và tích hợp bên ngoài
 │   ├── advanced-search.ts      # Giải thuật tìm kiếm nâng cao (kết hợp MySQL & Pinecone)
 │   ├── chatbot-db-services.ts  # Các hàm CRUD cơ sở dữ liệu cho lịch sử hội thoại
-│   ├── chatbot-intent.ts       # Logic phân tích ý định câu hỏi và thiết lập Prompt RAG
+│   ├── chatbot-tutor.ts        # Logic xử lý của chatbot
 │   ├── client-pdf-parser.ts    # Hỗ trợ đọc nội dung văn bản PDF từ client
 │   ├── drive.ts                # Dịch vụ kết nối và thao tác với Google Drive API
 │   ├── hf-embedder.ts          # Dịch vụ sinh Vector Embeddings từ Hugging Face API
