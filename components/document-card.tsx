@@ -17,6 +17,7 @@ export interface DocumentData {
   subjectCode?: string
   subjectName?: string
   uploaderName?: string
+  similarity?: number
 }
 
 interface DocumentCardProps {
@@ -39,6 +40,11 @@ export function DocumentCard({ document }: DocumentCardProps) {
           <div className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase tracking-wider">
             {document.fileExt && document.fileExt !== "FILE" ? document.fileExt.replace(".", "").toUpperCase() : "Tài liệu"}
           </div>
+          {typeof document.similarity === "number" && (
+            <div className="absolute top-3 right-3 bg-emerald-600/90 text-white text-[10px] font-bold px-2.5 py-1.5 rounded shadow-lg backdrop-blur-sm border border-emerald-500/20 tracking-wider">
+              Độ phù hợp {document.similarity}%
+            </div>
+          )}
         </div>
 
         {/* Content Section */}

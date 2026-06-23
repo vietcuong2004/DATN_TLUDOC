@@ -1,460 +1,137 @@
-# UC1 - Hướng dẫn code tính năng Tìm kiếm nâng cao
+# UC1 - Hướng dẫn code tính năng Tìm kiếm nâng cao (Hybrid & Semantic Search)
 
 ## 1) Mục tiêu tính năng
 
 Trang Tìm kiếm nâng cao cho phép người dùng:
-- Tìm tài liệu theo từ khóa.
-- Lọc theo ngành học, môn học, loại tài liệu, đánh giá, thời gian cập nhật.
-- Xem kết quả theo dạng thẻ và sắp xếp theo nhiều tiêu chí.
+- Tìm tài liệu học tập theo từ khóa chính xác hoặc ý nghĩa câu hỏi (tìm kiếm ngữ nghĩa bằng AI).
+- Lọc chi tiết theo ngành học, môn học, loại tài liệu, đánh giá tối thiểu, thời gian cập nhật.
+- Xem kết quả theo dạng thẻ và sắp xếp theo nhiều tiêu chí (Mới nhất, Cũ nhất, Tải nhiều nhất, Đánh giá tốt nhất, Tên A-Z, và **Liên quan nhất**).
 
-## 2) Các file chính đang tham gia tính năng
+---
 
-- Giao diện trang tìm kiếm: `app/advanced-search/page.tsx`
-- Hiển thị danh sách kết quả + sắp xếp: `components/search-results.tsx`
-- API xử lý tìm kiếm: `app/api/search/advanced/route.ts`
-- Repository truy vấn dữ liệu: `lib/repositories.ts`
-- API lấy nhóm môn học cho bộ lọc: `app/api/subjects/groups/route.ts`
+## 2) Các file chính tham gia tính năng
 
-## 3) Luồng hoạt động tổng thể (dễ hiểu)
+- **Giao diện trang tìm kiếm:** [page.tsx](file:///d:/DATN_TLUDOCUMENT/app/advanced-search/page.tsx)
+- **Hiển thị danh sách kết quả & dropdown sắp xếp:** [search-results.tsx](file:///d:/DATN_TLUDOCUMENT/components/search-results.tsx)
+- **Thẻ hiển thị tài liệu:** [document-card.tsx](file:///d:/DATN_TLUDOCUMENT/components/document-card.tsx)
+- **API route nhận request:** [route.ts](file:///d:/DATN_TLUDOCUMENT/app/api/documents/search/route.ts)
+- **Bộ xử lý logic tìm kiếm Hybrid/Semantic:** [advanced-search.ts](file:///d:/DATN_TLUDOCUMENT/lib/advanced-search.ts)
+- **Bộ sinh vector nhúng AI:** [hf-embedder.ts](file:///d:/DATN_TLUDOCUMENT/lib/hf-embedder.ts)
+- **Kết nối Pinecone Vector DB:** [pinecone.ts](file:///d:/DATN_TLUDOCUMENT/lib/pinecone.ts)
+- **API lấy danh mục ngành/môn học:** [route.ts](file:///d:/DATN_TLUDOCUMENT/app/api/subjects/groups/route.ts)
 
-1. Người dùng mở trang `/advanced-search`.
-2. Trang gọi `GET /api/subjects/groups` để lấy danh sách ngành/môn học và đổ vào bộ lọc.
-3. Người dùng nhập từ khóa + chọn các bộ lọc.
-4. Khi bấm nút `Tìm kiếm`, hàm `runSearch()` trên frontend sẽ tạo query string.
-5. Frontend gọi `GET /api/search/advanced?...`.
-6. API route đọc query params, lọc giá trị hợp lệ rồi gọi `searchDocumentsAdvanced(...)` trong repository.
-7. Repository dựng SQL động theo filter thực tế, truy vấn bảng `documents` + `subjects`.
-8. Kết quả trả về frontend dưới dạng `items`.
-9. `SearchResults` nhận `items`, cho phép người dùng sắp xếp (Tên, Mới nhất, Cũ nhất, Đánh giá, Lượt tải) và render ra card.
+---
 
-## 4) Giải thích code theo từng file
+## 3) Sơ đồ luồng hoạt động chi tiết
 
-### 4.1 `app/advanced-search/page.tsx`
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (Sinh viên/Giảng viên)
+    participant UI as Giao diện Tìm kiếm (page.tsx)
+    participant API as API Search Router (route.ts)
+    participant Engine as Search Engine (advanced-search.ts)
+    participant DB as CSDL MySQL (MySQL)
+    participant HF as AI Embedding (Hugging Face)
+    participant PC as Vector DB (Pinecone)
 
-#### A. Khai báo kiểu dữ liệu và hằng số
+    User->>UI: 1. Nhập từ khóa, chọn các bộ lọc tiêu chí
+    User->>UI: 2. Nhấn nút "Tìm kiếm" hoặc "Áp dụng"
+    activate UI
+    UI->>API: 3. Gửi GET /api/documents/search?q=...&filters=...
+    activate API
+    API->>Engine: 4. Gọi searchDocumentsAdvanced(filters)
+    activate Engine
 
-```ts
-type SidebarGroup = {
-	group: string
-	courses: Array<{ code: string; name: string }>
-}
+    Note over Engine, DB: [Giai đoạn 1] Tìm kiếm thường (SQL LIKE)
+    Engine->>DB: 5. SELECT khớp từ khóa tiêu đề/môn học & bộ lọc
+    activate DB
+    DB-->>Engine: 6. Trả về danh sách tài liệu khớp
+    deactivate DB
 
-type AdvancedSearchResponse = {
-	items: SearchResult[]
-}
+    alt Khớp kết quả tìm kiếm thường (Có tài liệu trả về)
+        Note over Engine: Trả kết quả ngay lập tức
+    else Không khớp kết quả (0 tài liệu trả về & có từ khóa)
+        Note over Engine, PC: [Giai đoạn 2] Tìm kiếm ngữ nghĩa (Semantic Search)
+        Engine->>HF: 7. Gọi API sinh vector nhúng 384 chiều (all-MiniLM-L6-v2)
+        activate HF
+        HF-->>Engine: 8. Trả về mảng số thực (Float Array) đại diện ý nghĩa từ khóa
+        deactivate HF
+        
+        Engine->>PC: 9. Gửi vector nhúng truy vấn Cosine Similarity (+ Metadata filters)
+        activate PC
+        PC-->>Engine: 10. Trả về danh sách ID tài liệu & Score (0.0 - 1.0)
+        deactivate PC
 
-const DOC_TYPE_OPTIONS = [ ... ]
-const FILTER_CONTROL_CLASS = "..."
+        Engine->>DB: 11. SELECT * FROM documents WHERE id IN (danh_sach_id)
+        activate DB
+        DB-->>Engine: 12. Trả về thông tin chi tiết của tài liệu
+        deactivate DB
+        Note over Engine: Quy đổi Score tương đồng sang phần trăm (%)
+    end
+
+    Engine-->>API: 13. Trả về mảng AdvancedSearchDocument[]
+    deactivate Engine
+    API-->>UI: 14. Phản hồi JSON chứa kết quả (status 200 OK)
+    deactivate API
+    UI-->>User: 15. Render kết quả. Hiển thị badge "Độ phù hợp x%" và tự động chọn sắp xếp "Liên quan nhất"
+    deactivate UI
 ```
 
-Giải thích từng dòng:
-1. `SidebarGroup`: mô tả dữ liệu nhóm môn học trả về từ API.
-2. `AdvancedSearchResponse`: mô tả JSON trả về từ API tìm kiếm.
-3. `DOC_TYPE_OPTIONS`: danh sách loại tài liệu dùng để render checkbox.
-4. `FILTER_CONTROL_CLASS`: class Tailwind dùng chung để ép checkbox/radio về màu xanh dương theo chủ đề.
-
-#### B. State quản lý giao diện và bộ lọc
-
-```ts
-const [isFilterOpen, setIsFilterOpen] = useState(false)
-const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-const [searchQuery, setSearchQuery] = useState("")
-
-const [groups, setGroups] = useState<SidebarGroup[]>([])
-const [selectedGroup, setSelectedGroup] = useState("all")
-const [selectedSubjectCode, setSelectedSubjectCode] = useState("all")
-const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([])
-const [selectedRating, setSelectedRating] = useState("any")
-const [updatedWithin, setUpdatedWithin] = useState("any")
-
-const [isLoading, setIsLoading] = useState(false)
-const [errorMessage, setErrorMessage] = useState("")
-```
-
-Giải thích từng dòng:
-1. `isFilterOpen`: mở/đóng panel bộ lọc trên mobile.
-2. `searchResults`: chứa danh sách kết quả để render.
-3. `searchQuery`: từ khóa tìm kiếm.
-4. `groups`: dữ liệu ngành/môn từ API.
-5. `selectedGroup`: ngành đang chọn (`all` nghĩa là tất cả).
-6. `selectedSubjectCode`: môn đang chọn (`all` nghĩa là tất cả).
-7. `selectedDocTypes`: nhiều loại tài liệu được chọn (checkbox nhiều lựa chọn).
-8. `selectedRating`: mức sao tối thiểu (`any`, `2`, `3`, `4`).
-9. `updatedWithin`: khoảng thời gian (`any`, `week`, `month`, `year`).
-10. `isLoading`: hiển thị trạng thái đang gọi API.
-11. `errorMessage`: báo lỗi thân thiện nếu API lỗi.
-
-#### C. Nạp dữ liệu ngành/môn lúc mở trang
-
-```ts
-useEffect(() => {
-	let isMounted = true
-
-	async function loadGroups() {
-		try {
-			const response = await fetch("/api/subjects/groups", { cache: "no-store" })
-			const data = (await response.json()) as { groups?: SidebarGroup[] }
-			if (isMounted) {
-				setGroups(data.groups ?? [])
-			}
-		} catch {
-			if (isMounted) {
-				setGroups([])
-			}
-		}
-	}
-
-	void loadGroups()
-	return () => {
-		isMounted = false
-	}
-}, [])
-```
-
-Giải thích từng dòng:
-1. `useEffect(..., [])`: chỉ chạy 1 lần khi component mount.
-2. `isMounted`: cờ an toàn để tránh setState sau khi component unmount.
-3. `fetch('/api/subjects/groups')`: gọi API lấy danh sách nhóm/môn.
-4. `setGroups(...)`: lưu dữ liệu vào state để đổ vào `<Select>`.
-5. `catch`: nếu lỗi mạng/server, fallback về mảng rỗng.
-6. `return cleanup`: set `isMounted = false` để chống warning memory leak.
-
-#### D. Tính danh sách môn học hiển thị theo ngành
-
-```ts
-const allSubjects = useMemo(() => {
-	return groups.flatMap((group) => group.courses)
-}, [groups])
-
-const subjectOptions = useMemo(() => {
-	if (selectedGroup === "all") {
-		return allSubjects
-	}
-
-	const foundGroup = groups.find((group) => group.group === selectedGroup)
-	return foundGroup?.courses ?? []
-}, [allSubjects, groups, selectedGroup])
-```
-
-Giải thích từng dòng:
-1. `allSubjects`: gom toàn bộ môn học của tất cả nhóm.
-2. `subjectOptions`: danh sách môn thực tế sẽ hiển thị trong dropdown môn học.
-3. Nếu chọn `all` ngành thì hiển thị tất cả môn.
-4. Nếu chọn 1 ngành cụ thể thì chỉ hiển thị môn thuộc ngành đó.
-
-#### E. Hàm cốt lõi gọi API tìm kiếm
-
-```ts
-const runSearch = async () => {
-	setIsLoading(true)
-	setErrorMessage("")
-
-	try {
-		const params = new URLSearchParams()
-
-		if (searchQuery.trim()) params.set("q", searchQuery.trim())
-		if (selectedGroup !== "all") params.set("groupName", selectedGroup)
-		if (selectedSubjectCode !== "all") params.set("subjectCode", selectedSubjectCode)
-		if (selectedDocTypes.length > 0) params.set("docTypes", selectedDocTypes.join(","))
-
-		if (selectedRating !== "any") {
-			const minRating = Number.parseInt(selectedRating, 10)
-			if (!Number.isNaN(minRating)) params.set("minRating", String(minRating))
-		}
-
-		if (updatedWithin !== "any") params.set("updatedWithin", updatedWithin)
-
-		const response = await fetch(`/api/search/advanced?${params.toString()}`, { cache: "no-store" })
-		if (!response.ok) throw new Error("Không thể lấy dữ liệu tìm kiếm")
-
-		const data = (await response.json()) as AdvancedSearchResponse
-		setSearchResults(data.items ?? [])
-	} catch {
-		setSearchResults([])
-		setErrorMessage("Có lỗi khi tìm kiếm. Vui lòng thử lại sau.")
-	} finally {
-		setIsLoading(false)
-	}
-}
-```
-
-Giải thích từng dòng:
-1. Bật loading và xóa thông báo lỗi cũ.
-2. Tạo `URLSearchParams` để build query string chuẩn.
-3. Chỉ set param khi filter có ý nghĩa (tránh gửi rác `all`, `any`).
-4. Parse `selectedRating` từ chuỗi sang số trước khi gửi.
-5. Gọi API thật `/api/search/advanced`.
-6. Nếu API trả lỗi HTTP thì throw để vào nhánh `catch`.
-7. Thành công: cập nhật `searchResults`.
-8. Lỗi: clear kết quả + hiện message cho người dùng.
-9. `finally`: luôn tắt loading.
-
-#### F. Các hàm phụ của trang
-
-```ts
-const handleSearch = (e: React.FormEvent) => {
-	e.preventDefault()
-	void runSearch()
-}
-
-const toggleDocType = (docType: string, checked: boolean) => {
-	setSelectedDocTypes((previous) => {
-		if (checked) {
-			if (previous.includes(docType)) return previous
-			return [...previous, docType]
-		}
-		return previous.filter((item) => item !== docType)
-	})
-}
-
-const clearFilters = () => {
-	setSelectedGroup("all")
-	setSelectedSubjectCode("all")
-	setSelectedDocTypes([])
-	setSelectedRating("any")
-	setUpdatedWithin("any")
-}
-
-const handleGroupChange = (nextGroup: string) => {
-	setSelectedGroup(nextGroup)
-	if (nextGroup === "all") return
-
-	const nextSubjects = groups.find((group) => group.group === nextGroup)?.courses ?? []
-	const currentExists = nextSubjects.some((course) => course.code === selectedSubjectCode)
-	if (!currentExists) setSelectedSubjectCode("all")
-}
-```
-
-Giải thích từng dòng:
-1. `handleSearch`: chặn reload trang mặc định của form và gọi `runSearch`.
-2. `toggleDocType`: thêm/bỏ 1 loại tài liệu trong mảng checkbox.
-3. `clearFilters`: đưa tất cả bộ lọc về trạng thái mặc định.
-4. `handleGroupChange`: khi đổi ngành, kiểm tra môn học hiện tại còn hợp lệ không; nếu không thì reset về `all`.
-
-#### G. Phần JSX quan trọng
-
-- Hero section chứa tiêu đề và thanh tìm kiếm.
-- Thanh tìm kiếm đã đặt `Input + Button` cùng một hàng.
-- Cột trái (desktop): panel bộ lọc.
-- Mobile: bộ lọc dạng panel nổi (`isFilterOpen`).
-- Cột phải: render `SearchResults` khi có dữ liệu; nếu rỗng thì hiển thị trạng thái “Chưa có kết quả”.
-
-### 4.2 `components/search-results.tsx`
-
-#### A. Model dữ liệu đầu vào
-
-```ts
-export interface SearchResult {
-	id: number
-	title: string
-	date: string
-	views: number
-	downloads: number
-	rating: number
-	image: string
-	downloadUrl?: string
-}
-```
-
-Giải thích:
-1. Đây là kiểu dữ liệu 1 tài liệu hiển thị trên card.
-2. `downloadUrl` là optional để fallback sang trang chi tiết nếu thiếu link tải.
-
-#### B. State sắp xếp và logic sắp xếp
-
-```ts
-const [sortBy, setSortBy] = useState<"name" | "newest" | "oldest" | "rating" | "downloads">("newest")
-
-const sortedResults = useMemo(() => {
-	const parseDate = (dateText: string) => {
-		const [day, month, year] = dateText.split("-").map((item) => Number.parseInt(item, 10))
-		if (!day || !month || !year) return 0
-		return new Date(year, month - 1, day).getTime()
-	}
-
-	const list = [...results]
-	list.sort((a, b) => {
-		if (sortBy === "name") return a.title.localeCompare(b.title, "vi")
-		if (sortBy === "oldest") return parseDate(a.date) - parseDate(b.date)
-		if (sortBy === "rating") return b.rating - a.rating
-		if (sortBy === "downloads") return b.downloads - a.downloads
-		return parseDate(b.date) - parseDate(a.date)
-	})
-
-	return list
-}, [results, sortBy])
-```
-
-Giải thích theo dòng:
-1. `sortBy` lưu tiêu chí sắp xếp đang chọn.
-2. `useMemo` giúp chỉ tính lại khi `results` hoặc `sortBy` đổi.
-3. `parseDate` đổi chuỗi `dd-mm-yyyy` sang timestamp để so sánh.
-4. Copy mảng `results` sang `list` để không mutate props.
-5. `sort(...)` xử lý lần lượt từng tiêu chí.
-6. Mặc định là `newest` (mới nhất).
-
-#### C. Hành động trên mỗi card kết quả
-
-- Nút `Xem chi tiết`: điều hướng sang `/document/{id}`.
-- Nút `Tải xuống`: đi thẳng link tải (`downloadUrl`) và không mở tab mới.
-- Cả hai nút được căn phải theo yêu cầu UI mới.
-
-### 4.3 `app/api/search/advanced/route.ts`
-
-```ts
-const ALLOWED_DOC_TYPES = new Set(["exam", "lecture", "slides", "assignment", "research", "other"])
-const ALLOWED_UPDATED_WITHIN = new Set(["week", "month", "year"])
-```
-
-Giải thích:
-1. Dùng whitelist để chặn giá trị lạ từ query string.
-2. Tránh lọc sai và giảm rủi ro thao tác ngoài ý muốn.
-
-```ts
-const query = searchParams.get("q")?.trim() || undefined
-...
-const docTypes = (searchParams.get("docTypes") || "")
-	.split(",")
-	.map((item) => item.trim())
-	.filter((item) => item.length > 0 && ALLOWED_DOC_TYPES.has(item))
-```
-
-Giải thích:
-1. Đọc tham số từ URL.
-2. Chuẩn hóa (trim) dữ liệu.
-3. Với `docTypes`: tách chuỗi CSV thành mảng và giữ lại phần tử hợp lệ.
-
-```ts
-const items = await searchDocumentsAdvanced({ ... })
-return NextResponse.json({ items })
-```
-
-Giải thích:
-1. Chuyển toàn bộ filter hợp lệ xuống repository.
-2. Trả kết quả dạng JSON để frontend render.
-3. Nếu có lỗi sẽ trả `{ items: [] }` với status 500.
-
-### 4.4 `lib/repositories.ts` - hàm `searchDocumentsAdvanced(...)`
-
-```ts
-const whereClauses = ["d.status = 'published'"]
-const params: unknown[] = []
-```
-
-Giải thích:
-1. Điều kiện mặc định: chỉ lấy tài liệu đã xuất bản.
-2. `params` là mảng giá trị bind cho placeholder `?`.
-
-```ts
-if (filters.query?.trim()) {
-	const keyword = `%${filters.query.trim()}%`
-	whereClauses.push("(d.title LIKE ? OR COALESCE(d.description, '') LIKE ?)")
-	params.push(keyword, keyword)
-}
-```
-
-Giải thích:
-1. Nếu có từ khóa thì tìm theo `title` hoặc `description`.
-2. Dùng `LIKE` + `%` để tìm gần đúng.
-3. Dùng placeholder `?` để tránh SQL injection.
-
-```ts
-if (filters.groupName?.trim()) { ... }
-if (filters.subjectCode?.trim()) { ... }
-if (filters.docTypes?.length) { ... }
-if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating)) { ... }
-```
-
-Giải thích:
-1. Mỗi filter chỉ thêm vào `WHERE` khi có dữ liệu.
-2. `docTypes` dùng `IN (?, ?, ...)` động theo số phần tử.
-3. `minRating` lọc theo `d.avg_rating >= ?`.
-
-```ts
-if (filters.updatedWithin === "week") {
-	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")
-} else if (filters.updatedWithin === "month") {
-	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")
-} else if (filters.updatedWithin === "year") {
-	whereClauses.push("d.created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)")
-}
-```
-
-Giải thích:
-1. Lọc theo thời gian cập nhật tương đối.
-2. Dùng hàm SQL `DATE_SUB` để tính mốc thời gian.
-
-```ts
-const rows = await queryRows<DocumentRow>(`
-	SELECT d.id, d.title, d.created_at, d.views_count, d.downloads_count, d.avg_rating, d.drive_file_id, d.download_url
-	FROM documents d
-	INNER JOIN subjects s ON s.id = d.subject_id
-	WHERE ${whereClauses.join(" AND ")}
-	ORDER BY d.created_at DESC
-	LIMIT ?
-`, [...params, limit])
-```
-
-Giải thích:
-1. Truy vấn join `documents` với `subjects` để lọc theo ngành/môn.
-2. Ghép động `WHERE` bằng các điều kiện đã chọn.
-3. Mặc định sắp xếp mới nhất trước.
-4. Giới hạn số lượng kết quả bằng `LIMIT`.
-
-```ts
-return rows.map((row) => ({
-	id: row.id,
-	title: row.title,
-	date: toDateString(row.created_at),
-	views: row.views_count ?? 0,
-	downloads: row.downloads_count ?? 0,
-	rating: Number(Number(row.avg_rating ?? 0).toFixed(1)),
-	image: buildDriveThumbnail(row.drive_file_id, 720),
-	downloadUrl: row.download_url || `https://drive.google.com/uc?export=download&id=${row.drive_file_id}`,
-}))
-```
-
-Giải thích:
-1. Chuyển row DB sang DTO frontend cần.
-2. Chuẩn hóa ngày/thống kê/rating.
-3. Nếu DB chưa có `download_url` thì fallback tự tạo từ `drive_file_id`.
-
-## 5) Mapping bộ lọc UI -> query params API
-
-- Từ khóa: `q`
-- Ngành học: `groupName`
-- Môn học: `subjectCode`
-- Loại tài liệu (nhiều lựa chọn): `docTypes=exam,slides,...`
-- Đánh giá:
-	- `any` -> không gửi `minRating`
-	- `2`, `3`, `4` -> gửi `minRating` tương ứng
-- Thời gian cập nhật:
-	- `any` -> không gửi `updatedWithin`
-	- `week`, `month`, `year` -> gửi trực tiếp
-
-## 6) Các thay đổi UI đã chốt trong phiên bản hiện tại
-
-- Bỏ bộ lọc Số trang.
-- Bỏ bộ lọc Định dạng.
-- Bỏ nút `Áp dụng bộ lọc`.
-- Search box và nút `Tìm kiếm` đặt chung một hàng.
-- Nút hành động trong card:
-	- `Xem chi tiết` có icon mắt.
-	- `Tải xuống` có icon download, không mở tab mới.
-- Dropdown sắp xếp còn: `Tên`, `Mới nhất`, `Cũ nhất`, `Đánh giá`, `Lượt tải`.
-
-## 7) Lưu ý vận hành
-
-- API tìm kiếm hiện chưa phân trang; đang giới hạn tối đa 100 bản ghi/lần.
-- Sắp xếp đang làm ở frontend (`search-results.tsx`), không phải sort ở SQL.
-- Nếu cần hiệu năng tốt hơn với dữ liệu lớn, nên đẩy sort + pagination xuống API/repository.
-
-## 8) Tóm tắt nhanh cho người mới
-
-Nếu bạn cần hiểu nhanh toàn bộ luồng, chỉ cần nhớ:
-1. `page.tsx` thu thập filter + gọi API.
-2. `route.ts` xác thực/filter query params.
-3. `repositories.ts` dựng SQL động và truy vấn DB.
-4. `search-results.tsx` sắp xếp và render card.
-
-Như vậy, bạn có thể debug rất nhanh theo thứ tự: UI -> API -> SQL -> render.
+---
+
+## 4) Giải thích chi tiết luồng xử lý dữ liệu
+
+### 4.1. Khởi tạo & nạp dữ liệu bộ lọc (Frontend)
+- Khi người dùng tải trang lần đầu, `page.tsx` gọi `GET /api/subjects/groups` nạp dữ liệu phân ngành học $\rightarrow$ môn học vào bộ lọc dropdown.
+- Khi người dùng chọn Ngành học cụ thể, hệ thống sẽ tự động cập nhật danh sách Môn học chỉ thuộc ngành đó để đảm bảo tính chính xác của dữ liệu.
+
+### 4.2. Xử lý logic Tìm kiếm kết hợp (Backend - `searchDocumentsAdvanced`)
+Khi nhận request chứa các tham số lọc và từ khóa, hệ thống thực hiện qua 2 giai đoạn:
+
+#### Giai đoạn 1: Tìm kiếm thường (MySQL LIKE Query)
+- Thực hiện câu lệnh SQL tìm kiếm gần đúng với toán tử `LIKE` trên các cột `d.title`, `d.description`, `s.name`, `s.code` kết hợp các điều kiện lọc loại tài liệu, ngành học, số sao đánh giá và mốc thời gian.
+- Nếu MySQL tìm được kết quả, hệ thống sẽ bỏ qua bước gọi AI và trả kết quả về luôn cho phía client để tối ưu tốc độ và chi phí tài nguyên API.
+
+#### Giai đoạn 2: Tìm kiếm ngữ nghĩa AI (Semantic Search)
+Chạy tự động khi tìm kiếm thường trả về **0 kết quả** và người dùng **có nhập từ khóa**:
+1. **Sinh Vector Nhúng (Embedding):** Dịch vụ Hugging Face xử lý chuỗi từ khóa của người dùng thông qua mô hình mã nguồn mở `all-MiniLM-L6-v2` để chuyển hóa thành vector 384 chiều lưu trữ ý nghĩa ngữ cảnh của câu.
+2. **So khớp độ tương đồng trên Vector DB (Pinecone):** Gửi vector 384 chiều cùng các bộ lọc phụ (như loại tài liệu, ngành học...) lên Pinecone. Pinecone thực hiện so khớp độ tương đồng Cosine (Cosine Similarity) với các vector tài liệu đã được index sẵn và trả về danh sách ID tài liệu khớp nhất kèm điểm số (Score).
+3. **Lấy thông tin chi tiết:** Dùng danh sách ID thu được từ Pinecone để truy vấn MySQL lấy thông tin chi tiết. Sử dụng lệnh `ORDER BY FIELD(d.id, ...)` để giữ nguyên thứ tự xếp hạng độ phù hợp mà Pinecone đã tính toán.
+4. **Quy đổi chỉ số tương đồng:** Điểm số Cosine (từ 0.0 đến 1.0) được nhân với 100 và làm tròn để trả ra tỷ lệ phần trăm độ phù hợp (`similarity` dạng phần trăm `[0, 100]`).
+
+---
+
+## 5) Cấu trúc code của các file chính
+
+### 5.1. [page.tsx](file:///d:/DATN_TLUDOCUMENT/app/advanced-search/page.tsx)
+- Quản lý toàn bộ `state` bộ lọc (`selectedGroup`, `selectedSubjectCode`, `selectedDocTypes`, `selectedRating`, `updatedWithin`).
+- Hỗ trợ giao diện Responsive chuyên biệt:
+  - **Trên Desktop:** Bộ lọc nằm ở thanh bên trái đính cố định (sticky). Tiêu đề được loại bỏ và thay bằng bộ nút hành động **"Xóa"** (bên trái) và **"Áp dụng"** (bên phải) ngay trên đầu.
+  - **Trên Mobile:**
+    - Thanh tìm kiếm hiển thị dạng cột đứng với ô nhập từ khóa chiếm toàn bộ bề ngang, đi kèm là hàng nút **"Bộ lọc"** và **"Tìm kiếm"** nằm song song để tránh giật giao diện.
+    - Bộ lọc thu gọn trong một ngăn kéo (Drawer/Modal) trượt từ dưới lên, áp dụng mô hình bố cục cố định chiều cao màn hình `fixed flex flex-col h-[100dvh]` với vùng nội dung cuộn độc lập `flex-1 overflow-y-auto` giúp phần tiêu đề/nút hành động đứng im tuyệt đối, xử lý triệt để lỗi rung/giật tiêu đề (jittering scroll) trên điện thoại di động.
+
+### 5.2. [search-results.tsx](file:///d:/DATN_TLUDOCUMENT/components/search-results.tsx)
+- Nhận mảng tài liệu từ component cha.
+- Chứa tùy chọn sắp xếp mới: **"Liên quan nhất"** (`value="relevance"`). Lựa chọn này chỉ hiển thị khi có kết quả tìm kiếm từ AI ngữ nghĩa.
+- **Cơ chế tự động sắp xếp thông minh:** Sử dụng `useEffect` kiểm tra nếu có trường `similarity` trong dữ liệu kết quả thì tự động chuyển sang chế độ sắp xếp `"relevance"`, ngược lại sẽ chuyển về `"newest"`.
+- Sắp xếp `"relevance"` sẽ xếp tài liệu có tỷ lệ độ phù hợp giảm dần, nếu trùng điểm số sẽ tự động so sánh theo thời gian tạo mới nhất.
+
+### 5.3. [document-card.tsx](file:///d:/DATN_TLUDOCUMENT/components/document-card.tsx)
+- Đọc thuộc tính `document.similarity`.
+- Nếu có giá trị này, card sẽ tự động hiển thị một nhãn **"Độ phù hợp x%"** nằm ở góc trên cùng bên phải vùng ảnh nền của card.
+- Badge được định vị tuyệt đối `absolute top-3 right-3` với màu xanh lá sang trọng (`bg-emerald-600/90`), bo góc, viền nhẹ và hiệu ứng mờ nền (`backdrop-blur-sm`).
+
+### 5.4. [advanced-search.ts](file:///d:/DATN_TLUDOCUMENT/lib/advanced-search.ts)
+- Hàm trung tâm điều phối `searchDocumentsAdvanced`.
+- Thực hiện gọi tuần tự `runRegularSearch` (MySQL LIKE) trước $\rightarrow$ kiểm tra độ dài $\rightarrow$ gọi tiếp `runSemanticSearch` (Hugging Face + Pinecone + MySQL SELECT) nếu cần.
+- Chuyển đổi dữ liệu và bọc toàn bộ dữ liệu trả về theo đúng định dạng DTO mà frontend mong muốn.
+
+---
+
+## 6) Các điểm tối ưu trải nghiệm người dùng (UX) đã triển khai
+
+1. **Khắc phục lỗi cuộn trang khi mở menu tài khoản:** Thiết lập cấu hình `modal={false}` cho `<DropdownMenu>` ở thanh điều hướng để ngăn trình duyệt khóa scroll thẻ `<body>`, triệt tiêu lỗi nhảy cuộn màn hình lên đầu trang khi click avatar.
+2. **Thiết kế nút hành động tinh tế:** Nút "Xóa" được trang bị icon thùng rác (`Trash2`) với viền mềm nhẹ và hiệu ứng hover đỏ nhạt; nút "Áp dụng" sử dụng màu xanh chủ đạo (`bg-blue-600`) cùng biểu tượng tích chọn (`Check`).
+3. **Màn hình bộ lọc mượt mà trên mobile:** Chia vùng cuộn độc lập cho nội dung bộ lọc để giữ thanh công cụ thao tác luôn đính cố định mà không bị rung màn hình do sai lệch vị trí sticky của CSS trên nền tảng di động.

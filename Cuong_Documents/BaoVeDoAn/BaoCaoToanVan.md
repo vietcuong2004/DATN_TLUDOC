@@ -341,20 +341,13 @@ classDiagram
 
     class User {
         <<Table: users>>
-        +id : int
-        -email : string
-        -password_hash : string
-        +full_name : string
-        +avatar_url : string
-        +phone : string
-        +role : string
-        +status : string
-        +student_id : string
-        +department : string
-        +bio : string
-        +created_at : datetime
-        +updated_at : datetime
-        +last_login_at : datetime
+        +id : int		-email : string
+        -password_hash : string		+full_name : string
+        +avatar_url : string		+phone : string
+        +role : string		+status : string
+        +student_id : string		+department : string
+        +bio : string		+created_at : datetime
+        +updated_at : datetime		+last_login_at : datetime
         +login(email: string, password: string) : User
         +register(email: string, password: string, fullName: string) : User
         +updateProfile(data: any) : void
@@ -365,16 +358,11 @@ classDiagram
 
     class Subject {
         <<Table: subjects>>
-        +id : int
-        +code : string
-        +name : string
-        +folder_key : string
-        +description : string
-        +group_name : string
-        +semester : string
-        +is_required : boolean
-        +created_at : datetime
-        +updated_at : datetime
+        +id : int		+code : string
+        +name : string		+folder_key : string
+        +description : string		+group_name : string
+        +semester : string		+is_required : boolean
+        +created_at : datetime		+updated_at : datetime
         +getDocuments() : List~Document~
         +getDocumentCount() : int
         +findByCode(code: string) : Subject
@@ -384,30 +372,18 @@ classDiagram
 
     class Document {
         <<Table: documents>>
-        +id : int
-        +user_id : int
-        +title : string
-        +description : string
-        +subject_id : int
-        +uploader_id : int
-        +is_private : boolean
-        -file_hash : string
-        +doc_type : string
-        +storage_provider : string
-        +drive_folder_key : string
-        +drive_file_id : string
-        +file_name : string
-        +file_ext : string
-        +file_url : string
-        +preview_url : string
-        +download_url : string
-        +views_count : int
-        +downloads_count : int
-        +avg_rating : float
-        +review_count : int
-        +status : string
-        +is_featured : boolean
-        +created_at : datetime
+        +id : int		+user_id : int
+        +title : string		+description : string
+        +subject_id : int		+uploader_id : int
+        +is_private : boolean		-file_hash : string
+        +doc_type : string		+storage_provider : string
+        +drive_folder_key : string		+drive_file_id : string
+        +file_name : string		+file_ext : string
+        +file_url : string		+preview_url : string
+        +download_url : string		+views_count : int
+        +downloads_count : int		+avg_rating : float
+        +review_count : int		+status : string
+        +is_featured : boolean		+created_at : datetime
         +updated_at : datetime
         +getDetailById(id: int) : Document
         +getBySubjectCode(code: string) : List~Document~
@@ -424,14 +400,10 @@ classDiagram
 
     class DocumentReview {
         <<Table: document_reviews>>
-        +id : int
-        +document_id : int
-        +user_id : int
-        +rating : int
-        +comment : string
-        +helpful_count : int
-        +unhelpful_count : int
-        +created_at : datetime
+        +id : int		+document_id : int
+        +user_id : int		+rating : int
+        +comment : string		+helpful_count : int
+        +unhelpful_count : int		+created_at : datetime
         +updated_at : datetime
         +addReview(documentId: int, userId: int, rating: int, comment: string) : void
         +getByDocumentId(documentId: int) : List~DocumentReview~
@@ -440,14 +412,10 @@ classDiagram
 
     class DocumentSummary {
         <<Table: document_summaries>>
-        +id : int
-        +user_id : int
-        +document_id : int
-        +document_name : string
-        +summary_text : string
-        +summary_type : string
-        +ai_model : string
-        +created_at : datetime
+        +id : int		+user_id : int
+        +document_id : int		+document_name : string
+        +summary_text : string		+summary_type : string
+        +ai_model : string		+created_at : datetime
         +generate(file: any, options: any) : string
         +extractText(file: any) : string
         +saveHistory(userId: int, docId: int, summary: string) : void
@@ -455,12 +423,9 @@ classDiagram
 
     class ChatbotHistory {
         <<Table: chatbot_history>>
-        +id : int
-        +user_id : int
-        +document_id : int
-        +question : string
-        +answer : string
-        +ai_model : string
+        +id : int		+user_id : int
+        +document_id : int		+question : string
+        +answer : string		+ai_model : string
         +created_at : datetime
         +save(question: string, answer: string, userId: int) : int
         +getRecentByUserId(userId: int, limit: int) : List~ChatbotHistory~
@@ -471,14 +436,10 @@ classDiagram
 
     class DocumentChunk {
         <<Vector DB: Pinecone>>
-        +id : string
-        +values : float[]
-        +document_id : int
-        +subject_id : int
-        +content : string
-        +title : string
-        +download_url : string
-        +drive_file_id : string
+        +id : string		+values : float[]
+        +document_id : int		+subject_id : int
+        +content : string		+title : string
+        +download_url : string		+drive_file_id : string
         +upsert(vectors: any) : void
         +query(vector: float[], topK: int) : List~DocumentChunk~
         +deleteByDocumentId(docId: int) : void
@@ -486,17 +447,17 @@ classDiagram
     }
 
     %% Relationships
-    Subject "1" --> "*" Document : classifies
+    Subject "1" --> "N" Document : classifies
 
-    User "1" --> "*" Document : uploads
-    User "1" --> "*" DocumentReview : writes
-    User "1" --> "*" ChatbotHistory : asks
-    User "1" --> "*" DocumentSummary : requests
+    User "1" --> "N" Document : uploads
+    User "1" --> "N" DocumentReview : writes
+    User "1" --> "N" ChatbotHistory : asks
+    User "1" --> "N" DocumentSummary : requests
 
-    Document "1" --> "*" DocumentReview : receives
-    Document "0..1" --> "*" ChatbotHistory : provides context
-    Document "0..1" --> "*" DocumentSummary : is source of
-    Document "1" ..> "*" DocumentChunk : vectorizes
+    Document "1" --> "N" DocumentReview : receives
+    Document "0..1" --> "N" ChatbotHistory : provides context
+    Document "0..1" --> "N" DocumentSummary : is source of
+    Document "1" ..> "N" DocumentChunk : vectorizes
 ```
 Hình 3.4 trình bày sơ đồ lớp của hệ thống TLU Document, mô tả cấu trúc các lớp chính và mối liên hệ giữa các thực thể nhằm quản lý người dùng, tài liệu học tập và các chức năng hỗ trợ học tập bằng trí tuệ nhân tạo (AI):
 
@@ -1178,55 +1139,61 @@ sequenceDiagram
 Sau khi phân tích xong nghiệp vụ và các yêu cầu chức năng, chương này tập trung trình bày thiết kế chi tiết của hệ thống TLU Document, thể hiện qua mô hình kiến trúc phần mềm, cấu trúc thư mục tổ chức dự án, thiết kế cơ sở dữ liệu quan hệ và vector, danh sách giao tiếp API RESTful và thiết kế bố cục giao diện người dùng.
 
 ## 4.1. Kiến trúc phần mềm (Software Architecture)
-Hệ thống TLU Document được xây dựng theo mô hình **Kiến trúc 3 lớp (3-Tier/Layered Architecture)** kết hợp mô hình tương tác **Client-Server**. Sự phân tách rõ ràng này giúp giảm thiểu sự phụ thuộc giữa các tầng, tăng độ tin cậy, tăng cường bảo mật và giúp hệ thống dễ dàng tích hợp các API trí tuệ nhân tạo (AI).
+Hệ thống TLU Document được thiết kế và xây dựng theo mô hình **Kiến trúc Phân lớp (Layered Architecture Pattern)** kết hợp với mô hình tương tác **Client-Server**. Sự phân chia rõ ràng các tầng trách nhiệm giúp giảm thiểu độ kết hợp (coupling) giữa các thành phần, nâng cao tính bảo mật, tính độc lập trong bảo trì và giúp hệ thống dễ dàng tích hợp các dịch vụ thông minh (AI, Vector DB).
 
-Sơ đồ mô tả kiến trúc tổng quát của hệ thống:
+Sơ đồ mô tả kiến trúc phân lớp tổng quát của hệ thống:
 
 ```mermaid
 graph TD
-    subgraph Presentation_Layer["Tầng Hiển thị - Presentation Layer (Client Side)"]
-        UI["Giao diện Người dùng (React / HTML5 / CSS3)"]
+    subgraph Layer_1["Tầng Giao diện - Presentation Layer (UI)"]
+        UI["Giao diện Người dùng (React 19 / HTML5 / CSS3)"]
         State["Quản lý Trạng thái & Custom Hooks"]
     end
 
-    subgraph Application_Layer["Tầng Nghiệp vụ - Application Logic Layer (Server Side)"]
-        Router["API Router (Next.js Routes: /api/*)"]
-        AuthService["Dịch vụ Xác thực (JWT / Session)"]
-        DocService["Dịch vụ Tài liệu & Upload"]
-        AIService["Bộ điều khiển AI (RAG, Summarize, Quiz, Mindmap)"]
+    subgraph Layer_2["Tầng Xử lý Nghiệp vụ - Business / API Layer"]
+        Router["Next.js Route Handlers (API Routes)"]
+        AIService["Logic Nghiệp vụ AI (Chatbot RAG, Summarize, Quiz, Mindmap)"]
+        CoreService["Logic Xác thực & Quản lý Tài liệu"]
     end
 
-    subgraph Data_Layer["Tầng Dữ liệu - Data Persistence Layer (Storage & Databases)"]
+    subgraph Layer_3["Tầng Trừu tượng hóa CSDL - Repository Layer"]
+        Repos["Repository Utilities (Truy cập dữ liệu)"]
+    end
+
+    subgraph Layer_4["Tầng Lưu trữ - Persistence / Database Layer"]
         MySQL[("MySQL RDBMS - Dữ liệu có cấu trúc")]
         Pinecone[("Pinecone Vector DB - Vector Embeddings")]
         GDrive[("Google Drive - Lưu trữ tệp tin vật lý")]
     end
 
     UI -->|Gửi yêu cầu HTTP| Router
-    Router --> AuthService
-    Router --> DocService
     Router --> AIService
-
-    AuthService -->|Truy vấn thông tin| MySQL
-    DocService -->|Lưu siêu dữ liệu| MySQL
-    DocService -->|Lưu trữ file vật lý| GDrive
+    Router --> CoreService
     
-    AIService -->|Lịch sử & Phản hồi| MySQL
-    AIService -->|Tìm kiếm ngữ nghĩa| Pinecone
+    AIService --> Repos
+    CoreService --> Repos
+    
+    Repos -->|Truy vấn dữ liệu cấu trúc| MySQL
+    Repos -->|Tìm kiếm ngữ nghĩa| Pinecone
+    CoreService -->|Đọc/Ghi tệp tin vật lý| GDrive
     AIService -->|Đọc nội dung tệp tin| GDrive
 ```
 
 ### Các tầng trong kiến trúc:
-1. **Presentation Layer (Tầng hiển thị):**
-   - Được triển khai bằng **Next.js (React)** ở phía Client.
-   - Nhận trách nhiệm render giao diện ứng dụng, bắt các sự kiện tương tác của người dùng, thực hiện kiểm tra dữ liệu đầu vào cơ bản (validation) và gọi các API bất đồng bộ (async fetch).
-2. **Application Logic Layer (Tầng nghiệp vụ):**
-   - Triển khai thông qua **Next.js API Routes** (chạy trên môi trường Node.js Server).
-   - Tiếp nhận các yêu cầu HTTP, xử lý xác thực quyền hạn (Authentication/Authorization), thực hiện nghiệp vụ chính như băm file kiểm tra trùng lặp, xây dựng prompt gửi tới các mô hình ngôn ngữ lớn (LLM), và kết nối với các thư viện xử lý trung gian (PDF parser, drive client).
-3. **Data Persistence Layer (Tầng lưu trữ dữ liệu):**
-   - **MySQL Database**: Lưu trữ dữ liệu quan hệ có tính nhất quán cao như thông tin cá nhân của người dùng, danh mục môn học, siêu dữ liệu tài liệu, đánh giá sao, và lịch sử câu hỏi chatbot.
-   - **Pinecone Vector Database**: Lưu trữ các vector nhúng (embeddings) mật độ cao của tài liệu học tập cùng siêu dữ liệu liên quan để phục vụ giải thuật tìm kiếm ngữ nghĩa nâng cao và truy xuất ngữ cảnh cho Chatbot AI (RAG).
-   - **Google Drive Storage**: Lưu trữ vật lý các file tài liệu dưới định dạng gốc (PDF, DOCX, PPTX), giảm tải lưu trữ cục bộ trên máy chủ.
+1. **Tầng Giao diện (Presentation Layer - UI):**
+   - Được triển khai bằng **Next.js Client Components (React 19)** chạy phía Client.
+   - Nhận nhiệm vụ render giao diện ứng dụng trực quan, thu thập các thao tác từ người dùng, thực hiện tiền kiểm tra dữ liệu (validation) và thực hiện các yêu cầu bất đồng bộ (HTTP Requests) tới server.
+2. **Tầng Xử lý Nghiệp vụ (Business / API Layer):**
+   - Được triển khai bằng các **Next.js Route Handlers (API Routes)** hoạt động phía Server.
+   - Chịu trách nhiệm thực thi các logic điều phối nghiệp vụ của hệ thống: xác thực phiên người dùng, băm file kiểm tra trùng lặp, bóc tách văn bản thô, định dạng dữ liệu, xây dựng ngữ cảnh (prompts) gửi đến dịch vụ AI từ xa và điều hướng phản hồi (JSON hoặc luồng dữ liệu Streaming).
+3. **Tầng Trừu tượng hóa Cơ sở dữ liệu (Repository Layer):**
+   - Được thiết kế dưới dạng lớp trung gian gồm các mô-đun và hàm truy cập dữ liệu dùng chung.
+   - Có vai trò đóng gói toàn bộ các hàm truy vấn cơ sở dữ liệu (SQL queries, vector search). Tầng này giúp cô lập hoàn toàn logic nghiệp vụ (Tầng 2) khỏi chi tiết cài đặt và cấu trúc bảng của cơ sở dữ liệu.
+4. **Tầng Lưu trữ (Persistence / Database Layer):**
+   - Gồm các dịch vụ lưu trữ dữ liệu bền vững:
+     - **MySQL Database**: Lưu trữ các thông tin có cấu trúc và tính toàn vẹn cao (người dùng, danh mục môn học, siêu dữ liệu tài liệu, đánh giá, lịch sử chat).
+     - **Pinecone Vector Database**: Lưu trữ các vector nhúng (embeddings) phục vụ tìm kiếm ngữ nghĩa và truy xuất ngữ cảnh cho Chatbot AI.
+     - **Google Drive Cloud Storage**: Lưu trữ các tệp tài liệu vật lý gốc để giảm tải băng thông và dung lượng lưu trữ cục bộ của hệ thống.
 
 ---
 
