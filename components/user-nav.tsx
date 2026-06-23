@@ -41,7 +41,7 @@ export function UserNav({ user, isLoggedIn }: UserNavProps) {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-3 p-0 lg:pl-1 lg:pr-3 lg:py-1 rounded-full bg-transparent lg:bg-slate-50 border-0 lg:border lg:border-slate-100 hover:bg-slate-100/50 lg:hover:bg-slate-100 transition-all cursor-pointer group outline-none focus:ring-2 focus:ring-blue-500/20 active:scale-95">
           <div className="h-9 w-9 rounded-full border-2 border-white shadow-sm overflow-hidden ring-2 ring-blue-500/10 transition-transform group-hover:scale-105">

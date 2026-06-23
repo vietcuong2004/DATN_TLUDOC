@@ -12,7 +12,7 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Đăng ký (Boundary)"
-    participant Control@{ "type": "control" } as "API Đăng ký (Control)"
+    participant Control@{ "type": "control" } as "Controller Đăng ký (Control)"
     participant Entity@{ "type": "entity" } as "User (Entity)"
 
     User->>UI: 1. Nhập thông tin (Email, Mật khẩu, Họ tên, Mã SV...)
@@ -52,7 +52,7 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Đăng nhập (Boundary)"
-    participant Control@{ "type": "control" } as "API Đăng nhập (Control)"
+    participant Control@{ "type": "control" } as "Controller Đăng nhập (Control)"
     participant Entity@{ "type": "entity" } as "User (Entity)"
 
     User->>UI: 1. Nhập Email và Mật khẩu
@@ -98,9 +98,9 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Tìm kiếm (Boundary)"
-    participant Control@{ "type": "control" } as "API Tìm kiếm (Control)"
-    participant HF@{ "type": "control" } as "Dịch vụ Hugging Face (Control)"
-    participant PC@{ "type": "entity" } as "Vector DB Pinecone (Entity)"
+    participant Control@{ "type": "control" } as "Controller Tìm kiếm (Control)"
+    participant HF@{ "type": "boundary" } as "Dịch vụ Hugging Face (Boundary)"
+    participant PC@{ "type": "boundary" } as "Dịch vụ Pinecone DB (Boundary)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
 
     User->>UI: 1. Nhập từ khóa, chọn bộ lọc (Môn học, loại, đánh giá)
@@ -145,10 +145,10 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Chatbot (Boundary)"
-    participant Control@{ "type": "control" } as "API Chatbot (Control)"
-    participant HF@{ "type": "control" } as "Dịch vụ Hugging Face (Control)"
-    participant PC@{ "type": "entity" } as "Vector DB Pinecone (Entity)"
-    participant AI@{ "type": "control" } as "Dịch vụ OpenAI (Control)"
+    participant Control@{ "type": "control" } as "Controller Chatbot (Control)"
+    participant HF@{ "type": "boundary" } as "Dịch vụ Hugging Face (Boundary)"
+    participant PC@{ "type": "boundary" } as "Dịch vụ Pinecone DB (Boundary)"
+    participant AI@{ "type": "boundary" } as "Dịch vụ OpenAI (Boundary)"
     participant Entity@{ "type": "entity" } as "Chatbot (Entity)"
 
     User->>UI: 1. Nhập câu hỏi vào khung Chat
@@ -194,7 +194,7 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Chatbot (Boundary)"
-    participant Control@{ "type": "control" } as "API Lịch sử Chatbot (Control)"
+    participant Control@{ "type": "control" } as "Controller Lịch sử Chatbot (Control)"
     participant Entity@{ "type": "entity" } as "Chatbot (Entity)"
 
     User->>UI: 1. Chọn mục "Lịch sử trò chuyện"
@@ -233,8 +233,8 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Tóm tắt (Boundary)"
-    participant Control@{ "type": "control" } as "API Tóm tắt (Control)"
-    participant AI@{ "type": "control" } as "Dịch vụ OpenAI (Control)"
+    participant Control@{ "type": "control" } as "Controller Tóm tắt (Control)"
+    participant AI@{ "type": "boundary" } as "Dịch vụ OpenAI (Boundary)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
 
     User->>UI: 1. Chọn chế độ tóm tắt (đoạn văn / gạch đầu dòng)
@@ -275,8 +275,8 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Làm bài Quiz (Boundary)"
-    participant Control@{ "type": "control" } as "API Sinh Quiz (Control)"
-    participant AI@{ "type": "control" } as "Dịch vụ OpenAI (Control)"
+    participant Control@{ "type": "control" } as "Controller Sinh Quiz (Control)"
+    participant AI@{ "type": "boundary" } as "Dịch vụ OpenAI (Boundary)"
 
     User->>UI: 1. Chọn mục "Làm bài ôn tập (Quiz)" của tài liệu
     activate UI
@@ -310,8 +310,8 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Sơ đồ tư duy (Boundary)"
-    participant Control@{ "type": "control" } as "API Sinh Mindmap (Control)"
-    participant AI@{ "type": "control" } as "Dịch vụ OpenAI (Control)"
+    participant Control@{ "type": "control" } as "Controller Sinh Mindmap (Control)"
+    participant AI@{ "type": "boundary" } as "Dịch vụ OpenAI (Boundary)"
 
     User->>UI: 1. Nhấp chọn mục "Tạo Sơ đồ tư duy (Mindmap)"
     activate UI
@@ -341,7 +341,7 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Sơ đồ tư duy (Boundary)"
-    participant Control@{ "type": "control" } as "API Chỉnh sửa Mindmap (Control)"
+    participant Control@{ "type": "control" } as "Controller Chỉnh sửa Mindmap (Control)"
     participant Entity@{ "type": "entity" } as "Mindmap (Entity)"
 
     User->>UI: 1. Kéo thả các nút (Node) để sắp xếp lại bố cục
@@ -380,7 +380,7 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Chi tiết tài liệu (Boundary)"
-    participant Control@{ "type": "control" } as "API Đánh giá (Control)"
+    participant Control@{ "type": "control" } as "Controller Đánh giá (Control)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
 
     User->>UI: 1. Chọn số sao (1-5), nhập nội dung đánh giá
@@ -414,8 +414,8 @@ sequenceDiagram
     autonumber
     actor User as User (Sinh viên/Giảng viên)
     participant UI@{ "type": "boundary" } as "Giao diện Tải lên (Boundary)"
-    participant Control@{ "type": "control" } as "API Tải lên (Control)"
-    participant GD@{ "type": "control" } as "Dịch vụ Google Drive (Control)"
+    participant Control@{ "type": "control" } as "Controller Tải lên (Control)"
+    participant GD@{ "type": "boundary" } as "Dịch vụ Google Drive (Boundary)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
 
     User->>UI: 1. Chọn file từ máy tính (PDF/DOCX), nhập mô tả, chọn môn học
@@ -463,7 +463,7 @@ Mô tả quy trình kiểm tra trùng lặp độc lập ở phía backend phụ
 sequenceDiagram
     autonumber
     actor System as System (Hệ thống)
-    participant Control@{ "type": "control" } as "API Kiểm tra trùng lặp (Control)"
+    participant Control@{ "type": "control" } as "Controller Kiểm tra trùng lặp (Control)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
 
     Note over Control: Nhận yêu cầu băm file buffer
@@ -495,10 +495,10 @@ sequenceDiagram
     autonumber
     actor Admin as Admin (Quản trị viên hệ thống)
     participant UI@{ "type": "boundary" } as "Giao diện Admin Dashboard (Boundary)"
-    participant Control@{ "type": "control" } as "API Admin Tài liệu (Control)"
+    participant Control@{ "type": "control" } as "Controller Admin Tài liệu (Control)"
     participant Entity@{ "type": "entity" } as "Document (Entity)"
-    participant GD@{ "type": "control" } as "Dịch vụ Google Drive (Control)"
-    participant PC@{ "type": "entity" } as "Vector DB Pinecone (Entity)"
+    participant GD@{ "type": "boundary" } as "Dịch vụ Google Drive (Boundary)"
+    participant PC@{ "type": "boundary" } as "Dịch vụ Pinecone DB (Boundary)"
 
     Admin->>UI: 1. Truy cập Dashboard quản lý tài liệu
     activate UI
@@ -554,3 +554,5 @@ sequenceDiagram
     end
     deactivate UI
 ```
+
+
