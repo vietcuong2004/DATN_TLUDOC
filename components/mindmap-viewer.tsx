@@ -202,6 +202,7 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
   }
 
   const lastRootIdRef = useRef<string>(root.id)
+  const lastClickRef = useRef<{ nodeId: string; time: number } | null>(null)
 
   useEffect(() => {
     const initialPositions = getInitialPositions()
@@ -503,7 +504,23 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
   }
 
   const handleNodePointerDown = (nodeId: string) => (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isEditMode) return
+    if (!isEditMode) {
+      event.stopPropagation()
+      const now = Date.now()
+      if (lastClickRef.current && lastClickRef.current.nodeId === nodeId && now - lastClickRef.current.time < 300) {
+        const currentNode = rawNodeMap.get(nodeId)
+        if (currentNode) {
+          setDraftMindmap(mindmapData)
+          setIsEditMode(true)
+          setEditingNodeId(nodeId)
+          setEditingValue(currentNode.title)
+        }
+        lastClickRef.current = null
+      } else {
+        lastClickRef.current = { nodeId, time: now }
+      }
+      return
+    }
 
     if (event.pointerType === "mouse" && event.button !== 0) {
       return
@@ -631,10 +648,10 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
         </div>
 
         <div className={cn("flex flex-wrap items-center gap-1 sm:gap-2 text-slate-600", isFullscreen && "flex-1")}>
-          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.max(0.7, +(current - 0.1).toFixed(1)))} aria-label="Thu nhỏ">
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.max(0.05, +(current - 0.1).toFixed(2)))} aria-label="Thu nhỏ">
             <Minus className="h-4 w-4" />
           </Button>
-          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(1)))} aria-label="Phóng to">
+          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={() => setZoom((current) => Math.min(1.6, +(current + 0.1).toFixed(2)))} aria-label="Phóng to">
             <Plus className="h-4 w-4" />
           </Button>
           <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
@@ -858,9 +875,25 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                   onPointerMove={handleNodePointerMove}
                   onPointerUp={handleNodePointerUpOrCancel(node.id)}
                   onPointerCancel={handleNodePointerUpOrCancel(node.id)}
+                  onDoubleClick={() => {
+                    if (!isEditMode) {
+                      setDraftMindmap(mindmapData)
+                      setIsEditMode(true)
+                      setEditingNodeId(node.id)
+                      setEditingValue(node.title)
+                    }
+                  }}
                 >
                   {editingNodeId === node.id ? (
                     <input
+                      ref={(el) => {
+                        if (el) {
+                          setTimeout(() => {
+                            el.focus()
+                            el.select()
+                          }, 50)
+                        }
+                      }}
                       title="Edit Node Title"
                       type="text"
                       className="w-full bg-transparent outline-none text-sm font-medium leading-5"
@@ -878,7 +911,6 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                           setEditingNodeId(null)
                         }
                       }}
-                      autoFocus
                     />
                   ) : (
                     <span className="block w-full text-sm font-medium leading-5 text-slate-900">{node.title}</span>
