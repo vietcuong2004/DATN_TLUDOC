@@ -42,7 +42,11 @@ export default function LoginPage() {
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user", JSON.stringify(data.user));
         
-        router.push("/");
+        if (data.user.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
       } else {
         setError(data.message || "Tên đăng nhập hoặc mật khẩu không chính xác.");
         toast.error("Đăng nhập thất bại", {

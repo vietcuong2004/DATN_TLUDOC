@@ -19,6 +19,39 @@ function getDriveClient() {
 }
 
 /**
+ * Tìm hoặc tạo thư mục con trên Google Drive
+ */
+async function getOrCreateFolder(drive: any, folderName: string, parentFolderId: string): Promise<string> {
+  const query = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`
+  const listResponse = await drive.files.list({
+    q: query,
+    spaces: "drive",
+    fields: "files(id, name)",
+    limit: 1,
+  })
+
+  const files = listResponse.data.files || []
+  if (files.length > 0 && files[0].id) {
+    return files[0].id
+  }
+
+  const createResponse = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentFolderId],
+    },
+    fields: "id",
+  })
+
+  if (!createResponse.data.id) {
+    throw new Error(`Không thể tạo thư mục '${folderName}' trên Google Drive`)
+  }
+
+  return createResponse.data.id
+}
+
+/**
  * Upload file lên Google Drive bằng OAuth2
  * @param buffer Dữ liệu file
  * @param fileName Tên file
@@ -44,8 +77,19 @@ export async function uploadFileToDrive(
     body: stream,
   }
 
-  // Lưu vào root folder hệ thống nếu không có folder cụ thể
-  const targetFolderId = folderId || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
+  // Lưu vào subfolder USER_UPLOAD nằm trong DOCUMENTS folder nếu không chỉ định folder cụ thể
+  const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
+  let targetFolderId = folderId || rootFolderId
+
+  if (!folderId && rootFolderId) {
+    try {
+      targetFolderId = await getOrCreateFolder(drive, "USER_UPLOAD", rootFolderId)
+    } catch (err) {
+      console.error("Lỗi khi tìm hoặc tạo thư mục USER_UPLOAD, chuyển về dùng rootFolderId:", err)
+      targetFolderId = rootFolderId
+    }
+  }
+
   const parents = targetFolderId ? [targetFolderId] : []
 
   const response = await drive.files.create({
@@ -74,4 +118,13 @@ export async function uploadFileToDrive(
     fileUrl: `https://drive.google.com/file/d/${response.data.id}/view?usp=drive_link`,
     downloadUrl: `https://drive.google.com/uc?export=download&id=${response.data.id}`
   }
+}
+
+/**
+ * Xóa file khỏi Google Drive bằng OAuth2
+ * @param fileId ID của file cần xóa
+ */
+export async function deleteFileFromDrive(fileId: string) {
+  const drive = getDriveClient()
+  await drive.files.delete({ fileId })
 }
