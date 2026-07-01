@@ -34,7 +34,7 @@ async function callPollinationsChat(options: {
   temperature: number
   maxTokens: number
 }) {
-  const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+  const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${options.apiKey}`,

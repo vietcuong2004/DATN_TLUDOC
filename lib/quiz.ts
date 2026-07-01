@@ -105,7 +105,7 @@ async function callPollinationsChat(options: {
       } as Record<string, any>
       if (modelToUse) body.model = modelToUse;
 
-      const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+      const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

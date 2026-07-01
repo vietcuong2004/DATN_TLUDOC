@@ -361,7 +361,7 @@ async function callWithRetries<T>(fn: (temperature: number) => Promise<T>, tempe
 
 async function callPollinationsChat(options: PollinationsOptions) {
   const model = normalizeModelName(options.model || "openai")
-  const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+  const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${options.apiKey}`,
@@ -415,7 +415,7 @@ async function callPollinationsChat(options: PollinationsOptions) {
 
   // First fallback: retry chat-completions with a safe baseline model and concise prompt.
   const compactPrompt = options.messages.map((message) => message.content).join("\n\n").slice(0, 6000)
-  const retryResponse = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+  const retryResponse = await fetch("https://text.pollinations.ai/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${options.apiKey}`,

@@ -339,7 +339,7 @@ export async function handleChatbotRequest(request: Request) {
 		const contextStr = semanticChunks.map((c, i) => `[ĐOẠN ${i + 1} - MỨC ĐỘ: ${i < 2 ? "QUAN TRỌNG" : "BỔ SUNG"}]\nNguồn: ${c.title}\nĐộ liên quan: ${c.score ? c.score.toFixed(2) : "N/A"}\n\n${c.content.length > 500 ? c.content.slice(0, 500) + "..." : c.content}`).join("\n\n")
 		const docList = Array.from(new Set(semanticChunks.map(d => d.title))).map(t => `- "${t}"`).join("\n")
 
-		const res = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+		const res = await fetch("https://text.pollinations.ai/v1/chat/completions", {
 			method: "POST",
 			headers: { Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY || process.env.GEMINI_API_KEY || ""}`, "Content-Type": "application/json" },
 			body: JSON.stringify({
