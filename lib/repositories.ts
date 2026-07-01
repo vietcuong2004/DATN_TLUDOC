@@ -487,3 +487,166 @@ export async function createDocument(data: CreateDocumentPayload): Promise<numbe
   return null
 }
 
+export async function getAllSubjects(): Promise<Array<{ id: number; code: string; name: string }>> {
+  if (!isDbConfigured()) return []
+  const rows = await queryRows<RowDataPacket & { id: number; code: string; name: string }>(
+    `SELECT id, code, name FROM subjects ORDER BY name ASC`
+  )
+  return rows.map(r => ({ id: r.id, code: r.code, name: r.name }))
+}
+
+export type AdminDocument = {
+  id: number
+  title: string
+  description: string | null
+  created_at: string
+  views_count: number
+  downloads_count: number
+  file_name: string | null
+  file_ext: string | null
+  drive_file_id: string | null
+  subject_id: number
+  subject_name: string
+  subject_code: string
+  uploader_name: string | null
+}
+
+export async function getAdminDocuments(): Promise<AdminDocument[]> {
+  if (!isDbConfigured()) return []
+  const rows = await queryRows<RowDataPacket & { subject_name: string; subject_code: string; uploader_name: string | null }>(
+    `
+      SELECT d.id, d.title, d.description, d.created_at, d.views_count, d.downloads_count,
+             d.file_name, d.file_ext, d.drive_file_id, d.subject_id,
+             s.name as subject_name, s.code as subject_code,
+             u.full_name as uploader_name
+      FROM documents d
+      INNER JOIN subjects s ON d.subject_id = s.id
+      LEFT JOIN users u ON u.id = d.uploader_id
+      ORDER BY d.created_at DESC
+    `
+  )
+
+  return rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at.toISOString ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    views_count: row.views_count ?? 0,
+    downloads_count: row.downloads_count ?? 0,
+    file_name: row.file_name,
+    file_ext: row.file_ext,
+    drive_file_id: row.drive_file_id,
+    subject_id: row.subject_id,
+    subject_name: row.subject_name,
+    subject_code: row.subject_code,
+    uploader_name: row.uploader_name
+  }))
+}
+
+export async function updateDocument(id: number, title: string, description: string, subjectId: number): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const result = await executeCommand(
+    `UPDATE documents SET title = ?, description = ?, subject_id = ? WHERE id = ?`,
+    [title, description, subjectId, id]
+  )
+  return result !== null
+}
+
+export async function deleteDocument(id: number): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const result = await executeCommand(`DELETE FROM documents WHERE id = ?`, [id])
+  return result !== null
+}
+
+export async function getAdminDocumentsPaginated(
+  page: number,
+  limit: number,
+  search?: string,
+  subjectId?: number,
+  sortBy: string = "created_at",
+  sortOrder: string = "DESC"
+): Promise<{ documents: AdminDocument[]; total: number }> {
+  if (!isDbConfigured()) return { documents: [], total: 0 }
+
+  // Validate sort parameters to prevent SQL injection
+  let orderColumn = "d.created_at"
+  if (sortBy === "id") {
+    orderColumn = "d.id"
+  } else if (sortBy === "title") {
+    orderColumn = "d.title"
+  } else if (sortBy === "created_at") {
+    orderColumn = "d.created_at"
+  }
+
+  const direction = sortOrder.toUpperCase() === "ASC" ? "ASC" : "DESC"
+
+  const offset = (page - 1) * limit
+  const params: any[] = []
+  const countParams: any[] = []
+
+  let whereClause = "1=1"
+
+  if (subjectId && subjectId > 0) {
+    whereClause += " AND d.subject_id = ?"
+    params.push(subjectId)
+    countParams.push(subjectId)
+  }
+
+  if (search && search.trim() !== "") {
+    const searchVal = `%${search.trim()}%`
+    whereClause += " AND (d.title LIKE ? OR d.description LIKE ? OR s.name LIKE ? OR s.code LIKE ? OR u.full_name LIKE ?)"
+    params.push(searchVal, searchVal, searchVal, searchVal, searchVal)
+    countParams.push(searchVal, searchVal, searchVal, searchVal, searchVal)
+  }
+
+  // Query total count
+  const countRows = await queryRows<RowDataPacket & { total: number }>(
+    `
+      SELECT COUNT(d.id) AS total
+      FROM documents d
+      INNER JOIN subjects s ON d.subject_id = s.id
+      LEFT JOIN users u ON u.id = d.uploader_id
+      WHERE ${whereClause}
+    `,
+    countParams
+  )
+  const total = countRows[0]?.total ?? 0
+
+  // Query paginated documents
+  // MySQL requires numeric params for LIMIT and OFFSET in prepared statements when using queryRows
+  params.push(limit, offset)
+  const rows = await queryRows<RowDataPacket & { subject_name: string; subject_code: string; uploader_name: string | null }>(
+    `
+      SELECT d.id, d.title, d.description, d.created_at, d.views_count, d.downloads_count,
+             d.file_name, d.file_ext, d.drive_file_id, d.subject_id,
+             s.name as subject_name, s.code as subject_code,
+             u.full_name as uploader_name
+      FROM documents d
+      INNER JOIN subjects s ON d.subject_id = s.id
+      LEFT JOIN users u ON u.id = d.uploader_id
+      WHERE ${whereClause}
+      ORDER BY ${orderColumn} ${direction}
+      LIMIT ? OFFSET ?
+    `,
+    params
+  )
+
+  const documents = rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at.toISOString ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    views_count: row.views_count ?? 0,
+    downloads_count: row.downloads_count ?? 0,
+    file_name: row.file_name,
+    file_ext: row.file_ext,
+    drive_file_id: row.drive_file_id,
+    subject_id: row.subject_id,
+    subject_name: row.subject_name,
+    subject_code: row.subject_code,
+    uploader_name: row.uploader_name
+  }))
+
+  return { documents, total }
+}
+

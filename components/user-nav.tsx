@@ -77,6 +77,21 @@ export function UserNav({ user, isLoggedIn }: UserNavProps) {
         {isLoggedIn && (
           <div className="p-2 space-y-1">
             <DropdownMenuGroup>
+              {user.role?.toLowerCase() === "admin" && (
+                <DropdownMenuItem
+                  onClick={() => router.push("/admin")}
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
+                    <Shield size={20} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-700 text-sm">Quản trị hệ thống</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Quản lý tài liệu & cấu hình</span>
+                  </div>
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:text-blue-600 transition-all group/item">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
                   <User size={20} />
