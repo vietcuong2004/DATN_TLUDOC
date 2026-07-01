@@ -936,9 +936,7 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                            className="flex items-center justify-center p-1.5 text-slate-400 hover:text-red-600 bg-white rounded-full shadow-sm border border-slate-200 hover:border-red-200 transition-colors"
                            onClick={(e) => {
                              e.stopPropagation()
-                             if (confirm("Bạn có chắc chắn muốn xoá node này và toàn bộ node con?")) {
-                               setDraftMindmap(prev => removeNode(prev, node.id))
-                             }
+                             setDraftMindmap(prev => removeNode(prev, node.id))
                            }}
                            title="Xoá node"
                          >
