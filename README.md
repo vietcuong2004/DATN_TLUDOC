@@ -216,7 +216,10 @@ npm start
 ```text
 DATN_TLUDOCUMENT/
 ├── app/                        # Thư mục trang giao diện và API Routes (Next.js App Router)
+│   ├── admin/                  # Trang quản trị dành cho Quản trị viên (Admin Dashboard)
+│   ├── advanced-search/        # Trang giao diện tìm kiếm nâng cao (Hybrid Search)
 │   ├── api/                    # Chứa các API Endpoint xử lý logic phía Server
+│   │   ├── admin/              # API Admin CRUD tài liệu, quản trị hệ thống
 │   │   ├── auth/               # API xử lý Đăng ký, Đăng nhập và phiên người dùng
 │   │   ├── chatbot/            # API Chatbot AI vấn đáp tài liệu và lịch sử chat
 │   │   ├── documents/          # API CRUD tài liệu, quản lý đánh giá, lượt xem, lượt tải
@@ -229,8 +232,13 @@ DATN_TLUDOCUMENT/
 │   ├── auth/                   # Trang giao diện Đăng nhập, Đăng ký thành viên
 │   ├── chatbot/                # Giao diện tương tác với Trợ lý học tập AI (Chatbot Tutor)
 │   ├── document/               # Trang hiển thị chi tiết tài liệu và Iframe xem trực tuyến
+│   ├── featured-docs/          # Trang hiển thị danh sách tài liệu nổi bật
+│   ├── latest-docs/            # Trang hiển thị danh sách tài liệu mới nhất
+│   ├── popular-docs/           # Trang hiển thị danh sách tài liệu xem/tải nhiều nhất
 │   ├── mindmap/                # Giao diện hiển thị và chỉnh sửa Sơ đồ tư duy dạng Graph
 │   ├── quiz/                   # Giao diện làm bài tập trắc nghiệm và xem đáp án giải thích
+│   ├── subjects/               # Trang hiển thị danh sách môn học và tài liệu theo môn
+│   ├── summarize/              # Giao diện tóm tắt văn bản tự động bằng AI
 │   ├── upload/                 # Giao diện kéo thả tải tài liệu lên hệ thống
 │   ├── layout.tsx              # Bố cục giao diện toàn cục (Header, Sidebar, Navigation)
 │   └── page.tsx                # Trang chủ cổng thông tin (Dashboard) tài liệu nổi bật
