@@ -74,6 +74,7 @@ export default function ChatbotPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<number | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [isFullScreen, setIsFullScreen] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -604,89 +605,128 @@ export default function ChatbotPage() {
 
   return (
     <>
-      <Navbar />
-      <div className="bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_40%),radial-gradient(circle_at_85%_15%,_rgba(14,165,233,0.08),_transparent_40%),linear-gradient(to_bottom,_#f8fafc,_#eef2ff)]">
-        <div className="container mx-auto px-4 py-8 md:py-10">
-          <div className="max-w-6xl mx-auto">
-            <div className="relative mb-6 overflow-hidden rounded-3xl border border-blue-100/80 bg-[linear-gradient(120deg,#ffffff_0%,#f8fbff_45%,#eef2ff_100%)] px-6 py-6 shadow-[0_18px_50px_-30px_rgba(37,99,235,0.35)]">
-              <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-200/40 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 left-1/3 h-44 w-44 rounded-full bg-sky-200/35 blur-3xl" />
+      {!isFullScreen && <Navbar />}
+      <div className={`bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_40%),radial-gradient(circle_at_85%_15%,_rgba(14,165,233,0.08),_transparent_40%),linear-gradient(to_bottom,_#f8fafc,_#eef2ff)] ${isFullScreen ? "h-screen w-screen overflow-hidden flex flex-col" : ""}`}>
+        <div className={isFullScreen ? "h-full w-full p-0 flex flex-col flex-1" : "container mx-auto px-4 py-8 md:py-10"}>
+          <div className={isFullScreen ? "h-full w-full max-w-none flex flex-col flex-1" : "max-w-6xl mx-auto"}>
+            {!isFullScreen && (
+              <div className="relative mb-6 overflow-hidden rounded-3xl border border-blue-100/80 bg-[linear-gradient(120deg,#ffffff_0%,#f8fbff_45%,#eef2ff_100%)] px-6 py-6 shadow-[0_18px_50px_-30px_rgba(37,99,235,0.35)]">
+                <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-200/40 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 left-1/3 h-44 w-44 rounded-full bg-sky-200/35 blur-3xl" />
 
-              <div className="relative flex flex-row items-center justify-between gap-4 md:gap-6">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                    TRỢ LÝ HỌC TẬP AI
+                <div className="relative flex flex-row items-center justify-between gap-4 md:gap-6">
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                      TRỢ LÝ HỌC TẬP AI
+                    </div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Chatbot Tutor</h1>
+                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-700 md:text-base text-justify">
+                      Mình là trợ lý học tập của TLU Document. Mình sẽ giúp bạn tìm ra tài liệu học tập tốt nhất và trả lời những thắc mắc về kiến thức môn học của bạn.
+                    </p>
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Chatbot Tutor</h1>
-                  <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-700 md:text-base text-justify">
-                    Mình là trợ lý học tập của TLU Document. Mình sẽ giúp bạn tìm ra tài liệu học tập tốt nhất và trả lời những thắc mắc về kiến thức môn học của bạn.
-                  </p>
-                </div>
-                <div className="relative shrink-0 h-20 w-20 md:h-32 md:w-32 block">
-                  <Image
-                    src="/chatbot.png"
-                    alt="TLU Chatbot"
-                    fill
-                    className="object-contain drop-shadow-[0_10px_20px_rgba(59,130,246,0.35)]"
-                    priority
-                  />
+                  <div className="relative shrink-0 h-20 w-20 md:h-32 md:w-32 block">
+                    <Image
+                      src="/chatbot.png"
+                      alt="TLU Chatbot"
+                      fill
+                      className="object-contain drop-shadow-[0_10px_20px_rgba(59,130,246,0.35)]"
+                      priority
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-4 order-2 md:order-1 hidden md:block">
-                <div className="sticky top-24 space-y-4">
-                  {renderSidebarContent()}
+            <div className={isFullScreen ? "h-full w-full flex flex-col flex-1 overflow-hidden gap-0" : "grid grid-cols-1 md:grid-cols-12 gap-6"}>
+              {!isFullScreen && (
+                <div className="md:col-span-4 order-2 md:order-1 hidden md:block">
+                  <div className="sticky top-24 space-y-4">
+                    {renderSidebarContent()}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="md:col-span-8 order-1 md:order-2">
-                <Card className="h-[calc(100vh-220px)] rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] flex flex-col">
+              <div className={isFullScreen ? "w-full h-full flex flex-col flex-1" : "md:col-span-8 order-1 md:order-2"}>
+                <Card className={`flex flex-col flex-1 ${isFullScreen ? "h-full border-0 shadow-none rounded-none" : "h-[calc(100vh-220px)] rounded-2xl border-blue-100 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)]"}`}>
                   <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
-                    {/* Chatbox Header (ChatGPT Style) - Mobile only */}
-                    <div className="relative flex items-center justify-between border-b pb-3 mb-3 shrink-0 md:hidden">
-                      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-                        <SheetTrigger asChild>
-                          <Button variant="ghost" size="icon" className="md:hidden h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                              <path d="M4 8H20M4 16H20"/>
-                            </svg>
-                          </Button>
-                        </SheetTrigger>
-                        <SheetContent side="left" className="w-[320px] p-4 flex flex-col [&>button]:right-4 [&>button]:top-4">
-                          <SheetHeader className="mb-4 text-left">
-                            <SheetTitle className="font-bold text-lg">Trợ lý học tập TLU</SheetTitle>
-                          </SheetHeader>
-                          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                            {renderSidebarContent()}
-                          </div>
-                        </SheetContent>
-                      </Sheet>
+                    {/* Chatbox Header (ChatGPT Style) */}
+                    <div className="relative flex items-center justify-between border-b pb-3 mb-3 shrink-0">
+                      {/* Left: Sidebar trigger (shown on mobile, or on desktop when in FullScreen mode) */}
+                      <div className="flex items-center gap-2">
+                        {(isFullScreen || true) && (
+                          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+                            <SheetTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`${isFullScreen ? "flex" : "md:hidden"} h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0`}
+                                title="Mở danh sách gợi ý và lịch sử"
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <path d="M4 8H20M4 16H20"/>
+                                </svg>
+                              </Button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="w-[320px] p-4 flex flex-col [&>button]:right-4 [&>button]:top-4">
+                              <SheetHeader className="mb-4 text-left">
+                                <SheetTitle className="font-bold text-lg">Trợ lý học tập TLU</SheetTitle>
+                              </SheetHeader>
+                              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                                {renderSidebarContent()}
+                              </div>
+                            </SheetContent>
+                          </Sheet>
+                        )}
 
-                      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-                        <div className="relative h-6 w-6">
-                          <Image
-                            src="/chatbot.png"
-                            alt="TLU Chatbot Logo"
-                            fill
-                            className="object-contain"
-                          />
+                        {/* Title and Logo */}
+                        <div className="flex items-center gap-2">
+                          <div className="relative h-6 w-6 shrink-0">
+                            <Image
+                              src="/chatbot.png"
+                              alt="TLU Chatbot Logo"
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                          <span className="font-bold text-slate-800 text-sm md:text-base truncate">Chatbot Tutor</span>
+                          <Badge variant="secondary" className="text-[9px] md:text-[10px] bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider font-semibold px-2 py-0">
+                            Gemini Pro
+                          </Badge>
                         </div>
-                        <span className="font-bold text-slate-800 text-base">Chatbot Tutor</span>
                       </div>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleNewChat}
-                        className="h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center"
-                        title="Tạo cuộc trò chuyện mới"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-                        </svg>
-                      </Button>
+                      {/* Right: Action Buttons (New Chat & Fullscreen Toggle) */}
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleNewChat}
+                          className="h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0"
+                          title="Tạo cuộc trò chuyện mới"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                          </svg>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsFullScreen(!isFullScreen)}
+                          className="h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0"
+                          title={isFullScreen ? "Thu nhỏ" : "Phóng to toàn màn hình"}
+                        >
+                          {isFullScreen ? (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4"/>
+                            </svg>
+                          ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                            </svg>
+                          )}
+                        </Button>
+                      </div>
                     </div>
 
                     <div
@@ -840,7 +880,7 @@ export default function ChatbotPage() {
           </div>
         </div>
       </div>
-      <Footer />
+      {!isFullScreen && <Footer />}
       {/* Document Preview Modal */}
       <PreviewDocument
         document={selectedDoc}
