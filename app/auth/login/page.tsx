@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Lock, Mail, ArrowRight, Github, Chrome, FileText, Bot, Network, ListChecks, Sparkles } from "lucide-react"
+import { Eye, EyeOff, Lock, Mail, ArrowRight, Github, Chrome, FileText, Bot, Network, ListChecks, Sparkles, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,10 +17,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -42,11 +44,13 @@ export default function LoginPage() {
         
         router.push("/");
       } else {
+        setError(data.message || "Tên đăng nhập hoặc mật khẩu không chính xác.");
         toast.error("Đăng nhập thất bại", {
           description: data.message,
         });
       }
-    } catch (error) {
+    } catch (err) {
+      setError("Không thể kết nối tới máy chủ. Vui lòng kiểm tra lại đường truyền.");
       toast.error("Lỗi hệ thống", {
         description: "Không thể kết nối tới máy chủ.",
       });
@@ -174,9 +178,13 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1">
                   <Label htmlFor="password" className="text-slate-700 font-bold">Mật khẩu</Label>
-                  <Link href="/auth/forgot-password" className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => toast.warning("Tính năng này đang được phát triển, vui lòng đăng nhập bằng email")}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
                     Quên mật khẩu?
-                  </Link>
+                  </button>
                 </div>
                 <div className="relative group">
                   <div className="absolute left-3.5 top-3 text-slate-400 group-focus-within:text-blue-600 transition-colors">
@@ -200,6 +208,20 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+
+              {error && (
+                <div className="p-3.5 pr-10 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold leading-relaxed animate-fade-in relative">
+                  {error}
+                  <button
+                    type="button"
+                    onClick={() => setError("")}
+                    className="absolute right-3 top-3 text-red-400 hover:text-red-600 transition-colors"
+                    aria-label="Đóng thông báo"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center space-x-2 ml-1">
                 <Checkbox id="remember" className="rounded-md border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
@@ -234,11 +256,19 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-11 rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all font-bold text-slate-700">
+              <Button 
+                variant="outline" 
+                className="h-11 rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all font-bold text-slate-700"
+                onClick={() => toast.warning("Tính năng này đang được phát triển, vui lòng đăng nhập bằng email")}
+              >
                 <img src="/chrome.svg.png" alt="Google" className="mr-2 h-5 w-5 object-contain" />
                 Google
               </Button>
-              <Button variant="outline" className="h-11 rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all font-bold text-slate-700">
+              <Button 
+                variant="outline" 
+                className="h-11 rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all font-bold text-slate-700"
+                onClick={() => toast.warning("Tính năng này đang được phát triển, vui lòng đăng nhập bằng email")}
+              >
                 <img src="/Zalo.svg.png" alt="Zalo" className="mr-2 h-5 w-5 object-contain" />
                 Zalo
               </Button>

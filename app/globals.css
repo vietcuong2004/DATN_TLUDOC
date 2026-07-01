@@ -135,3 +135,10 @@
     animation: pop-in 0.3s ease-out forwards;
   }
 }
+
+/* Force sonner close button to the top-right corner of the toast */
+[data-sonner-toast] [data-close-button] {
+  left: auto !important;
+  right: 0 !important;
+  transform: translate(35%, -35%) !important;
+}

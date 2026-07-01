@@ -640,8 +640,19 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
         className,
       )}
     >
+      {/* Nút phóng to / thu nhỏ toàn màn hình ở góc trên bên phải */}
+      <Button
+        variant="outline"
+        className="absolute top-2.5 right-3 md:top-5 md:right-6 h-8 w-8 sm:h-9 sm:w-9 p-0 bg-white hover:bg-slate-50 transition-colors z-10"
+        onClick={toggleFullscreen}
+        aria-label="Toàn màn hình"
+        title={isFullscreen ? "Thu nhỏ" : "Phóng to toàn màn hình"}
+      >
+        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+      </Button>
+
       <div className={cn("flex border-b border-slate-100 px-3 py-2 md:px-6 md:py-5 bg-white", isFullscreen ? "flex-col md:flex-row md:items-center gap-4 md:gap-6" : "flex-col gap-4")}>
-        <div className={cn("flex items-center flex-wrap gap-4 shrink-0", isFullscreen && "pr-12")}>
+        <div className="flex items-center flex-wrap gap-4 shrink-0 pr-12 md:pr-16">
           <p className="text-xl font-bold tracking-tight text-blue-600">Mindmap "{(isEditMode ? draftMindmap.title : mindmapData.title)}"</p>
           {isEditMode && <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Đang chỉnh sửa</span>}
           {editError && <span className="text-xs text-red-600 font-medium">{editError}</span>}
@@ -656,9 +667,6 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
           </Button>
           <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={handleResetView} aria-label="Đặt lại sơ đồ">
             <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" className="h-8 w-8 sm:h-9 sm:w-9 p-0" onClick={toggleFullscreen} aria-label="Toàn màn hình">
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
           </Button>
 
           <div className="h-5 sm:h-6 w-px bg-slate-200 mx-0.5 sm:mx-2" />
@@ -952,18 +960,6 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
         </div>
 
       </div>
-
-      {isFullscreen && (
-        <Button
-          variant="destructive"
-          size="icon"
-          className="absolute right-4 top-4 z-[10000] rounded-full h-10 w-10 border-2 border-white shadow-lg bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-transform"
-          onClick={toggleFullscreen}
-          aria-label="Thoát chế độ toàn màn hình"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      )}
     </div>
   )
 }

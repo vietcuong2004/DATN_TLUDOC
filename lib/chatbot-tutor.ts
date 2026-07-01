@@ -180,8 +180,8 @@ CHỈ THỊ ĐỊNH DẠNG (BẮT BUỘC):
 RÀNG BUỘC (QUAN TRỌNG):
 - BẮT BUỘC đi thẳng vào giải thích kiến thức. TUYỆT ĐỐI KHÔNG mở đầu bằng việc nhắc lại câu hỏi.
 - Khi nhắc đến tên tài liệu cụ thể trong bài (Mục I-IV), hãy viết theo mẫu: "(tài liệu [Tên tài liệu])". Đây là căn cứ duy nhất để liệt kê vào mục V.
-- CHỈ sử dụng thông tin trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU". Nếu hệ thống trích xuất thiếu, hãy nói "Kho dữ liệu của hệ thống hiện tại chưa có đủ thông tin chi tiết về phần này".
-- Tuyệt đối không tự bịa kiến thức ngoài tài liệu.`
+- CHỈ sử dụng kiến thức trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" làm lý thuyết nền tảng. Tuyệt đối không tự bịa kiến thức lý thuyết khác ngoài tài liệu.
+- Đối với phần "III. Ví dụ minh họa": Nếu tài liệu trích xuất không có sẵn ví dụ hoặc code mẫu, bạn BẮT BUỘC sử dụng kiến thức chuyên môn của mình để tự soạn một ví dụ minh họa hoặc đoạn code mẫu thực tế, chính xác và dễ hiểu nhất để làm rõ cho phần lý thuyết ở trên.`
 }
 
 function createTextResponse(text: string) {

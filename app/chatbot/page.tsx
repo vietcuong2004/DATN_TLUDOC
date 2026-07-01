@@ -16,8 +16,9 @@ import { Badge } from "@/components/ui/badge"
 import { Send, Sparkles, BookOpen, Search, Clock, PlusCircle, Eye, Trash2, Square } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import ChatbotAnswer, { getDriveThumbnail } from "@/components/chatbot/ChatbotAnswer"
+import ChatbotAnswer, { getDriveThumbnail } from "./ChatbotAnswer"
 import PreviewDocument from "@/components/PreviewDocument"
+import { ChatbotSidebar } from "./sidebar"
 
 interface Message {
   id: string
@@ -75,6 +76,11 @@ export default function ChatbotPage() {
   const [currentChatId, setCurrentChatId] = useState<number | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ name: string; avatar: string; role?: string }>({
+    name: "Khách",
+    avatar: "/unsigned_user_avatar.png"
+  })
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -107,6 +113,25 @@ export default function ChatbotPage() {
   useEffect(() => {
     setMounted(true) // Đánh dấu đã mount trên client
     fetchHistory()
+
+    // Lấy thông tin user đăng nhập
+    const status = typeof window !== "undefined" && localStorage.getItem("isLoggedIn") === "true"
+    setIsLoggedIn(status)
+    if (status) {
+      const savedUser = localStorage.getItem("user")
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser)
+          setUser({
+            name: userData.name || "Người dùng",
+            avatar: userData.avatar || "/avatar.png",
+            role: userData.role || "Sinh viên"
+          })
+        } catch (e) {
+          console.error("Failed to parse user data from localStorage:", e)
+        }
+      }
+    }
   }, [])
 
   const fetchHistory = async () => {
@@ -419,188 +444,7 @@ export default function ChatbotPage() {
     return `${hours}:${minutes}`
   }
 
-  const formatHistoryDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const hours = `${d.getHours()}`.padStart(2, "0")
-    const minutes = `${d.getMinutes()}`.padStart(2, "0")
-    const day = `${d.getDate()}`.padStart(2, "0")
-    const month = `${d.getMonth() + 1}`.padStart(2, "0")
-    const year = d.getFullYear()
-    return `${hours}:${minutes} - ${day}/${month}/${year}`
-  }
 
-  const renderSidebarContent = () => {
-    return (
-      <>
-        <Card className="rounded-2xl border-0 md:border border-blue-100 shadow-none md:shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] bg-transparent md:bg-white">
-          <CardContent className="p-0 md:p-4">
-            <Tabs defaultValue="suggestions">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="suggestions">Gợi ý</TabsTrigger>
-                <TabsTrigger value="history">Lịch sử</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="suggestions" className="space-y-4">
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center">
-                    <Sparkles className="h-4 w-4 mr-2 text-orange-500" />
-                    Câu hỏi gợi ý
-                  </h3>
-                  <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                      onClick={() => handleQuickQuestion("Bạn đang có kiến thức về những môn học nào?")}
-                    >
-                      <span className="break-words whitespace-normal text-left block font-medium text-blue-700">
-                        Bạn đang có kiến thức về những môn học nào?
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                      onClick={() => handleQuickQuestion("Mình cần tài liệu môn CSE492 (Trí tuệ nhân tạo), gợi ý 3 tài liệu mẫu tốt nhất.")}
-                    >
-                      <span className="break-words whitespace-normal text-left block">
-                        Mình cần tài liệu môn CSE492 (Trí tuệ nhân tạo), gợi ý 3 tài liệu mẫu tốt nhất.
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                      onClick={() => handleQuickQuestion("Con trỏ trong C++ là gì")}
-                    >
-                      <span className="break-words whitespace-normal text-left block">
-                        Con trỏ trong C++ là gì
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                      onClick={() => handleQuickQuestion("Bảng băm là gì")}
-                    >
-                      <span className="break-words whitespace-normal text-left block">
-                        Bảng băm là gì
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-sm h-auto py-2 px-3 break-words text-left whitespace-normal"
-                      onClick={() => handleQuickQuestion("Tìm kiếm DFS hoạt động thế nào")}
-                    >
-                      <span className="break-words whitespace-normal text-left block">
-                        Tìm kiếm DFS hoạt động thế nào
-                      </span>
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center">
-                    <BookOpen className="h-4 w-4 mr-2 text-green-500" />
-                    Chủ đề phổ biến
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleQuickQuestion("Tài liệu môn CSE492")}
-                    >
-                      CSE492 - TTNT
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleQuickQuestion("Tài liệu môn CSE484")}
-                    >
-                      CSE484 - CSDL
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleQuickQuestion("Tài liệu môn MATH111")}
-                    >
-                      MATH111
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleQuickQuestion("Nên học gì trước môn CSE205")}
-                    >
-                      CSE205 - LTNC
-                    </Badge>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="history">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-blue-500" />
-                      Cuộc trò chuyện gần đây
-                    </h3>
-                    {dbHistory.length > 0 && (
-                      <button
-                        onClick={handleDeleteAllHistory}
-                        className="text-[10px] text-red-500 hover:text-red-700 font-semibold uppercase tracking-wider flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded transition-colors"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Xóa hết
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-3 mt-4 max-h-[380px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {isLoadingHistory ? (
-                      <div className="text-sm text-gray-500 p-2 text-center flex flex-col items-center justify-center space-y-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
-                        <span>Đang tải lịch sử...</span>
-                      </div>
-                    ) : dbHistory.length > 0 ? (
-                      dbHistory.map((item) => (
-                        <div
-                          key={item.id}
-                          className="group flex items-center justify-between text-sm p-3 hover:bg-slate-50 border border-slate-100/50 hover:border-slate-200 bg-white rounded-xl cursor-pointer transition-all duration-200 shadow-sm hover:shadow"
-                          onClick={() => handleLoadHistory(item)}
-                          title={`${formatHistoryDate(item.createdAt)}: ${item.question}`}
-                        >
-                          <div className="flex-1 min-w-0 pr-2">
-                            <p className="text-slate-700 font-semibold truncate text-sm">
-                              {item.question.split("\n\n---MESSAGE_SEP---\n\n")[0]}
-                            </p>
-                            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-                              {formatHistoryDate(item.createdAt)}
-                            </span>
-                          </div>
-                          <div
-                            onClick={(e) => handleDeleteHistoryItem(e, item.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200 opacity-100 md:opacity-0 group-hover:opacity-100 shrink-0"
-                            title="Xóa cuộc trò chuyện này"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-500 p-2 text-center">Chưa có lịch sử hội thoại.</div>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <Button
-          onClick={handleNewChat}
-          className="w-full bg-[linear-gradient(110deg,#4f46e5,#3b82f6)] hover:bg-[linear-gradient(110deg,#4338ca,#2563eb)] text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_25px_-6px_rgba(79,70,229,0.5)] transition-all duration-300 rounded-xl py-6 flex items-center justify-center gap-2 group"
-        >
-          <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-          <span className="font-semibold text-base">Tạo cuộc trò chuyện mới</span>
-        </Button>
-      </>
-    )
-  }
 
 
   return (
@@ -637,11 +481,52 @@ export default function ChatbotPage() {
               </div>
             )}
 
-            <div className={isFullScreen ? "h-full w-full flex flex-col flex-1 overflow-hidden gap-0" : "grid grid-cols-1 md:grid-cols-12 gap-6"}>
+            <div className={isFullScreen ? "h-full w-full flex flex-row flex-1 overflow-hidden gap-0 bg-white" : "grid grid-cols-1 md:grid-cols-12 gap-6"}>
+              {/* Left Sidebar for FullScreen Mode (ChatGPT Style) */}
+              {isFullScreen && (
+                <div className="hidden md:flex flex-col w-[300px] h-full bg-[#f9f9f9] border-r border-slate-200/80 shrink-0 p-4 justify-between">
+                  {/* Top & Middle: Sidebar Content */}
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    <ChatbotSidebar
+                      dbHistory={dbHistory}
+                      isLoadingHistory={isLoadingHistory}
+                      handleDeleteAllHistory={handleDeleteAllHistory}
+                      handleLoadHistory={handleLoadHistory}
+                      handleDeleteHistoryItem={handleDeleteHistoryItem}
+                      handleQuickQuestion={handleQuickQuestion}
+                      handleNewChat={handleNewChat}
+                    />
+                  </div>
+                  {/* Bottom: User Avatar */}
+                  <div className="border-t border-slate-200/60 pt-3 mt-3 flex items-center gap-3">
+                    <Avatar className="h-9 w-9 shrink-0">
+                      {user.avatar ? (
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                      ) : null}
+                      <AvatarFallback className="bg-green-500 text-white font-semibold">
+                        {user.name ? user.name.slice(0, 2).toUpperCase() : "UN"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{user.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{user.role || "Sinh viên"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {!isFullScreen && (
                 <div className="md:col-span-4 order-2 md:order-1 hidden md:block">
                   <div className="sticky top-24 space-y-4">
-                    {renderSidebarContent()}
+                    <ChatbotSidebar
+                      dbHistory={dbHistory}
+                      isLoadingHistory={isLoadingHistory}
+                      handleDeleteAllHistory={handleDeleteAllHistory}
+                      handleLoadHistory={handleLoadHistory}
+                      handleDeleteHistoryItem={handleDeleteHistoryItem}
+                      handleQuickQuestion={handleQuickQuestion}
+                      handleNewChat={handleNewChat}
+                    />
                   </div>
                 </div>
               )}
@@ -653,15 +538,14 @@ export default function ChatbotPage() {
                     <div className="relative flex items-center justify-between border-b pb-3 mb-3 shrink-0">
                       {/* Left: Sidebar trigger (shown on mobile, or on desktop when in FullScreen mode) */}
                       <div className="flex items-center gap-2">
-                        {(isFullScreen || true) && (
-                          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-                            <SheetTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className={`${isFullScreen ? "flex" : "md:hidden"} h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0`}
-                                title="Mở danh sách gợi ý và lịch sử"
-                              >
+                        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+                          <SheetTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="md:hidden h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0"
+                              title="Mở danh sách gợi ý và lịch sử"
+                            >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                   <path d="M4 8H20M4 16H20"/>
                                 </svg>
@@ -671,12 +555,19 @@ export default function ChatbotPage() {
                               <SheetHeader className="mb-4 text-left">
                                 <SheetTitle className="font-bold text-lg">Trợ lý học tập TLU</SheetTitle>
                               </SheetHeader>
-                              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                                {renderSidebarContent()}
+                              <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
+                                <ChatbotSidebar
+                                  dbHistory={dbHistory}
+                                  isLoadingHistory={isLoadingHistory}
+                                  handleDeleteAllHistory={handleDeleteAllHistory}
+                                  handleLoadHistory={handleLoadHistory}
+                                  handleDeleteHistoryItem={handleDeleteHistoryItem}
+                                  handleQuickQuestion={handleQuickQuestion}
+                                  handleNewChat={handleNewChat}
+                                />
                               </div>
                             </SheetContent>
                           </Sheet>
-                        )}
 
                         {/* Title and Logo */}
                         <div className="flex items-center gap-2">
@@ -689,9 +580,6 @@ export default function ChatbotPage() {
                             />
                           </div>
                           <span className="font-bold text-slate-800 text-sm md:text-base truncate">Chatbot Tutor</span>
-                          <Badge variant="secondary" className="text-[9px] md:text-[10px] bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider font-semibold px-2 py-0">
-                            Gemini Pro
-                          </Badge>
                         </div>
                       </div>
 
@@ -804,7 +692,12 @@ export default function ChatbotPage() {
 
                               {isUser && (
                                 <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="bg-green-500 text-white">UN</AvatarFallback>
+                                  {user.avatar ? (
+                                    <AvatarImage src={user.avatar} alt={user.name} />
+                                  ) : null}
+                                  <AvatarFallback className="bg-green-500 text-white">
+                                    {user.name ? user.name.slice(0, 2).toUpperCase() : "UN"}
+                                  </AvatarFallback>
                                 </Avatar>
                               )}
                             </div>
@@ -840,39 +733,41 @@ export default function ChatbotPage() {
                       )}
                     </div>
 
-                    <form onSubmit={handleSendMessage} className="mt-4 flex items-end gap-2 rounded-xl border border-blue-100 bg-white p-2">
-                      <Textarea
-                        ref={textareaRef}
-                        placeholder="Nhập câu hỏi của bạn..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        rows={1}
-                        className="flex-1 min-h-[40px] max-h-[160px] border-0 shadow-none focus-visible:ring-0 resize-none py-2 px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full"
-                      />
-                      {isLoading ? (
-                        <Button
-                          type="button"
-                          size="icon"
-                          onClick={handleStopGeneration}
-                          className="relative h-10 w-10 flex items-center justify-center bg-white hover:bg-red-50 border-2 border-red-500 rounded-full transition-all duration-300 group shadow-sm overflow-visible"
-                        >
-                          <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-20"></div>
-                          <Square className="h-4 w-4 text-red-600 fill-red-600 group-hover:scale-110 transition-transform" />
-                          <span className="sr-only">Dừng</span>
-                        </Button>
-                      ) : (
-                        <Button
-                          type="submit"
-                          size="icon"
-                          disabled={!input.trim()}
-                          className="bg-indigo-700 hover:bg-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg rounded-xl h-10 w-10"
-                        >
-                          <Send className="h-4 w-4" />
-                          <span className="sr-only">Gửi</span>
-                        </Button>
-                      )}
-                    </form>
+                    <div className="mt-4 w-full flex justify-center px-2 md:px-4 shrink-0">
+                      <form onSubmit={handleSendMessage} className="w-full max-w-3xl flex items-end gap-2 rounded-xl border border-blue-100 bg-white p-2">
+                        <Textarea
+                          ref={textareaRef}
+                          placeholder="Nhập câu hỏi của bạn..."
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          rows={1}
+                          className="flex-1 min-h-[40px] max-h-[160px] border-0 shadow-none focus-visible:ring-0 resize-none py-2 px-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                        />
+                        {isLoading ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            onClick={handleStopGeneration}
+                            className="relative h-10 w-10 flex items-center justify-center bg-white hover:bg-red-50 border-2 border-red-500 rounded-full transition-all duration-300 group shadow-sm overflow-visible"
+                          >
+                            <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-20"></div>
+                            <Square className="h-4 w-4 text-red-600 fill-red-600 group-hover:scale-110 transition-transform" />
+                            <span className="sr-only">Dừng</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!input.trim()}
+                            className="bg-indigo-700 hover:bg-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg rounded-xl h-10 w-10"
+                          >
+                            <Send className="h-4 w-4" />
+                            <span className="sr-only">Gửi</span>
+                          </Button>
+                        )}
+                      </form>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

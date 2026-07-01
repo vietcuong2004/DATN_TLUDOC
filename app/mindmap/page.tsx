@@ -12,7 +12,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MindmapViewer } from "@/components/mindmap-viewer"
+import { MindmapViewer } from "./mindmap-viewer"
 import PreviewDocument from "@/components/PreviewDocument"
 import type { MindmapNode } from "@/lib/mindmap"
 
