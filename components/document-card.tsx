@@ -53,7 +53,7 @@ export function DocumentCard({ document }: DocumentCardProps) {
             {/* Subject Info */}
             <div className="mb-3">
               <span className="inline-block bg-blue-800 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm truncate max-w-full">
-                [{document.subjectCode}] {document.subjectName}
+                {document.subjectCode === "OTHER" ? "Không rõ" : `[${document.subjectCode}] ${document.subjectName}`}
               </span>
             </div>
 
