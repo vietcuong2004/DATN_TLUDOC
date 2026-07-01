@@ -29,6 +29,7 @@ const SUBJECTS = [
   { value: "PHAN_TICH_THIET_KE_HE_THONG_THONG_TIN", label: "CSE480 - Phân tích và thiết kế hệ thống thông tin" },
   { value: "TOAN_ROI_RAC", label: "CSE213 - Toán rời rạc" },
   { value: "TRI_TUE_NHAN_TAO", label: "CSE492 - Trí tuệ nhân tạo" },
+  { value: "OTHER", label: "-- Khác -- (Môn học chưa tồn tại trên hệ thống)" },
 ]
 
 export default function UploadPage() {

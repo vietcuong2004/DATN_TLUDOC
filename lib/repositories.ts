@@ -244,6 +244,30 @@ export async function getSubjectIdByFolderKey(folderKey: string): Promise<number
   return rows.length ? rows[0].id : null
 }
 
+export async function getOrCreateOtherSubjectId(): Promise<number> {
+  if (!isDbConfigured()) return 0
+  
+  // 1. Tìm xem đã có subject code 'OTHER' chưa
+  const rows = await queryRows<RowDataPacket & { id: number }>(
+    `SELECT id FROM subjects WHERE code = 'OTHER' LIMIT 1`
+  )
+  if (rows.length > 0) {
+    return rows[0].id
+  }
+
+  // 2. Nếu chưa có, insert mới
+  const result = await executeCommand(
+    `INSERT INTO subjects (code, name, folder_key, group_name, is_required) VALUES (?, ?, ?, ?, ?)`,
+    ["OTHER", "Không rõ", "USER_UPLOAD", "Khác", 0]
+  )
+
+  if (result && 'insertId' in result) {
+    return result.insertId
+  }
+  
+  throw new Error("Không thể khởi tạo môn học 'Không rõ' trong database")
+}
+
 export async function getDocumentsBySubjectCode(subjectCode: string): Promise<SubjectDocument[]> {
   if (!isDbConfigured()) {
     return []

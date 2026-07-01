@@ -63,7 +63,7 @@ export async function uploadFileToDrive(
   buffer: Uint8Array, 
   fileName: string, 
   mimeType: string, 
-  folderId?: string
+  folderKey?: string
 ) {
   const drive = getDriveClient()
 
@@ -77,15 +77,16 @@ export async function uploadFileToDrive(
     body: stream,
   }
 
-  // Lưu vào subfolder USER_UPLOAD nằm trong DOCUMENTS folder nếu không chỉ định folder cụ thể
+  // Mặc định lưu vào root folder DOCUMENTS nếu không tìm được subfolder cụ thể
   const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
-  let targetFolderId = folderId || rootFolderId
+  let targetFolderId = rootFolderId
 
-  if (!folderId && rootFolderId) {
+  if (rootFolderId) {
+    const targetFolderName = folderKey || "USER_UPLOAD"
     try {
-      targetFolderId = await getOrCreateFolder(drive, "USER_UPLOAD", rootFolderId)
+      targetFolderId = await getOrCreateFolder(drive, targetFolderName, rootFolderId)
     } catch (err) {
-      console.error("Lỗi khi tìm hoặc tạo thư mục USER_UPLOAD, chuyển về dùng rootFolderId:", err)
+      console.error(`Lỗi khi tìm hoặc tạo thư mục ${targetFolderName}, chuyển về dùng rootFolderId:`, err)
       targetFolderId = rootFolderId
     }
   }

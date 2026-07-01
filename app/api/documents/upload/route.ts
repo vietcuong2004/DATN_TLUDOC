@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import path from "path"
 import crypto from "crypto"
-import { checkDuplicateByHash, createDocument, getSubjectIdByFolderKey } from "@/lib/repositories"
+import { checkDuplicateByHash, createDocument, getSubjectIdByFolderKey, getOrCreateOtherSubjectId } from "@/lib/repositories"
 import { uploadFileToDrive } from "@/lib/drive"
 export async function POST(request: Request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const file = formData.get("file")
     const title = formData.get("title") as string
     const description = formData.get("description") as string
-    const subject = formData.get("subject") as string // this is folder_key
+    const subject = formData.get("subject") as string // this is folder_key or "OTHER"
     const doc_type = formData.get("category") as string
     const uploader_id = parseInt(formData.get("uploader_id") as string) || 1
     
@@ -32,14 +32,22 @@ export async function POST(request: Request) {
     }
 
     // Lấy ID môn học
-    const subjectId = await getSubjectIdByFolderKey(subject)
+    let subjectId: number | null = null
+    if (subject === "OTHER") {
+      subjectId = await getOrCreateOtherSubjectId()
+    } else {
+      subjectId = await getSubjectIdByFolderKey(subject)
+    }
+
     if (!subjectId) {
        return NextResponse.json({ error: "Không tìm thấy thông tin môn học hợp lệ" }, { status: 400 })
     }
 
     // 3. Upload file lên Google Drive qua OAuth2
     const fileName = file.name
-    const driveResult = await uploadFileToDrive(uint8Array, fileName, file.type)
+    // Nếu môn học chọn "OTHER", folder_key lưu trên drive là "USER_UPLOAD"
+    const driveFolderKey = subject === "OTHER" ? "USER_UPLOAD" : subject
+    const driveResult = await uploadFileToDrive(uint8Array, fileName, file.type, driveFolderKey)
     const fileExt = fileName.split('.').pop()?.toLowerCase() || ''
     
     // 4. Lưu vào Database
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
       uploader_id: uploader_id,
       doc_type: doc_type || "other",
       storage_provider: 'gdrive',
-      drive_folder_key: subject,
+      drive_folder_key: driveFolderKey,
       drive_file_id: driveResult.id,
       file_name: fileName,
       file_ext: fileExt,
