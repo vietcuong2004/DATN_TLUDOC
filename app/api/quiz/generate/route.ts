@@ -56,10 +56,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Thiếu file tải lên." }, { status: 400 })
     }
 
-    const apiKey = process.env.POLLINATIONS_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY || process.env.POLLINATIONS_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Thiếu POLLINATIONS_API_KEY trong cấu hình server." },
+        { error: "Thiếu GEMINI_API_KEY hoặc POLLINATIONS_API_KEY trong cấu hình server." },
         { status: 500 },
       )
     }

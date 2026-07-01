@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { callGemini } from "@/lib/gemini"
 
 export type MindmapNode = {
   id: string
@@ -34,44 +35,12 @@ async function callPollinationsChat(options: {
   temperature: number
   maxTokens: number
 }) {
-  const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${options.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: normalizeModelName(options.model || "openai"),
-      messages: [
-        ...(options.systemPrompt
-          ? [{ role: "system", content: options.systemPrompt }]
-          : []),
-        { role: "user", content: options.userPrompt },
-      ],
-      temperature: options.temperature,
-      max_tokens: options.maxTokens,
-    }),
+  return callGemini(options.userPrompt, {
+    systemInstruction: options.systemPrompt,
+    temperature: options.temperature,
+    model: options.model,
+    maxTokens: options.maxTokens,
   })
-
-  if (!response.ok) {
-    const errorBody = await response.text()
-    throw new Error(`Pollinations error (${response.status}): ${errorBody || "Unknown"}`)
-  }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string
-      }
-    }>
-  }
-
-  const content = payload.choices?.[0]?.message?.content?.trim() ?? ""
-  if (!content) {
-    throw new Error("Pollinations returned empty content")
-  }
-
-  return content
 }
 
 const SimpleMindmapNodeSchema: z.ZodType<SimpleMindmapNode> = z.lazy(() =>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getDbPool } from "@/lib/mysql"
 import { getHuggingFaceEmbedding } from "@/lib/hf-embedder"
 import { index as pineconeIndex } from "@/lib/pinecone"
+import { callGemini, callGeminiStream } from "@/lib/gemini"
 
 // --- CONFIG & UTILS ---
 // Global caches to improve performance
@@ -122,13 +123,14 @@ Câu hỏi:
 =====================
 KẾT QUẢ (CHỈ 1 TỪ):
 `;
-		const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&cache=true`)
-		const intent = (await res.text()).trim().toUpperCase()
+		const intentText = await callGemini(prompt, { temperature: 0 })
+		const intent = intentText.trim().toUpperCase()
 
 		if (intent.includes("DISCOVERY")) return "DISCOVERY"
 		if (intent.includes("CASUAL")) return "CASUAL"
 		return "ACADEMIC"
-	} catch {
+	} catch (err) {
+		console.error("[classifyIntent.error]", err)
 		return "ACADEMIC"
 	}
 }
@@ -139,15 +141,17 @@ async function expandQueryForSearch(query: string, history: string): Promise<str
 
 	try {
 		const prompt = `Dựa vào Lịch sử: "${history}". Viết lại câu hỏi: "${query}" thành một cụm từ khóa tìm kiếm ngắn gọn (tối đa 6 từ). BẮT BUỘC CHỈ IN RA TỪ KHÓA, TUYỆT ĐỐI KHÔNG GIẢI THÍCH, KHÔNG TRẢ LỜI CÂU HỎI.`
-		const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&cache=true`)
-		const text = (await res.text()).trim()
+		const text = (await callGemini(prompt, { temperature: 0.1 })).trim()
 
 		// Nếu AI bị ảo giác và trả về câu văn quá dài (trả lời luôn câu hỏi), dùng lại query gốc
 		if (text.length > 100 || text.includes("###") || text.includes("**")) {
 			return query
 		}
 		return text
-	} catch { return query }
+	} catch (err) { 
+		console.error("[expandQueryForSearch.error]", err)
+		return query 
+	}
 }
 
 async function getCachedEmbedding(text: string) {
@@ -339,60 +343,31 @@ export async function handleChatbotRequest(request: Request) {
 		const contextStr = semanticChunks.map((c, i) => `[ĐOẠN ${i + 1} - MỨC ĐỘ: ${i < 2 ? "QUAN TRỌNG" : "BỔ SUNG"}]\nNguồn: ${c.title}\nĐộ liên quan: ${c.score ? c.score.toFixed(2) : "N/A"}\n\n${c.content.length > 500 ? c.content.slice(0, 500) + "..." : c.content}`).join("\n\n")
 		const docList = Array.from(new Set(semanticChunks.map(d => d.title))).map(t => `- "${t}"`).join("\n")
 
-		const res = await fetch("https://text.pollinations.ai/v1/chat/completions", {
-			method: "POST",
-			headers: { Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY || process.env.GEMINI_API_KEY || ""}`, "Content-Type": "application/json" },
-			body: JSON.stringify({
-				model: "openai",
-				messages: [
-					{ role: "system", content: getSystemPrompt(intent) },
-					{ role: "user", content: `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TÀI LIỆU CÓ THỂ SỬ DỤNG (CHỈ TRÍCH DẪN NẾU THỰC SỰ CẦN THIẾT):\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}` }
-				],
-				temperature: 0.2,
-				stream: true
-			})
+		const userPrompt = `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TÀI LIỆU CÓ THỂ SỬ DỤNG (CHỈ TRÍCH DẪN NẾU THỰC SỰ CẦN THIẾT):\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}`
+
+		const resultStream = await callGeminiStream(userPrompt, {
+			systemInstruction: getSystemPrompt(intent),
+			temperature: 0.2,
 		})
 
 		const encoder = new TextEncoder()
-		const decoder = new TextDecoder()
 
 		const stream = new ReadableStream({
 			async start(controller) {
 				let fullAnswer = ""
 
 				try {
-					if (res.body) {
-						const reader = res.body.getReader()
-						let buffer = ""
-						while (true) {
-							// Kiểm tra nếu client đã ngắt kết nối (bấm Hủy/Ctrl+C)
-							if (request.signal.aborted) {
-								console.log("[api/chatbot] Client aborted connection. Stopping stream.")
-								reader.cancel()
-								return
-							}
+					for await (const chunk of resultStream.stream) {
+						// Kiểm tra nếu client đã ngắt kết nối (bấm Hủy/Ctrl+C)
+						if (request.signal.aborted) {
+							console.log("[api/chatbot] Client aborted connection. Stopping stream.")
+							return
+						}
 
-							const { value, done } = await reader.read()
-							if (done) break
-
-							buffer += decoder.decode(value, { stream: true })
-							const lines = buffer.split('\n')
-							buffer = lines.pop() || "" // Keep incomplete line in buffer
-
-							for (const line of lines) {
-								if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-									try {
-										const data = JSON.parse(line.slice(6))
-										const content = data.choices[0]?.delta?.content || ""
-										if (content) {
-											fullAnswer += content
-											controller.enqueue(encoder.encode(content))
-										}
-									} catch (e) {
-										// Ignore parse errors from chunk chunks
-									}
-								}
-							}
+						const chunkText = chunk.text()
+						if (chunkText) {
+							fullAnswer += chunkText
+							controller.enqueue(encoder.encode(chunkText))
 						}
 					}
 				} catch (err) {

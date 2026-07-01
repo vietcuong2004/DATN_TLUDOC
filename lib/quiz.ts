@@ -4,6 +4,7 @@ export interface QuizQuestion {
   correctIndex: number
   explanation: string // Bắt buộc phải có để hiển thị lời giải trên giao diện
 }
+import { callGemini } from "@/lib/gemini"
 
 export interface QuizGenerationOptions {
   text: string
@@ -56,7 +57,6 @@ function smartChunk(text: string, maxChars = 2500, maxChunks = 6) {
     }
   }
 
-  // Đóng gói mẩu văn bản cuối cùng (nếu còn sót lại)
   if (currentChunk.length > 0 && chunks.length < maxChunks) {
     chunks.push({ text: currentChunk.join(" ") })
   }
@@ -64,11 +64,6 @@ function smartChunk(text: string, maxChars = 2500, maxChunks = 6) {
   return chunks
 }
 
-/**
- * TRÁI TIM GIAO TIẾP VỚI AI (POLLINATIONS) - CƠ CHẾ PHÒNG THỦ (DEFENSIVE PROGRAMMING)
- * Thay vì gọi fetch thuần tuý, hàm này bọc vào một vòng lặp Retry (thử lại tối đa 3 lần).
- * AI có lúc nhạy cảm, bị quá tải và trả về dữ liệu rỗng. Việc Retry tự động giúp tăng tỉ lệ gọi thành công.
- */
 async function callPollinationsChat(options: {
   apiKey?: string
   model?: string
@@ -76,66 +71,16 @@ async function callPollinationsChat(options: {
   maxTokens: number
   messages: Array<{ role: string; content: string }>
 }) {
-  const baseModel = normalizeModelName(options.model || "openai")
-  let lastError: Error | null = null
+  const userMessage = options.messages.find(m => m.role === "user")?.content || "";
+  const systemMessage = options.messages.find(m => m.role === "system")?.content || undefined;
 
-  // Đặt vòng lặp để cứu vãn nếu AI bị ngáo (trả về Empty content)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      // Thủ thuật: Ở lần thử đầu tiên (attempt = 0), dùng model người dùng chỉ định.
-      // Nếu lặp lại (attempt > 0) do lỗi, ta tự động rớt về model thuần mặc định của hệ thống cho an toàn.
-      const modelToUse = attempt > 0 ? undefined : baseModel
-      
-      const body = {
-        messages: [
-          // Ép AI luôn ngầm định trả về dạng JSON để Web có thể dùng data
-          { role: "system", content: "You are a quiz generator. Always return valid JSON." },
-          ...options.messages.map(m => ({
-            ...m,
-            // Với mỗi message cuối, lại nhắc AI trả định dạng JSON một lần nữa (Phòng bệnh cá vàng của AI)
-            content: m.content.toLowerCase().includes("json") 
-              ? m.content 
-              : m.content + "\n\nReturn result in JSON format."
-          }))
-        ],
-        // Giảm nhiệt độ sáng tạo (temperature) trong các lần bị lỗi để AI trả lời bám sát khuôn mẫu khô khan hơn
-        temperature: attempt > 0 ? Math.max(0.1, options.temperature - 0.1) : options.temperature,
-        max_tokens: options.maxTokens,
-        jsonMode: true,
-      } as Record<string, any>
-      if (modelToUse) body.model = modelToUse;
-
-      const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const errorBody = await response.text()
-        throw new Error(`Pollinations error (${response.status}): ${errorBody || "Unknown"}`)
-      }
-
-      const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> }
-      const content = payload?.choices?.[0]?.message?.content?.trim() ?? ""
-      
-      if (content) {
-        // Ghi log câu trả lời thô từ AI gửi về
-        console.log("--- QUIZ: AI RAW RESPONSE ---");
-        console.log(content);
-        console.log("-----------------------------");
-        return content
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.warn(`[quiz] Pollinations API attempt ${attempt + 1} failed: ${lastError.message}`)
-    }
-  }
-
-  throw lastError || new Error("Failed to call Pollinations API after 3 attempts")
+  return callGemini(userMessage, {
+    systemInstruction: systemMessage,
+    temperature: options.temperature,
+    model: options.model,
+    maxTokens: options.maxTokens,
+    jsonMode: true,
+  })
 }
 
 /**

@@ -16,10 +16,10 @@ export async function POST(request: Request) {
   try {
     const body = RequestSchema.parse(await request.json())
 
-    const apiKey = process.env.POLLINATIONS_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY || process.env.POLLINATIONS_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Thieu POLLINATIONS_API_KEY. Vui long cau hinh bien moi truong de sinh mindmap." },
+        { error: "Thieu GEMINI_API_KEY hoac POLLINATIONS_API_KEY. Vui long cau hinh bien moi truong de sinh mindmap." },
         { status: 500 },
       )
     }

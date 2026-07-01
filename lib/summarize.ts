@@ -1,5 +1,6 @@
 import "@/lib/polyfills"
 import mammoth from "mammoth"
+import { callGemini } from "@/lib/gemini"
 
 const pdfParse = require("pdf-parse")
 
@@ -360,119 +361,20 @@ async function callWithRetries<T>(fn: (temperature: number) => Promise<T>, tempe
 }
 
 async function callPollinationsChat(options: PollinationsOptions) {
-  const model = normalizeModelName(options.model || "openai")
-  const response = await fetch("https://text.pollinations.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${options.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: options.messages,
+  try {
+    const userMessage = options.messages.find((m) => m.role === "user")?.content || ""
+    const systemMessage = options.messages.find((m) => m.role === "system")?.content || undefined
+
+    return await callGemini(userMessage, {
+      systemInstruction: systemMessage,
       temperature: options.temperature,
-      max_tokens: options.maxTokens,
-    }),
-  })
-
-  if (!response.ok) {
-    const errorBody = await response.text()
-    throw new Error(`Pollinations error (${response.status}): ${errorBody || "Unknown error"}`)
-  }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string
-        reasoning_content?: string
-      }
-      text?: string
-      output_text?: string
-      content?: string
-    }>
-    output_text?: string
-    text?: string
-    message?: {
-      content?: string
-    }
-  }
-
-  const firstChoice = payload.choices?.[0]
-  const content =
-    firstChoice?.message?.content?.trim() ??
-    firstChoice?.message?.reasoning_content?.trim() ??
-    firstChoice?.text?.trim() ??
-    firstChoice?.output_text?.trim() ??
-    firstChoice?.content?.trim() ??
-    payload.output_text?.trim() ??
-    payload.text?.trim() ??
-    payload.message?.content?.trim() ??
-    ""
-
-  if (content) {
-    return content
-  }
-
-  // First fallback: retry chat-completions with a safe baseline model and concise prompt.
-  const compactPrompt = options.messages.map((message) => message.content).join("\n\n").slice(0, 6000)
-  const retryResponse = await fetch("https://text.pollinations.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${options.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai",
-      messages: [{ role: "user", content: compactPrompt }],
-      temperature: Math.min(options.temperature, 0.2),
-      max_tokens: Math.min(options.maxTokens, 700),
-    }),
-  })
-
-  if (retryResponse.ok) {
-    const retryPayload = (await retryResponse.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string
-        }
-        text?: string
-      }>
-      text?: string
-    }
-
-    const retryText =
-      retryPayload.choices?.[0]?.message?.content?.trim() ??
-      retryPayload.choices?.[0]?.text?.trim() ??
-      retryPayload.text?.trim() ??
-      ""
-
-    if (retryText) {
-      return retryText
-    }
-  }
-
-  // Second fallback: plain text endpoint only for short prompt to avoid URL-length 404.
-  const plainPrompt = compactPrompt.slice(0, 400)
-  const plainResponse = await fetch(
-    `https://text.pollinations.ai/${encodeURIComponent(plainPrompt)}?key=${encodeURIComponent(options.apiKey)}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${options.apiKey}`,
-      },
-    },
-  )
-
-  if (!plainResponse.ok) {
+      model: options.model,
+      maxTokens: options.maxTokens,
+    })
+  } catch (error) {
+    console.error("[summarize.callGemini.error]", error)
     return buildDeterministicFallback(options.messages, options.summaryType ?? "paragraph")
   }
-
-  const plainText = (await plainResponse.text()).trim()
-  if (!plainText) {
-    return buildDeterministicFallback(options.messages, options.summaryType ?? "paragraph")
-  }
-
-  return plainText
 }
 
 async function summarizeChunk(chunkText: string, summaryType: SummaryFormat, apiKey: string, model: string) {
