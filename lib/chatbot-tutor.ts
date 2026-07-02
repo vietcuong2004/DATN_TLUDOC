@@ -179,7 +179,7 @@ CHỈ THỊ ĐỊNH DẠNG (BẮT BUỘC):
 - In đậm **thuật ngữ** quan trọng. Sử dụng LaTeX \( \) CHỈ DÀNH CHO công thức toán học. BẮT BUỘC sử dụng markdown code block (\`code\`) cho các đoạn mã lập trình, cú pháp, hoặc tên biến. TUYỆT ĐỐI KHÔNG dùng LaTeX cho code.
 RÀNG BUỘC (QUAN TRỌNG):
 - BẮT BUỘC đi thẳng vào giải thích kiến thức. TUYỆT ĐỐI KHÔNG mở đầu bằng việc nhắc lại câu hỏi.
-- Khi nhắc đến tên tài liệu cụ thể trong bài (Mục I-IV), hãy viết theo mẫu: "(tài liệu [Tên tài liệu])". Đây là căn cứ duy nhất để liệt kê vào mục V.
+- BẮT BUỘC: Khi sử dụng thông tin từ tài liệu nào, bạn phải viết kèm nguồn chính xác theo mẫu: "(tài liệu [Tên tài liệu])" (ví dụ: (tài liệu CSDL-Chuong 6-Dang chuan va chuan hoa)) ở cuối các câu hoặc các ý tương ứng trong các mục từ I đến IV.
 - CHỈ sử dụng kiến thức trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" làm lý thuyết nền tảng. Tuyệt đối không tự bịa kiến thức lý thuyết khác ngoài tài liệu.
 - Đối với phần "III. Ví dụ minh họa": Nếu tài liệu trích xuất không có sẵn ví dụ hoặc code mẫu, bạn BẮT BUỘC sử dụng kiến thức chuyên môn của mình để tự soạn một ví dụ minh họa hoặc đoạn code mẫu thực tế, chính xác và dễ hiểu nhất để làm rõ cho phần lý thuyết ở trên.`
 }
@@ -263,11 +263,12 @@ export async function handleChatbotRequest(request: Request) {
 					}
 				}
 
-				// 2. Truy vấn trực tiếp từ Pinecone (Lấy nhiều hơn để lọc)
+				// 2. Truy vấn trực tiếp từ Pinecone (Lọc theo môn học nếu nhận diện được môn học mục tiêu)
 				const queryResponse = await pineconeIndex.query({
 					vector: queryVector,
 					topK: 25,
 					includeMetadata: true,
+					filter: forcedSubjectId ? { subject_id: { $eq: forcedSubjectId } } : undefined
 				})
 
 				// 3. Chuyển đổi kết quả Pinecone
@@ -389,6 +390,13 @@ export async function handleChatbotRequest(request: Request) {
 						}
 					}
 				})
+
+				// Fallback: Nếu không quét được tài liệu nào từ câu trả lời nhưng có semanticChunks, tự động lấy các tài liệu tìm thấy từ RAG
+				if (usedDocsMap.size === 0 && semanticChunks.length > 0) {
+					semanticChunks.forEach(c => {
+						if (c) usedDocsMap.set(c.id, c)
+					})
+				}
 
 				if (intent === "ACADEMIC" && usedDocsMap.size > 0) {
 					let sectionV = "\n\n## V. Tài liệu tham khảo\n"
