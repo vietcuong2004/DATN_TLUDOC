@@ -96,7 +96,7 @@ async function extractPdfText(buffer: Buffer) {
       const parsed = await legacyPdfParse(buffer)
       return normalizeWhitespace(parsed.text ?? "")
     }
-    
+
     throw new Error("Phiên bản pdf-parse không tương thích")
   } catch (error) {
     console.error("[summarize] Lỗi khi đọc PDF:", error)
@@ -214,9 +214,9 @@ function normalizeBulletLines(text: string) {
     directLines.length > 1
       ? directLines
       : cleanedText
-          .split(/(?<=[.!?])\s+/)
-          .map((line) => line.trim())
-          .filter(Boolean)
+        .split(/(?<=[.!?])\s+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
 
   return candidateLines
     .map((line) => line.replace(/^[\s•\-*\u2022:;,.\-]+/, "").trim())
@@ -513,7 +513,7 @@ async function generateFinalSummary(options: {
 }) {
   const languageGuide = options.language === "vi" ? "Tiếng Việt" : "English"
   const systemPrompt = "Bạn là chuyên gia phân tích và tóm tắt tài liệu. Bạn PHẢI trả về kết quả dưới dạng JSON chính xác theo cấu trúc được yêu cầu."
-  
+
   const prompt = `Bạn hãy phân tích tài liệu sau và tạo ra một bản tóm tắt có cấu trúc JSON chính xác bằng ${languageGuide}.
 Tên tài liệu: "${options.fileName}"
 Độ dài mong muốn: ${options.summaryLength}%
@@ -601,7 +601,7 @@ function mergeSummaries(summaries: string[]) {
 
 function safeParseSummaryJson(rawText: string, extractedText: string, options: any) {
   let cleaned = rawText.trim()
-  
+
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:json|markdown)?\s*/i, "")
     cleaned = cleaned.replace(/\s*```$/i, "")
@@ -671,7 +671,7 @@ function safeParseSummaryJson(rawText: string, extractedText: string, options: a
 
   const content = sentences.slice(0, 5).join(" ")
   const highlights = sentences.slice(0, 5).map(s => s.replace(/^•\s*/, ""))
-  
+
   return {
     title: `Tóm tắt ${options.file?.name || "tài liệu"}`,
     content: content || "Không có nội dung tóm tắt.",
@@ -698,7 +698,7 @@ export async function generateSummaryFromFile(options: {
   language: SummaryLanguage
   maxChunkChars?: number
   maxChunks?: number
-}) : Promise<SummaryResult> {
+}): Promise<SummaryResult> {
   const extractedText = preprocessText(await extractTextFromFile(options.file))
 
   if (!extractedText || extractedText.length < 100) {
@@ -747,7 +747,7 @@ export async function generateSummaryFromFile(options: {
   })
 
   const parsedSummary = safeParseSummaryJson(summaryRaw, extractedText, options)
-  
+
   // Format as a stringified JSON to be stored in Database and returned to Client
   const summaryJsonStr = JSON.stringify({ summary: parsedSummary })
 
