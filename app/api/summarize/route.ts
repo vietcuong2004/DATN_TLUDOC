@@ -27,15 +27,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Vui lòng chọn file PDF hoặc Word (.docx)." }, { status: 400 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.POLLINATIONS_API_KEY
+    const apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.POLLINATIONS_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Thiếu GEMINI_API_KEY hoặc POLLINATIONS_API_KEY. Vui lòng cấu hình biến môi trường để tóm tắt tài liệu." },
+        { error: "Thiếu OPENAI_API_KEY, GEMINI_API_KEY hoặc POLLINATIONS_API_KEY. Vui lòng cấu hình biến môi trường để tóm tắt tài liệu." },
         { status: 500 },
       )
     }
 
-    const model = (process.env.SUMMARY_MODEL || process.env.CHATBOT_MODEL || "openai").trim()
+    const model = (process.env.SUMMARY_MODEL || process.env.CHATBOT_MODEL || "gpt-4o-mini").trim()
     const maxChunkChars = Number.parseInt(process.env.SUMMARY_CHUNK_MAX_CHARS || "2500", 10)
     const maxChunks = Number.parseInt(process.env.SUMMARY_MAX_CHUNKS || "8", 10)
 

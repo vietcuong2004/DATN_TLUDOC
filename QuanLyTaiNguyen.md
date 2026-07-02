@@ -35,6 +35,14 @@
 
 ---
 
+## 💰 Monitoring OpenAI (ChatGPT)
+
+| 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |
+|---|---|---|
+| Tạo & Quản lý API Key | OpenAI Platform | [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| API Documentation | OpenAI Developer | [OpenAI API Docs](https://developers.openai.com/api/docs/guides/text) |
+| Chi tiết chi phí & Billing | OpenAI Platform | [https://platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview) |
+
 ## 💰 Monitoring HuggingFace & Pinecone API
 
 | 📊 Mục Đích | 🌐 Nền Tảng | 🔗 Link |

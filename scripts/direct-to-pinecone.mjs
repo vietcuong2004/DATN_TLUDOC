@@ -19,7 +19,34 @@ const hf = new HfInference(HF_TOKEN);
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 const index = pc.index(process.env.PINECONE_INDEX_NAME);
 
+const SYNC_CACHE_FILE = path.join(__dirname, 'synced-docs.json');
+
 // 2. Các hàm bổ trợ
+function getSyncedDocIds() {
+  try {
+    if (fs.existsSync(SYNC_CACHE_FILE)) {
+      const content = fs.readFileSync(SYNC_CACHE_FILE, 'utf8');
+      const data = JSON.parse(content);
+      return Array.isArray(data.synced_document_ids) ? data.synced_document_ids : [];
+    }
+  } catch (e) {
+    console.error("⚠️ Lỗi đọc file synced-docs.json, sẽ đồng bộ từ đầu:", e.message);
+  }
+  return [];
+}
+
+function saveSyncedDocId(docId) {
+  try {
+    const syncedIds = getSyncedDocIds();
+    if (!syncedIds.includes(docId)) {
+      syncedIds.push(docId);
+      fs.writeFileSync(SYNC_CACHE_FILE, JSON.stringify({ synced_document_ids: syncedIds }, null, 2), 'utf8');
+    }
+  } catch (e) {
+    console.error("⚠️ Lỗi ghi file synced-docs.json:", e.message);
+  }
+}
+
 async function getEmbedding(text) {
   const cleanText = text.replace(/\s+/g, " ").trim();
   const result = await hf.featureExtraction({
@@ -55,9 +82,17 @@ async function main() {
 
   console.log(`🔍 Tìm thấy ${documents.length} tài liệu trong danh sách.`);
 
+  const syncedDocIds = getSyncedDocIds();
+  console.log(`ℹ️ Đã đồng bộ trước đó: ${syncedDocIds.length} tài liệu.`);
+
   for (const doc of documents) {
     if (doc.file_ext !== "pdf") {
       console.log(`⏭️ Bỏ qua ${doc.title} (chỉ hỗ trợ PDF).`);
+      continue;
+    }
+
+    if (syncedDocIds.includes(doc.id)) {
+      console.log(`⏭️ Bỏ qua ${doc.title} (Đã đồng bộ trước đó).`);
       continue;
     }
 
@@ -85,6 +120,8 @@ async function main() {
       console.log(`   - Chia thành ${chunks.length} mảnh. Đang tạo embedding và đẩy lên Pinecone...`);
 
       const vectors = [];
+      let docError = false;
+
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
         try {
@@ -110,14 +147,24 @@ async function main() {
           }
         } catch (embedError) {
           console.error(`\n   ❌ Lỗi tạo embedding mảnh ${i}:`, embedError.message);
-          if (embedError.message.includes("503")) {
+          // Cho phép thử lại khi gặp bất kỳ lỗi kết nối HTTP/503 nào từ Hugging Face
+          if (embedError.message.includes("503") || embedError.message.includes("inference") || embedError.message.includes("provider")) {
+            console.log("   (Mô hình quá tải hoặc lỗi kết nối, nghỉ 10s...)");
             await new Promise(r => setTimeout(r, 10000));
             i--; // Thử lại
+          } else {
+            docError = true;
           }
         }
         await new Promise(r => setTimeout(r, 100)); // Tránh rate limit HF
       }
-      console.log(`\n   ✅ Đã nạp thành công lên Pinecone.`);
+      
+      if (!docError) {
+        console.log(`\n   ✅ Đã nạp thành công lên Pinecone.`);
+        saveSyncedDocId(doc.id); // Lưu vết thành công khi không có lỗi nghiêm trọng
+      } else {
+        console.log(`\n   ⚠️ Hoàn thành với một số mảnh bị lỗi, không lưu vết để lần sau chạy lại.`);
+      }
 
     } catch (error) {
       console.error(`❌ Lỗi khi xử lý ${doc.title}:`, error.message);

@@ -4,7 +4,7 @@ export interface QuizQuestion {
   correctIndex: number
   explanation: string // Bắt buộc phải có để hiển thị lời giải trên giao diện
 }
-import { callGemini } from "@/lib/gemini"
+import { callAiModel } from "@/lib/ai-model"
 
 export interface QuizGenerationOptions {
   text: string
@@ -74,7 +74,7 @@ async function callPollinationsChat(options: {
   const userMessage = options.messages.find(m => m.role === "user")?.content || "";
   const systemMessage = options.messages.find(m => m.role === "system")?.content || undefined;
 
-  return callGemini(userMessage, {
+  return callAiModel(userMessage, {
     systemInstruction: systemMessage,
     temperature: options.temperature,
     model: options.model,
