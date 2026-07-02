@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { callGemini } from "@/lib/gemini"
+import { callAiModel } from "@/lib/ai-model"
 
 export type MindmapNode = {
   id: string
@@ -35,7 +35,7 @@ async function callPollinationsChat(options: {
   temperature: number
   maxTokens: number
 }) {
-  return callGemini(options.userPrompt, {
+  return callAiModel(options.userPrompt, {
     systemInstruction: options.systemPrompt,
     temperature: options.temperature,
     model: options.model,

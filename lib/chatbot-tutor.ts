@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getDbPool } from "@/lib/mysql"
 import { getHuggingFaceEmbedding } from "@/lib/hf-embedder"
 import { index as pineconeIndex } from "@/lib/pinecone"
-import { callGemini, callGeminiStream } from "@/lib/gemini"
+import { callAiModel, callAiModelStream } from "@/lib/ai-model"
 
 // --- CONFIG & UTILS ---
 // Global caches to improve performance
@@ -123,7 +123,7 @@ Câu hỏi:
 =====================
 KẾT QUẢ (CHỈ 1 TỪ):
 `;
-		const intentText = await callGemini(prompt, { temperature: 0 })
+		const intentText = await callAiModel(prompt, { temperature: 0 })
 		const intent = intentText.trim().toUpperCase()
 
 		if (intent.includes("DISCOVERY")) return "DISCOVERY"
@@ -141,7 +141,7 @@ async function expandQueryForSearch(query: string, history: string): Promise<str
 
 	try {
 		const prompt = `Dựa vào Lịch sử: "${history}". Viết lại câu hỏi: "${query}" thành một cụm từ khóa tìm kiếm ngắn gọn (tối đa 6 từ). BẮT BUỘC CHỈ IN RA TỪ KHÓA, TUYỆT ĐỐI KHÔNG GIẢI THÍCH, KHÔNG TRẢ LỜI CÂU HỎI.`
-		const text = (await callGemini(prompt, { temperature: 0.1 })).trim()
+		const text = (await callAiModel(prompt, { temperature: 0.1 })).trim()
 
 		// Nếu AI bị ảo giác và trả về câu văn quá dài (trả lời luôn câu hỏi), dùng lại query gốc
 		if (text.length > 100 || text.includes("###") || text.includes("**")) {
@@ -345,7 +345,7 @@ export async function handleChatbotRequest(request: Request) {
 
 		const userPrompt = `LỊCH SỬ HỘI THOẠI GẦN ĐÂY:\n${historyContext}\n\n${systemMap ? `DỮ LIỆU HIỆN TẠI:\n${systemMap}\n\n` : ''}NỘI DUNG CHI TIẾT TỪ TÀI LIỆU:\n${contextStr}\n\nDANH SÁCH TÀI LIỆU CÓ THỂ SỬ DỤNG (CHỈ TRÍCH DẪN NẾU THỰC SỰ CẦN THIẾT):\n${docList}\n\nCÂU HỎI HIỆN TẠI: ${message}`
 
-		const resultStream = await callGeminiStream(userPrompt, {
+		const resultStream = await callAiModelStream(userPrompt, {
 			systemInstruction: getSystemPrompt(intent),
 			temperature: 0.2,
 		})

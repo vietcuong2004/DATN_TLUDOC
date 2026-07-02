@@ -1,6 +1,6 @@
 import "@/lib/polyfills"
 import mammoth from "mammoth"
-import { callGemini } from "@/lib/gemini"
+import { END_POINT } from "@/lib/ai-model"
 
 const pdfParse = require("pdf-parse")
 
@@ -28,12 +28,13 @@ type TextChunk = {
   endIdx: number
 }
 
-type PollinationsOptions = {
+type OpenAIOptions = {
   apiKey: string
   model: string
   temperature: number
   maxTokens: number
   summaryType?: SummaryFormat
+  jsonMode?: boolean
   messages: Array<{
     role: "system" | "user" | "assistant"
     content: string
@@ -136,8 +137,9 @@ export async function extractTextFromFile(file: File) {
 export function preprocessText(text: string) {
   return text
     .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
 
@@ -162,7 +164,7 @@ export function smartChunk(text: string, targetSize = 2500): TextChunk[] {
     }
 
     const chunkText = text.slice(currentIdx, endIdx).trim()
-    if (chunkText.length > 100) {
+    if (chunkText.length > 100 || chunks.length === 0 || endIdx === text.length) {
       chunks.push({
         id: `chunk-${chunkNumber}`,
         text: chunkText,
@@ -247,8 +249,23 @@ function estimateMaxTokens(summaryLength: number, summaryType: SummaryFormat) {
 
 function buildDeterministicFallback(messages: Array<{ content: string }>, summaryType: SummaryFormat) {
   const joined = messages.map((message) => message.content).join("\n\n")
-  const markedIndex = joined.indexOf("=== NỘI DUNG CẦN TÓM TẮT ===")
-  const source = normalizeWhitespace(markedIndex >= 0 ? joined.slice(markedIndex + 28) : joined)
+  
+  let markedIndex = joined.indexOf("=== NỘI DUNG CẦN TÓM TẮT ===")
+  let markerLength = 28
+  if (markedIndex === -1) {
+    markedIndex = joined.indexOf("=== NỘI DUNG TÀI LIỆU ===")
+    markerLength = 25
+  }
+  if (markedIndex === -1) {
+    markedIndex = joined.indexOf("=== ĐOẠN VĂN BẢN ===")
+    markerLength = 20
+  }
+  if (markedIndex === -1) {
+    markedIndex = joined.indexOf("=== NỘI DUNG ===")
+    markerLength = 16
+  }
+
+  const source = normalizeWhitespace(markedIndex >= 0 ? joined.slice(markedIndex + markerLength) : joined)
 
   const sentences = source
     .split(/(?<=[.!?])\s+/)
@@ -360,20 +377,56 @@ async function callWithRetries<T>(fn: (temperature: number) => Promise<T>, tempe
   throw (lastError instanceof Error ? lastError : new Error("Retry failed"))
 }
 
-async function callPollinationsChat(options: PollinationsOptions) {
-  try {
-    const userMessage = options.messages.find((m) => m.role === "user")?.content || ""
-    const systemMessage = options.messages.find((m) => m.role === "system")?.content || undefined
+function getOpenAIModelName(modelName: string) {
+  const trimmed = modelName.trim().toLowerCase()
+  if (trimmed === "gpt-5.4-mini") {
+    return "gpt-4o-mini"
+  }
+  if (trimmed.startsWith("gpt-") || trimmed.startsWith("o1-") || trimmed.startsWith("o3-")) {
+    return trimmed
+  }
+  return "gpt-4o-mini"
+}
 
-    return await callGemini(userMessage, {
-      systemInstruction: systemMessage,
+async function callOpenAIChat(options: OpenAIOptions) {
+  const model = getOpenAIModelName(options.model || "gpt-4o-mini")
+  
+  try {
+    const body: any = {
+      model,
+      messages: options.messages,
       temperature: options.temperature,
-      model: options.model,
-      maxTokens: options.maxTokens,
+      max_tokens: options.maxTokens,
+    }
+
+    if (options.jsonMode) {
+      body.response_format = { type: "json_object" }
+    }
+
+    const response = await fetch(END_POINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${options.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     })
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new Error(`OpenAI API error (${response.status}): ${errorBody || "Unknown error"}`)
+    }
+
+    const payload = await response.json()
+    const content = payload.choices?.[0]?.message?.content?.trim() || ""
+    if (content) {
+      return content
+    }
+
+    throw new Error("Empty response from OpenAI API")
   } catch (error) {
-    console.error("[summarize.callGemini.error]", error)
-    return buildDeterministicFallback(options.messages, options.summaryType ?? "paragraph")
+    console.error("[summarize.callOpenAIChat.error]", error)
+    throw error
   }
 }
 
@@ -385,7 +438,7 @@ async function summarizeChunk(chunkText: string, summaryType: SummaryFormat, api
 
   return callWithRetries(
     async (temperature) =>
-      callPollinationsChat({
+      callOpenAIChat({
         apiKey,
         model,
         summaryType,
@@ -424,7 +477,7 @@ async function generateGlobalHint(text: string, apiKey: string, model: string) {
 
   return callWithRetries(
     async (temperature) =>
-      callPollinationsChat({
+      callOpenAIChat({
         apiKey,
         model,
         temperature,
@@ -457,7 +510,7 @@ async function summarizeChunkWithContext(
 
   return callWithRetries(
     async (temperature) =>
-      callPollinationsChat({
+      callOpenAIChat({
         apiKey,
         model,
         summaryType,
@@ -490,7 +543,7 @@ async function refineSummaries(
 
   return callWithRetries(
     async (temperature) =>
-      callPollinationsChat({
+      callOpenAIChat({
         apiKey,
         model,
         summaryType,
@@ -561,12 +614,13 @@ ${options.refinedText}`
 
   const modelResponse = await callWithRetries(
     async (temperature) =>
-      callPollinationsChat({
+      callOpenAIChat({
         apiKey: options.apiKey,
         model: options.model,
         summaryType: options.summaryType,
         temperature,
         maxTokens: 1600,
+        jsonMode: true,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
@@ -602,9 +656,16 @@ function mergeSummaries(summaries: string[]) {
 function safeParseSummaryJson(rawText: string, extractedText: string, options: any) {
   let cleaned = rawText.trim()
 
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json|markdown)?\s*/i, "")
-    cleaned = cleaned.replace(/\s*```$/i, "")
+  // Trích xuất JSON từ markdown block code hoặc giữa cặp ngoặc nhọn {} ngoài cùng
+  const markdownJsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (markdownJsonMatch) {
+    cleaned = markdownJsonMatch[1].trim()
+  } else {
+    const startIdx = cleaned.indexOf("{")
+    const endIdx = cleaned.lastIndexOf("}")
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      cleaned = cleaned.slice(startIdx, endIdx + 1).trim()
+    }
   }
   cleaned = cleaned.trim()
 
