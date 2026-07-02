@@ -26,7 +26,7 @@ interface DocumentCardProps {
 
 export function DocumentCard({ document }: DocumentCardProps) {
   return (
-    <Card className="group overflow-hidden border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-[0_15px_35px_-12px_rgba(30,64,175,0.15)] bg-white rounded-2xl flex flex-col">
+    <Card className="group overflow-hidden border-slate-200 hover:border-blue-300 transition-all duration-300 hover:shadow-[0_15px_35px_-12px_rgba(30,64,175,0.15)] bg-white rounded-2xl flex flex-col relative cursor-pointer">
       <CardContent className="p-0 flex flex-col h-full">
         {/* Image Section */}
         <div className="relative h-48 w-full shrink-0 overflow-hidden bg-slate-50 border-b border-blue-100 ring-1 ring-blue-600/10 group-hover:ring-blue-600/30 transition-all">
@@ -58,7 +58,7 @@ export function DocumentCard({ document }: DocumentCardProps) {
             </div>
 
             {/* Title */}
-            <Link href={`/document/${document.id}`} className="block">
+            <Link href={`/document/${document.id}`} className="block after:absolute after:inset-0 after:z-10">
               <h3 className="font-bold text-base mb-4 text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight h-10">
                 {document.title}
               </h3>
@@ -94,7 +94,7 @@ export function DocumentCard({ document }: DocumentCardProps) {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-2 w-full relative z-20">
               <Button variant="outline" className="flex-1 border-slate-200 hover:bg-slate-50 hover:text-blue-700 font-bold rounded-xl h-10 text-xs px-2" asChild>
                 <Link href={`/document/${document.id}`}>
                   <Eye className="mr-2 h-4 w-4" />

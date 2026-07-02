@@ -26,6 +26,7 @@ interface ChatbotSidebarProps {
   handleDeleteHistoryItem: (e: React.MouseEvent, id: number) => Promise<void>
   handleQuickQuestion: (text: string) => void
   handleNewChat: () => void
+  isCreatingNewChat?: boolean
 }
 
 export function ChatbotSidebar({
@@ -36,6 +37,7 @@ export function ChatbotSidebar({
   handleDeleteHistoryItem,
   handleQuickQuestion,
   handleNewChat,
+  isCreatingNewChat = false,
 }: ChatbotSidebarProps) {
   const formatHistoryDate = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -210,10 +212,17 @@ export function ChatbotSidebar({
 
       <Button
         onClick={handleNewChat}
-        className="w-full bg-[linear-gradient(110deg,#4f46e5,#3b82f6)] hover:bg-[linear-gradient(110deg,#4338ca,#2563eb)] text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_25px_-6px_rgba(79,70,229,0.5)] transition-all duration-300 rounded-xl py-6 flex items-center justify-center gap-2 group"
+        disabled={isCreatingNewChat}
+        className="w-full bg-[linear-gradient(110deg,#4f46e5,#3b82f6)] hover:bg-[linear-gradient(110deg,#4338ca,#2563eb)] text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_25px_-6px_rgba(79,70,229,0.5)] transition-all duration-300 rounded-xl py-6 flex items-center justify-center gap-2 group disabled:opacity-85"
       >
-        <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-        <span className="font-semibold text-base">Tạo cuộc trò chuyện mới</span>
+        {isCreatingNewChat ? (
+          <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+        ) : (
+          <>
+            <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+            <span className="font-semibold text-base">Tạo cuộc trò chuyện mới</span>
+          </>
+        )}
       </Button>
     </>
   )

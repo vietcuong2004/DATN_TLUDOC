@@ -69,6 +69,7 @@ export default function ChatbotPage() {
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isCreatingNewChat, setIsCreatingNewChat] = useState(false)
   const [mounted, setMounted] = useState(false) // Thêm trạng thái mounted
   const [selectedDoc, setSelectedDoc] = useState<{ id: number, title: string, image?: string, downloadUrl?: string } | null>(null)
   const [dbHistory, setDbHistory] = useState<HistoryItem[]>([])
@@ -344,9 +345,10 @@ export default function ChatbotPage() {
   }
 
   const handleNewChat = async () => {
-    // Chỉ lưu nếu đã có ít nhất 1 cặp câu hỏi - câu trả lời (ngoài câu chào đầu tiên)
-    if (messages.length > 1) {
-      try {
+    setIsCreatingNewChat(true)
+    try {
+      // Chỉ lưu nếu đã có ít nhất 1 cặp câu hỏi - câu trả lời (ngoài câu chào đầu tiên)
+      if (messages.length > 1) {
         const separator = "\n\n---MESSAGE_SEP---\n\n"
         const questions = messages.filter(m => m.role === "user").map(m => m.content).join(separator)
         const answers = messages
@@ -376,23 +378,24 @@ export default function ChatbotPage() {
             console.error("[Chatbot] Failed to save history:", await res.text());
           }
         }
-      } catch (err) {
-        console.error("Failed to save session history:", err)
       }
+    } catch (err) {
+      console.error("Failed to save session history:", err)
+    } finally {
+      setMessages([
+        {
+          id: "intro-" + Date.now(),
+          role: "assistant",
+          content:
+            "Xin chào! Mình là trợ lý học tập của TLU Document. Mình có thể giúp bạn tìm đúng tài liệu theo môn học, gợi ý thứ tự học phù hợp và hỗ trợ giải thích khái niệm theo ngữ cảnh học tập của bạn.",
+          timestamp: new Date(),
+        },
+      ])
+      setInput("")
+      setCurrentChatId(null)
+      setIsMobileSidebarOpen(false)
+      setIsCreatingNewChat(false)
     }
-
-    setMessages([
-      {
-        id: "intro-" + Date.now(),
-        role: "assistant",
-        content:
-          "Xin chào! Mình là trợ lý học tập của TLU Document. Mình có thể giúp bạn tìm đúng tài liệu theo môn học, gợi ý thứ tự học phù hợp và hỗ trợ giải thích khái niệm theo ngữ cảnh học tập của bạn.",
-        timestamp: new Date(),
-      },
-    ])
-    setInput("")
-    setCurrentChatId(null)
-    setIsMobileSidebarOpen(false)
   }
 
   const handleLoadHistory = (item: HistoryItem) => {
@@ -495,6 +498,7 @@ export default function ChatbotPage() {
                       handleDeleteHistoryItem={handleDeleteHistoryItem}
                       handleQuickQuestion={handleQuickQuestion}
                       handleNewChat={handleNewChat}
+                      isCreatingNewChat={isCreatingNewChat}
                     />
                   </div>
                   {/* Bottom: User Avatar */}
@@ -526,6 +530,7 @@ export default function ChatbotPage() {
                       handleDeleteHistoryItem={handleDeleteHistoryItem}
                       handleQuickQuestion={handleQuickQuestion}
                       handleNewChat={handleNewChat}
+                      isCreatingNewChat={isCreatingNewChat}
                     />
                   </div>
                 </div>
@@ -564,6 +569,7 @@ export default function ChatbotPage() {
                                   handleDeleteHistoryItem={handleDeleteHistoryItem}
                                   handleQuickQuestion={handleQuickQuestion}
                                   handleNewChat={handleNewChat}
+                                  isCreatingNewChat={isCreatingNewChat}
                                 />
                               </div>
                             </SheetContent>
@@ -589,7 +595,8 @@ export default function ChatbotPage() {
                           variant="ghost"
                           size="icon"
                           onClick={handleNewChat}
-                          className="h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0"
+                          disabled={isCreatingNewChat}
+                          className="h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0 disabled:opacity-50"
                           title="Tạo cuộc trò chuyện mới"
                         >
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

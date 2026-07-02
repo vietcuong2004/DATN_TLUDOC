@@ -334,7 +334,7 @@ export default function PreviewDocument({ document, onClose }: PreviewDocumentPr
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
           ) : document.content ? (
             document.content
-          ) : isLocalPdf && document.file ? (
+          ) : isLocalPdf && document.file && isMobile ? (
             <LocalPdfViewer file={document.file} />
           ) : showMobileFallback ? (
             <div className="flex flex-col h-full items-center justify-center p-6 bg-slate-50">
