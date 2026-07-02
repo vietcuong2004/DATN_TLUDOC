@@ -1,47 +1,35 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+import { checkUserEmailExists, createUser } from '@/lib/repositories';
 
 export async function POST(request: Request) {
   try {
     const { fullName, email, password } = await request.json();
 
-    // Kết nối Database
-    const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      port: parseInt(process.env.DB_PORT || '3306'),
-    });
+    // 1. Kiểm tra email đã tồn tại chưa qua Repository
+    const isEmailExists = await checkUserEmailExists(email);
 
-    try {
-      // 1. Kiểm tra email đã tồn tại chưa
-      const [existingUsers]: any = await connection.execute(
-        'SELECT id FROM users WHERE email = ?',
-        [email]
+    if (isEmailExists) {
+      return NextResponse.json(
+        { success: false, message: 'Email này đã được đăng ký sử dụng.' },
+        { status: 400 }
       );
+    }
 
-      if (existingUsers.length > 0) {
-        return NextResponse.json(
-          { success: false, message: 'Email này đã được đăng ký sử dụng.' },
-          { status: 400 }
-        );
-      }
+    // 2. Thêm người dùng mới qua Repository (Mặc định role là student)
+    const success = await createUser(fullName, email, password, 'student', 'active');
 
-      // 2. Thêm người dùng mới (Mặc định role là student)
-      await connection.execute(
-        'INSERT INTO users (full_name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
-        [fullName, email, password, 'student', 'active']
-      );
-
+    if (success) {
       return NextResponse.json({
         success: true,
         message: 'Đăng ký tài khoản thành công!'
       });
-
-    } finally {
-      await connection.end();
+    } else {
+      return NextResponse.json(
+        { success: false, message: 'Không thể tạo tài khoản, cấu hình DB lỗi.' },
+        { status: 500 }
+      );
     }
+
   } catch (error: any) {
     console.error('Register API Error:', error);
     return NextResponse.json(

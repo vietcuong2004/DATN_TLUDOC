@@ -148,9 +148,9 @@ async function expandQueryForSearch(query: string, history: string): Promise<str
 			return query
 		}
 		return text
-	} catch (err) { 
+	} catch (err) {
 		console.error("[expandQueryForSearch.error]", err)
-		return query 
+		return query
 	}
 }
 
@@ -170,7 +170,14 @@ function getSystemPrompt(intent: string) {
 
 	if (intent === "CASUAL") return `${base}\nGIAO TIẾP: Trả lời ngắn gọn 1 câu. Tuyệt đối không nhắc đến việc thiếu tài liệu.`
 
-	if (intent === "DISCOVERY") return `${base}\nGIỚI THIỆU: Dựa vào dữ liệu hiện tại để liệt kê. BẮT BUỘC xưng hô là "Mình" và gọi người dùng là "Bạn". Nếu được hỏi về môn học, hãy mở đầu bằng: "Mình đang có kiến thức về:". Trả lời ngắn gọn, trực tiếp, KHÔNG giải thích dông dài. Tuyệt đối không yêu cầu người dùng cung cấp tài liệu.`
+	if (intent === "DISCOVERY") return `${base}\nGIỚI THIỆU: Dựa vào dữ liệu hiện tại của hệ thống để trả lời. BẮT BUỘC xưng hô là "Mình" và gọi người dùng là "Bạn". Nếu người dùng hỏi về các môn học mà bạn có kiến thức hoặc tài liệu, bạn BẮT BUỘC phải tuân thủ định dạng sau:
+1. Mở đầu bằng câu chính xác: "Mình đang có kiến thức về các môn học:"
+2. Theo sau bởi một dòng trống (xuống dòng 2 lần).
+3. Liệt kê danh sách các môn học dưới dạng các dòng gạch đầu dòng, mỗi môn học trên một dòng độc lập, bắt đầu bằng ký tự '•' (dấu chấm tròn) theo định dạng chính xác: "• Tên môn học (Mã môn học)". Ví dụ:
+• Cấu trúc dữ liệu và giải thuật (CSE281)
+• Cơ sở dữ liệu (CSE484)
+4. Sắp xếp các môn học theo thứ tự bảng chữ cái tiếng Việt của tên môn học.
+5. Tuyệt đối KHÔNG viết chung các môn học trên một dòng cách nhau bởi dấu phẩy, KHÔNG thêm câu hỏi phụ hay bất kỳ lời giải thích nào ở cuối câu trả lời (như "Bạn cần tìm tài liệu..."). Trả lời ngắn gọn, trực tiếp, không yêu cầu người dùng cung cấp tài liệu.`
 
 	return `${base}\nHỌC THUẬT: Sử dụng "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU". 
 CHỈ THỊ ĐỊNH DẠNG (BẮT BUỘC):
@@ -237,6 +244,8 @@ export async function handleChatbotRequest(request: Request) {
 		let allAvailableDocs: any[] = []
 
 		const [subjectRows]: any = await pool.execute(`SELECT id, name, code FROM subjects`)
+		// Sort subjects alphabetically by Vietnamese name
+		subjectRows.sort((a: any, b: any) => a.name.localeCompare(b.name, "vi"))
 		const [allDocs]: any = await pool.execute(`SELECT id, title, subject_id, download_url, drive_file_id FROM documents WHERE status = 'published'`)
 		allAvailableDocs = allDocs
 		systemMap = subjectRows.map((s: any) => {

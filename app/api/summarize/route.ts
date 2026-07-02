@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { generateSummaryFromFile } from "@/lib/summarize"
-import { executeCommand } from "@/lib/mysql"
+import { saveDocumentSummary } from "@/lib/repositories"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -50,13 +50,10 @@ export async function POST(request: Request) {
       maxChunks: Number.isFinite(maxChunks) ? maxChunks : 8,
     })
 
-    // Lưu vào cơ sở dữ liệu nếu có userId
+    // Lưu vào cơ sở dữ liệu nếu có userId qua Repository
     if (userId && result.summary) {
       try {
-        await executeCommand(
-          "INSERT INTO document_summaries (user_id, document_name, summary_text, ai_model) VALUES (?, ?, ?, ?)",
-          [userId, documentName, result.summary, model]
-        );
+        await saveDocumentSummary(Number(userId), documentName, result.summary, model)
       } catch (dbError) {
         console.error("[summarize.db_error]", dbError);
         // Không throw error ở đây để người dùng vẫn nhận được kết quả tóm tắt trên UI

@@ -576,6 +576,39 @@ export async function updateDocument(id: number, title: string, description: str
   return result !== null
 }
 
+export async function getDocumentDriveFileId(id: number): Promise<string | null | undefined> {
+  if (!isDbConfigured()) return undefined
+  const rows = await queryRows<RowDataPacket & { drive_file_id: string | null }>(
+    "SELECT drive_file_id FROM documents WHERE id = ? LIMIT 1",
+    [id]
+  )
+  if (rows.length === 0) return undefined
+  return rows[0].drive_file_id
+}
+
+export async function getDocumentForVectorization(id: number): Promise<any | null> {
+  if (!isDbConfigured()) return null
+  const rows = await queryRows<RowDataPacket>(
+    "SELECT id, title, drive_file_id, subject_id, file_ext, download_url FROM documents WHERE id = ?",
+    [id]
+  )
+  return rows[0] ?? null
+}
+
+export async function saveDocumentSummary(
+  userId: number,
+  documentName: string,
+  summaryText: string,
+  aiModel: string
+): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const result = await executeCommand(
+    "INSERT INTO document_summaries (user_id, document_name, summary_text, ai_model) VALUES (?, ?, ?, ?)",
+    [userId, documentName, summaryText, aiModel]
+  )
+  return result !== null
+}
+
 export async function deleteDocument(id: number): Promise<boolean> {
   if (!isDbConfigured()) return false
   const result = await executeCommand(`DELETE FROM documents WHERE id = ?`, [id])
@@ -673,4 +706,38 @@ export async function getAdminDocumentsPaginated(
 
   return { documents, total }
 }
+
+export async function checkUserEmailExists(email: string): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const rows = await queryRows<RowDataPacket>(
+    "SELECT id FROM users WHERE email = ? LIMIT 1",
+    [email]
+  )
+  return rows.length > 0
+}
+
+export async function createUser(
+  fullName: string,
+  email: string,
+  passwordHash: string,
+  role = "student",
+  status = "active"
+): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const result = await executeCommand(
+    "INSERT INTO users (full_name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)",
+    [fullName, email, passwordHash, role, status]
+  )
+  return result !== null
+}
+
+export async function authenticateUser(email: string, passwordHash: string): Promise<any | null> {
+  if (!isDbConfigured()) return null
+  const rows = await queryRows<RowDataPacket>(
+    "SELECT id, email, full_name, role, avatar_url FROM users WHERE email = ? AND password_hash = ? LIMIT 1",
+    [email, passwordHash]
+  )
+  return rows[0] ?? null
+}
+
 

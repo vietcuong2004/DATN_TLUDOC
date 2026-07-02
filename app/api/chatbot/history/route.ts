@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getChatbotRecentHistory } from "@/lib/chatbot-db-services"
-import { getDbPool, isDbConfigured } from "@/lib/mysql"
+import { getChatbotRecentHistory, saveChatbotHistory, deleteChatbotHistoryItem, clearChatbotHistory } from "@/lib/chatbot-db-services"
+import { isDbConfigured } from "@/lib/mysql"
 
 export async function GET(request: Request) {
   try {
@@ -28,21 +28,13 @@ export async function DELETE(request: Request) {
     const userId = Number(searchParams.get("userId")) || 1
     const id = searchParams.get("id")
 
-    const pool = getDbPool()
-
     if (id) {
-      // Xóa 1 cuộc hội thoại cụ thể
-      await pool.execute(
-        "DELETE FROM chatbot_history WHERE id = ? AND user_id = ?",
-        [id, userId]
-      )
+      // Xóa 1 cuộc hội thoại cụ thể từ Repository
+      await deleteChatbotHistoryItem(userId, Number(id))
       return NextResponse.json({ message: "Deleted conversation successfully" })
     } else {
-      // Xóa TOÀN BỘ lịch sử của user
-      await pool.execute(
-        "DELETE FROM chatbot_history WHERE user_id = ?",
-        [userId]
-      )
+      // Xóa TOÀN BỘ lịch sử của user từ Repository
+      await clearChatbotHistory(userId)
       return NextResponse.json({ message: "Cleared all history successfully" })
     }
   } catch (error) {
@@ -65,23 +57,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing content" }, { status: 400 })
     }
 
-    const pool = getDbPool()
-    
-    // Lưu theo giờ Việt Nam (UTC + 7) - Giả định server DB là UTC
-    try {
-      const [result]: any = await pool.execute(
-        `INSERT INTO chatbot_history (user_id, document_id, question, answer, created_at) 
-         VALUES (?, ?, ?, ?, NOW())`,
-        [userId || 1, documentId || null, question, answer]
-      )
-      console.log("[api/chatbot/history] Insert successful, ID:", result.insertId)
-      return NextResponse.json({ message: "History saved successfully", id: result.insertId })
-    } catch (sqlError: any) {
-      console.error("[api/chatbot/history] SQL Error:", sqlError.message)
-      return NextResponse.json({ error: "Lỗi SQL: " + sqlError.message }, { status: 500 })
+    // Gọi hàm nghiệp vụ từ Repository
+    const insertId = await saveChatbotHistory({
+      userId: userId || 1,
+      documentId: documentId || null,
+      question,
+      answer
+    })
+
+    if (insertId) {
+      return NextResponse.json({ message: "History saved successfully", id: insertId })
+    } else {
+      return NextResponse.json({ error: "Không thể lưu lịch sử chat" }, { status: 500 })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("[api/chatbot/history] POST error:", error)
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 })
+    return NextResponse.json({ error: "Lỗi hệ thống: " + error.message }, { status: 500 })
   }
 }

@@ -274,3 +274,23 @@ export async function getChatbotRecentHistory(userId: number, limit = 10) {
     } : null
   }))
 }
+
+export async function deleteChatbotHistoryItem(userId: number, id: number): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const db = getDbPool()
+  const [result]: any = await db.execute(
+    "DELETE FROM chatbot_history WHERE id = ? AND user_id = ?",
+    [id, userId]
+  )
+  return result.affectedRows > 0
+}
+
+export async function clearChatbotHistory(userId: number): Promise<boolean> {
+  if (!isDbConfigured()) return false
+  const db = getDbPool()
+  const [result]: any = await db.execute(
+    "DELETE FROM chatbot_history WHERE user_id = ?",
+    [userId]
+  )
+  return result.affectedRows > 0
+}

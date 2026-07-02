@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import pdf from "pdf-parse/lib/pdf-parse.js"
 import { getHuggingFaceEmbedding } from "@/lib/hf-embedder"
 import { index as pineconeIndex } from "@/lib/pinecone"
-import { executeCommand } from "@/lib/mysql"
+import { getDocumentForVectorization } from "@/lib/repositories"
 
 function chunkText(text: string, size = 1000, overlap = 200) {
   const chunks = []
@@ -20,17 +20,12 @@ export async function POST(request: Request) {
     const { document_id } = await request.json()
     if (!document_id) return NextResponse.json({ error: "Thiếu document_id" }, { status: 400 })
 
-    // Lấy thông tin tài liệu từ DB
-    const docs = await executeCommand(
-      "SELECT id, title, drive_file_id, subject_id, file_ext, download_url FROM documents WHERE id = ?",
-      [document_id]
-    ) as any[]
+    // Lấy thông tin tài liệu từ DB qua Repository
+    const doc = await getDocumentForVectorization(Number(document_id))
 
-    if (!docs || docs.length === 0) {
+    if (!doc) {
       return NextResponse.json({ error: "Không tìm thấy tài liệu" }, { status: 404 })
     }
-
-    const doc = docs[0]
     
     if (doc.file_ext !== "pdf") {
       return NextResponse.json({ success: true, message: "Chỉ hỗ trợ Vector hóa PDF. Bỏ qua." })

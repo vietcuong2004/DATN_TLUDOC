@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAdminDocumentsPaginated, getAllSubjects, updateDocument, deleteDocument } from "@/lib/repositories"
+import { getAdminDocumentsPaginated, getAllSubjects, updateDocument, deleteDocument, getDocumentDriveFileId } from "@/lib/repositories"
 import { deleteFileFromDrive } from "@/lib/drive"
-import { queryRows } from "@/lib/mysql"
-import type { RowDataPacket } from "mysql2"
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,17 +54,12 @@ export async function DELETE(request: Request) {
 
     const id = Number(idStr)
 
-    // Lấy drive_file_id trước để xóa trên Google Drive
-    const docs = await queryRows<RowDataPacket & { drive_file_id: string | null }>(
-      "SELECT drive_file_id FROM documents WHERE id = ? LIMIT 1",
-      [id]
-    )
+    // Lấy drive_file_id trước để xóa trên Google Drive từ Repository
+    const driveFileId = await getDocumentDriveFileId(id)
 
-    if (docs.length === 0) {
+    if (driveFileId === undefined) {
       return NextResponse.json({ success: false, message: "Không tìm thấy tài liệu trong CSDL" }, { status: 404 })
     }
-
-    const driveFileId = docs[0].drive_file_id
 
     // Xóa file trên Google Drive nếu có drive_file_id
     if (driveFileId) {
