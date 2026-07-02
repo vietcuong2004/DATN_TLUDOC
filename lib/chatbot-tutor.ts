@@ -286,31 +286,22 @@ export async function handleChatbotRequest(request: Request) {
 				let targetSubjectId: number | null = forcedSubjectId
 
 				if (!targetSubjectId) {
-					const subjectScores: Record<string, number> = {}
-					scored.slice(0, 10).forEach(c => {
-						if (c.subject_id) {
-							subjectScores[c.subject_id] = (subjectScores[c.subject_id] || 0) + c.score
-						}
-					})
-
-					let maxSubjScore = 0
-					for (const [subj, score] of Object.entries(subjectScores)) {
-						if (score > maxSubjScore) {
-							maxSubjScore = score
-							targetSubjectId = Number(subj)
-						}
+					// Chọn môn học của chunk có độ tương đồng cao nhất (đứng đầu danh sách)
+					if (scored.length > 0 && scored[0].subject_id) {
+						targetSubjectId = Number(scored[0].subject_id)
 					}
 				}
 
 				// --- CƠ CHẾ THIẾT QUÂN LUẬT (HARD FILTER) ---
-				// CHỈ giữ lại tài liệu thuộc môn học mục tiêu. Xóa bỏ hoàn toàn các môn khác.
+				// CHỈ giữ lại tài liệu thuộc môn học mục tiêu khi được chỉ định rõ ràng trong câu hỏi.
+				// Nếu không chỉ định rõ môn học, lấy top 8 tài liệu tương đồng nhất từ toàn bộ index để tránh bỏ sót tri thức đúng.
 				const targetSubject = subjectRows.find((s: any) => s.id === targetSubjectId)
 
-				if (targetSubjectId !== null) {
-					console.log(`[RAG_FILTER] 🎯 Đã xác định Môn học: ${targetSubject?.name || targetSubjectId}`)
+				if (forcedSubjectId !== null) {
+					console.log(`[RAG_FILTER] 🎯 Đã xác định Môn học (Lọc cứng): ${targetSubject?.name || targetSubjectId}`)
 					semanticChunks = scored.filter(c => Number(c.subject_id) === targetSubjectId).slice(0, 5)
 				} else {
-					semanticChunks = scored.slice(0, 5)
+					semanticChunks = scored.slice(0, 8)
 				}
 
 				// YÊU CẦU TỪ USER: Ghi log chi tiết ra terminal
