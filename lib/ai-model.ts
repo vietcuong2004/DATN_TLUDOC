@@ -1,4 +1,4 @@
-export const END_POINT = process.env.AI_ENDPOINT || "https://api.openai.com/v1/chat/completions";
+export const END_POINT = "https://api.openai.com/v1/chat/completions";
 
 function getOpenAIModelName(modelName?: string) {
   const model = (modelName || process.env.CHATBOT_MODEL || "gpt-4o-mini").trim();
