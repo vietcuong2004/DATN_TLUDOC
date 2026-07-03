@@ -185,11 +185,19 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState("")
   const [editError, setEditError] = useState<string>("")
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setMindmapData(root)
     setDraftMindmap(root)
   }, [root])
+
+  useEffect(() => {
+    if (editingNodeId && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingNodeId])
 
   const layout = useMemo(() => layoutMindmap(isEditMode ? draftMindmap : mindmapData), [isEditMode, draftMindmap, mindmapData])
 
@@ -894,14 +902,7 @@ export function MindmapViewer({ root, className, onDownload, onSave }: MindmapVi
                 >
                   {editingNodeId === node.id ? (
                     <input
-                      ref={(el) => {
-                        if (el) {
-                          setTimeout(() => {
-                            el.focus()
-                            el.select()
-                          }, 50)
-                        }
-                      }}
+                      ref={inputRef}
                       title="Edit Node Title"
                       type="text"
                       className="w-full bg-transparent outline-none text-sm font-medium leading-5"
