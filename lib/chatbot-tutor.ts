@@ -168,7 +168,7 @@ function buildHistoryContext(history: any[]) {
 function getSystemPrompt(intent: string) {
 	const base = `Bạn là TutorAI chuyên gia của web TLU Document. Xưng "Mình", gọi "Bạn". Danh tính: Người quản lý kho dữ liệu của website TLU Document.`
 
-	if (intent === "CASUAL") return `${base}\nGIAO TIẾP: Trả lời ngắn gọn 1 câu. Tuyệt đối không nhắc đến việc thiếu tài liệu.`
+	if (intent === "CASUAL") return `${base}\nGIAO TIẾP: Trả lời ngắn gọn 1 câu. Tuyệt đối không nhắc đến tài liệu.`
 
 	if (intent === "DISCOVERY") return `${base}\nGIỚI THIỆU: Dựa vào dữ liệu hiện tại của hệ thống để trả lời. BẮT BUỘC xưng hô là "Mình" và gọi người dùng là "Bạn". Nếu người dùng hỏi về các môn học mà bạn có kiến thức hoặc tài liệu, bạn BẮT BUỘC phải tuân thủ định dạng sau:
 1. Mở đầu bằng câu chính xác: "Mình đang có kiến thức về các môn học:"
@@ -187,7 +187,7 @@ CHỈ THỊ ĐỊNH DẠNG (BẮT BUỘC):
 RÀNG BUỘC (QUAN TRỌNG):
 - BẮT BUỘC đi thẳng vào giải thích kiến thức. TUYỆT ĐỐI KHÔNG mở đầu bằng việc nhắc lại câu hỏi.
 - BẮT BUỘC: Khi sử dụng thông tin từ tài liệu nào, bạn phải viết kèm nguồn chính xác theo mẫu: "(tài liệu [Tên tài liệu])" (ví dụ: (tài liệu CSDL-Chuong 6-Dang chuan va chuan hoa)) ở cuối các câu hoặc các ý tương ứng trong các mục từ I đến IV.
-- CHỈ sử dụng kiến thức trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" làm lý thuyết nền tảng. Tuyệt đối không tự bịa kiến thức lý thuyết khác ngoài tài liệu.
+- CHỈ sử dụng kiến thức trong phần "NỘI DUNG CHI TIẾT TỪ TÀI LIỆU" làm lý thuyết nền tảng. Tuyệt đối không tự bịa kiến thức lý thuyết khác ngoài tài liệu. Nếu nội dung tài liệu không liên quan đến câu hỏi, bạn BẮT BUỘC phải trả lời: "Hiện mình chưa có tài liệu/kiến thức trong hệ thống về nội dung này, bạn hãy đặt câu hỏi liên quan đến tài liệu môn học khác nhé." và không được giải thích thêm gì cả.
 - Đối với phần "III. Ví dụ minh họa": Nếu tài liệu trích xuất không có sẵn ví dụ hoặc code mẫu, bạn BẮT BUỘC sử dụng kiến thức chuyên môn của mình để tự soạn một ví dụ minh họa hoặc đoạn code mẫu thực tế, chính xác và dễ hiểu nhất để làm rõ cho phần lý thuyết ở trên.`
 }
 
@@ -313,7 +313,7 @@ export async function handleChatbotRequest(request: Request) {
 					semanticChunks = scored.slice(0, 8)
 				}
 
-				// YÊU CẦU TỪ USER: Ghi log chi tiết ra terminal
+				// Ghi log chi tiết ra terminal
 				console.log(`\n[RAG_DEBUG] ====== CHI TIẾT TÀI LIỆU (PINECONE RETRIEVAL) ======`)
 				console.log(`[RAG_DEBUG] Câu hỏi: "${message}"`)
 				console.log(`[RAG_DEBUG] Môn học mục tiêu: ${targetSubject?.name || "Không xác định"}`)
@@ -330,8 +330,8 @@ export async function handleChatbotRequest(request: Request) {
 				console.log(`[RAG_DEBUG] ==============================================\n`)
 
 				// Retrieval Confidence Gate (Anti-Hallucination)
-				if (semanticChunks.length === 0 || semanticChunks[0].score < 0.2) {
-					return createTextResponse("Dựa trên hệ thống dữ liệu hiện tại, mình chưa tìm thấy thông tin phù hợp để trả lời chính xác câu hỏi này. Bạn hãy thử dùng từ khóa khác cụ thể hơn nhé.\n__METADATA__\n" + JSON.stringify({ chatId: body.chatId, documents: [] }))
+				if (semanticChunks.length === 0 || semanticChunks[0].score < 0.4) {
+					return createTextResponse("Hiện mình chưa có tài liệu/kiến thức trong hệ thống về nội dung này, bạn hãy đặt câu hỏi liên quan đến tài liệu môn học khác nhé.\n__METADATA__\n" + JSON.stringify({ chatId: body.chatId, documents: [] }))
 				}
 			} catch (err) {
 				console.error("[PINECONE_ERROR]", err)
@@ -377,25 +377,31 @@ export async function handleChatbotRequest(request: Request) {
 
 				// --- TỰ ĐỘNG TẠO MỤC V (CHỈ CHO ACADEMIC) ---
 				const usedDocsMap = new Map<number, any>()
-				const normAnswer = normalizeVietnameseText(fullAnswer).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ")
-				const docsToScan = intent === "DISCOVERY" ? allAvailableDocs : Array.from(new Set(semanticChunks.map(c => c.id))).map(id => semanticChunks.find(c => c.id === id))
+				const isRejection = fullAnswer.includes("chưa có tài liệu") || 
+				                    fullAnswer.includes("chưa có kiến thức") || 
+				                    fullAnswer.includes("chưa tìm thấy thông tin");
 
-				docsToScan.forEach(doc => {
-					if (!doc) return
-					const normTitle = normalizeVietnameseText(doc.title).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
-					if (normTitle.length > 2) {
-						const regex = new RegExp(`\\b${normTitle}\\b`, "i")
-						if (regex.test(normAnswer)) {
-							usedDocsMap.set(doc.id, doc)
+				if (!isRejection) {
+					const normAnswer = normalizeVietnameseText(fullAnswer).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ")
+					const docsToScan = intent === "DISCOVERY" ? allAvailableDocs : Array.from(new Set(semanticChunks.map(c => c.id))).map(id => semanticChunks.find(c => c.id === id))
+
+					docsToScan.forEach(doc => {
+						if (!doc) return
+						const normTitle = normalizeVietnameseText(doc.title).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
+						if (normTitle.length > 2) {
+							const regex = new RegExp(`\\b${normTitle}\\b`, "i")
+							if (regex.test(normAnswer)) {
+								usedDocsMap.set(doc.id, doc)
+							}
 						}
-					}
-				})
-
-				// Fallback: Nếu không quét được tài liệu nào từ câu trả lời nhưng có semanticChunks, tự động lấy các tài liệu tìm thấy từ RAG
-				if (usedDocsMap.size === 0 && semanticChunks.length > 0) {
-					semanticChunks.forEach(c => {
-						if (c) usedDocsMap.set(c.id, c)
 					})
+
+					// Fallback: Nếu không quét được tài liệu nào từ câu trả lời nhưng có semanticChunks, tự động lấy các tài liệu tìm thấy từ RAG
+					if (usedDocsMap.size === 0 && semanticChunks.length > 0) {
+						semanticChunks.forEach(c => {
+							if (c) usedDocsMap.set(c.id, c)
+						})
+					}
 				}
 
 				if (intent === "ACADEMIC" && usedDocsMap.size > 0) {

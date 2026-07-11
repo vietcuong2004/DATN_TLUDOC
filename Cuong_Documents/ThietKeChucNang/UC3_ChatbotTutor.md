@@ -1,188 +1,232 @@
-# UC3 - ĐẶC TẢ CHI TIẾT VÀ HƯỚNG DẪN TRIỂN KHAI CHATBOT TUTOR (RAG EDITION)
+# 🚀 TÀI LIỆU KỸ THUẬT VÀ THUẬT TOÁN RAG EMBEDDING TRONG CHATBOT HIỆN TẠI
 
-Tài liệu này đóng vai trò như một bản đặc tả thiết kế hệ thống (System Design Specification) đi sâu vào tầng mã nguồn (Code-level). Nó giải thích toàn bộ quy trình nhận thức, lưu trữ, và kết xuất của hệ thống Retrieval-Augmented Generation (RAG) đang chạy trực tiếp trên dự án. Hệ thống hiện tại đã chuyển đổi từ mô hình Mock-up sang mô hình **Production-Ready RAG** hoàn chỉnh.
+Tài liệu này đóng vai trò như một bản đặc tả thiết kế hệ thống (System Design Specification) đi sâu vào tầng mã nguồn (Code-level). Nó giải thích toàn bộ quy trình nhận thức, lưu trữ, và kết xuất của hệ thống Retrieval-Augmented Generation (RAG) đang chạy trực tiếp trên dự án.
 
----
-
-## I. MỤC TIÊU VÀ TRIẾT LÝ THIẾT KẾ
-
-### 1. Mục tiêu cốt lõi
-- **Trợ giảng thông minh**: Giải đáp kiến thức học thuật dựa trên dữ liệu chuẩn của hệ thống, không trả lời lan man.
-- **Kết nối tài liệu**: Gợi ý chính xác các file bài giảng, giáo trình (`.pdf`) đang có trong kho dữ liệu tương ứng với nội dung người dùng hỏi.
-- **Chống ảo giác (Anti-Hallucination)**: Đảm bảo chatbot không bịa đặt thông tin hoặc gợi ý tài liệu không tồn tại.
-- **Tối ưu chi phí**: Vận hành hiệu quả trên các tài nguyên miễn phí hoặc giá rẻ (Railway, Pollinations AI, HuggingFace).
-
-### 2. Triết lý "Hybrid RAG"
-Hệ thống không phụ thuộc hoàn toàn vào Vector Database đắt đỏ (như Pinecone/Weaviate). Thay vào đó, chúng ta sử dụng **Hybrid Search** kết hợp 3 lớp:
-1. **Semantic Search (Vector)**: Hiểu ý nghĩa câu chữ qua Embedding 384 chiều.
-2. **Keyword Search (BM25)**: Tìm chính xác các thuật ngữ chuyên môn có trong văn bản bằng sức mạnh của MySQL Full-text Index.
-3. **Metadata Matching**: Ưu tiên các từ khóa xuất hiện ngay trong tiêu đề tài liệu để tăng độ chính xác khi người dùng tìm kiếm trực tiếp.
+Hệ thống hiện hành được thiết kế xoay quanh ba triết lý cốt lõi:
+1.  **High-Performance Vector Retrieval (Pinecone)**: Sử dụng Managed Vector Database chuyên dụng để xử lý hàng triệu bản ghi với độ trễ cực thấp, thay thế cho việc tính toán thủ công trên MySQL/RAM.
+2.  **Thiết quân luật (Strict Subject Filtering)**: Áp dụng cơ chế **Hard Filtering** dựa trên Metadata môn học để đảm bảo sự cách ly tuyệt đối về kiến thức giữa các môn học khác nhau.
+3.  **Auto-generated Citations (Post-processing)**: Hệ thống tự động quét và tạo Mục V (Tham khảo) bằng code sau khi AI trả lời, đảm bảo tính chính xác 100% giữa nội dung trích dẫn và danh sách tài liệu.
 
 ---
 
-## II. KIẾN TRÚC HỆ THỐNG (SYSTEM ARCHITECTURE)
+## 🏗️ PHẦN 1: TỔNG QUAN KIẾN TRÚC LUỒNG ĐI
 
-### 1. Luồng dữ liệu 6 bước (Standard RAG Pipeline)
-Khi một tin nhắn được gửi đi, hệ thống thực hiện quy trình liên hoàn:
+Hệ thống Chatbot RAG của dự án trải qua 6 bước liên hoàn khi nhận được một tin nhắn từ người dùng:
+- **Bước 1: Nạp liệu (ETL)** - Đọc PDF, tạo embedding và đồng bộ Metadata lên Pinecone Index.
+- **Bước 2: Phân loại ý định (Intent Classifier)** - Sử dụng AI để định tuyến câu hỏi (ACADEMIC, DISCOVERY, CASUAL).
+- **Bước 3: Vector Similarity Search** - Truy vấn Pinecone Index để tìm các đoạn văn bản có ngữ nghĩa gần nhất với câu hỏi.
+- **Bước 4: Thiết quân luật (Subject Filter)** - Lọc bỏ hoàn toàn các tài liệu không thuộc môn học chủ đạo để tránh "lạc đề".
+- **Bước 5: Sinh văn bản (LLM Stream)** - AI tổng hợp câu trả lời từ bối cảnh (Context) đã được lọc sạch.
+- **Bước 6: Auto-Citations & Metadata** - Code tự động chèn Mục V (Tham khảo) và trả về metadata để render thẻ tài liệu.
 
-1. **Intent Classification**: 
-   - Phân loại xem người dùng đang hỏi học thuật (`ACADEMIC`), tìm tài liệu (`DISCOVERY`) hay chỉ chào hỏi xã giao (`CASUAL`).
-   - Chặn chuỗi vô nghĩa (Gibberish) bằng Rule-based trước khi gọi AI để tiết kiệm tối đa chi phí.
+**Bảng Tổng hợp Luồng Dữ liệu (Data Pipeline Overview):**
 
-2. **Query Expansion & Vectorization**: 
-   - Tối ưu hóa câu hỏi dựa trên lịch sử hội thoại gần nhất.
-   - Chuyển đổi thành Vector 384 chiều qua mô hình `sentence-transformers/all-MiniLM-L6-v2`.
-
-3. **Hybrid Retrieval**: 
-   - Truy vấn MySQL lấy các đoạn văn bản tiềm năng bằng sự kết hợp giữa Vector Cosine (tính toán in-memory) và BM25 Full-text Search.
-
-4. **Cross-Subject Penalty**: 
-   - Thuật toán "gác cổng" môn học. 
-   - Hệ thống tự động xác định môn học chủ đạo (Dominant Subject) của câu hỏi.
-   - Trừ điểm nặng các tài liệu thuộc môn học khác để đảm bảo tính nhất quán và chuyên sâu.
-
-5. **LLM Generation (Streaming)**: 
-   - Nhồi 5 đoạn ngữ cảnh chất lượng nhất vào Prompt.
-   - Gọi LLM (OpenAI/Gemini/Pollinations) để sinh câu trả lời dưới dạng luồng dữ liệu (Stream).
-
-6. **Metadata Extraction**: 
-   - Quét nội dung AI trả về sau khi hoàn tất việc sinh văn bản.
-   - Đối soát tên tài liệu để tạo danh sách Citations (Trích dẫn) chính xác 100%.
-
-### 2. Kịch bản luồng sự kiện chi tiết (Main Success Scenario)
-
-Dưới đây là các bước tương tác chi tiết giữa Người dùng và Hệ thống trong một phiên sử dụng Chatbot:
-
-1.  **Bắt đầu**: Người dùng truy cập trang Chatbot. Hệ thống hiển thị lời chào mặc định và danh sách các câu hỏi gợi ý (`recentSearches`).
-2.  **Nhập liệu**: Người dùng nhập câu hỏi (Ví dụ: "Đạo hàm là gì?") vào ô input và nhấn phím **Enter** hoặc nút **Gửi**.
-3.  **Khởi tạo**:
-    - Frontend lập tức thêm câu hỏi vào danh sách tin nhắn.
-    - Nút "Gửi" chuyển thành nút "Dừng" (ô vuông đỏ) với hiệu ứng sóng âm.
-    - Một yêu cầu `POST` được gửi tới API với `AbortSignal`.
-4.  **Xử lý tại Server**:
-    - Hệ thống phân loại câu hỏi (Ví dụ: Nhận diện đây là câu hỏi `ACADEMIC`).
-    - Thực hiện tìm kiếm Hybrid trên CSDL để lấy các tài liệu Giải tích liên quan.
-    - Bắt đầu truyền dữ liệu (Stream) câu trả lời từ AI về Client.
-5.  **Phản hồi thời gian thực**: Người dùng quan sát thấy câu trả lời xuất hiện dần dần trên màn hình với định dạng Markdown và công thức Toán học chuẩn xác.
-6.  **Kết thúc sinh văn bản**: 
-    - Khi AI viết xong, hệ thống gửi kèm danh sách Metadata (Tài liệu tham khảo).
-    - Frontend render các thẻ tài liệu bên dưới câu trả lời.
-    - Nút "Dừng" quay trở lại thành nút "Gửi".
-7.  **Tương tác mở rộng (Tùy chọn)**: Người dùng có thể click vào thẻ tài liệu để xem trước (Preview) hoặc tải về mà không làm gián đoạn cuộc trò chuyện.
-8.  **Hủy tiến trình (Tùy chọn)**: Nếu câu trả lời quá dài hoặc không đúng ý, người dùng nhấn nút **Dừng** (hoặc `Ctrl + C`). Hệ thống ngắt kết nối Server ngay lập tức.
-9.  **Lưu trữ**: Người dùng nhấn nút **"Tạo cuộc trò chuyện mới"**. Hệ thống gộp toàn bộ nội dung đã trao đổi và lưu vào bảng `chatbot_history` trong CSDL.
+| Bước | Tên Bước | Nội dung (Ý nghĩa & Chức năng) | Input | Output |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | **Nạp liệu (ETL)** | Quét file giáo trình, băm nhỏ và nén ý nghĩa thành không gian toán học (Vector) để máy tính hiểu được. | File tài liệu gốc (PDF) | Vector 384 chiều lưu trong CSDL |
+| **2** | **Phân loại ý định** | Phân tích xem người dùng đang hỏi nghiêm túc hay nói nhảm để quyết định có cho đi tiếp hay không nhằm tiết kiệm API. | Tin nhắn thô của User | Nhãn phân loại: `ACADEMIC`, `DISCOVERY` hoặc `CASUAL` |
+| **3** | **Vector Search** | Truy vấn Pinecone Index để lôi 25 mảnh tri thức có liên quan nhất lên bộ nhớ đệm. | Vector câu hỏi | Top 25 Chunks từ Pinecone |
+| **4** | **Thiết quân luật** | Xác định môn học chủ đạo và xóa bỏ hoàn toàn các tài liệu "lạc môn" ra khỏi bối cảnh. | Top 25 Chunks | Top 5 Chunks chuẩn môn học |
+| **5** | **Sinh văn bản (LLM Stream)** | Nhồi 5 đoạn văn bản chuẩn xác cùng lịch sử chat vào cho AI tổng hợp thành một câu trả lời hoàn chỉnh. | Top 5 Chunks + Lịch sử + Câu hỏi | Luồng dữ liệu chữ (ReadableStream) |
+| **6** | **Trích xuất Metadata** | Đọc lại câu trả lời vừa sinh ra để xem AI nhắc đến tên giáo trình nào, từ đó hiển thị file giáo trình đó ra màn hình. | Luồng chữ hoàn chỉnh | Chuỗi JSON chứa thông tin các File |
 
 ---
 
-### 3. Mô hình hóa dữ liệu (Database Schema)
+## 🗄️ PHẦN 2: THUẬT TOÁN NẠP LIỆU (ETL - DATA INGESTION)
 
-Hệ thống sử dụng các bảng chiến lược sau trong MySQL:
+Để Chatbot có kiến thức, ta phải nạp giáo trình cho nó. Hệ thống sử dụng các script chuyên dụng để đẩy dữ liệu lên "đám mây" Pinecone.
 
-#### a) Bảng `document_chunks` (Lưu trữ ngữ nghĩa)
-Đây là nơi lưu trữ các "mảnh kiến thức" đã được tiền xử lý:
-- `id`: Khóa chính (Primary Key).
-- `document_id`: Foreign Key liên kết tới bảng tài liệu gốc.
-- `content`: Nội dung văn bản (đã được chunking khoảng 1000 ký tự).
-- `embedding`: Vector 384 chiều lưu dưới dạng JSON String.
+**File chịu trách nhiệm chính:** `scripts/sync-to-pinecone.mjs` và `scripts/direct-to-pinecone.mjs`
 
-#### b) Bảng `chatbot_history` (Lưu trữ hành vi)
-- `user_id`: Định danh người dùng.
-- `question`: Gộp toàn bộ câu hỏi trong một phiên làm việc.
-- `answer`: Gộp toàn bộ câu trả lời của AI tương ứng.
-- `created_at`: Lưu theo chuẩn giờ Việt Nam (GMT+7) dùng `DATE_ADD(NOW(), INTERVAL 7 HOUR)`.
+### 2.1. Đọc và Cắt nhỏ văn bản (Chunking)
+Vào dòng thứ **84 đến 95** của file `sync-to-mysql.mjs`:
+```javascript
+// Trích xuất văn bản từ Google Drive
+const downloadUrl = `https://drive.google.com/uc?export=download&id=${doc.drive_file_id}`
+const response = await fetch(downloadUrl)
+const buffer = Buffer.from(await response.arrayBuffer())
 
----
+// Trích xuất bằng pdf-parse
+const data = await pdf(buffer)
+const cleanText = data.text.replace(/\s+/g, " ").trim()
+```
+*Giải thích:*
+File giáo trình thường có hàng trăm trang, dung lượng chữ có thể vuợt quá bộ nhớ của AI. 
+- Ngay sau bước quét Text, hệ thống chuyển sang hàm `chunkText` (dòng 102) cắt toàn bộ chuỗi dài thành từng đoạn khoảng 1000 ký tự (có đoạn nối overlap 200 ký tự) để đảm bảo không một khái niệm nào bị đứt gãy giữa 2 trang sách.
+- **📌 Input**: Một file tài liệu PDF thô được tải về từ Google Drive (Dưới dạng dữ liệu Binary / Buffer).
+- **📌 Output**: Một mảng (Array) chứa nhiều đoạn văn bản ngắn (Chunks), mỗi đoạn có độ dài khoảng 1000 ký tự. Ví dụ: `["Chương 1: Giải tích là quá trình...", "Giới hạn của đường cong này...", ...]`.
 
-## III. CHI TIẾT THUẬT TOÁN (BACKEND DEEP DIVE)
+### 2.2. Mã Hóa Vector (Embedding)
+Đây là thuật toán biến chữ thành Số (để máy tính so sánh được ý nghĩa).
+Từ dòng **105 đến 114**, mỗi mảnh (chunk) được chạy qua AI:
+```javascript
+const vector = await getEmbedding(chunk)
 
-### 1. Bộ phân loại Intent thông minh
-Hàm `classifyIntent` đóng vai trò là "người gác cổng" tài nguyên:
-- **Phát hiện Gibberish**: Nếu người dùng nhập chuỗi ký tự ngẫu nhiên (không có nguyên âm, không có dấu cách và quá dài), hệ thống sẽ đánh dấu là `CASUAL` và không kích hoạt RAG.
-- **Short-circuit**: Các câu chào hỏi thông dụng (`haha`, `hello`, `chào`) sẽ được hệ thống trả lời bằng câu thoại fix sẵn, giúp phản hồi cực nhanh (< 100ms).
-
-### 2. Công thức tính điểm Hybrid Scoring
-Mỗi đoạn văn bản (Chunk) được chấm điểm theo trọng số:
-`FinalScore = (VectorSimilarity * 0.5) + (BM25Score * 0.3) + (TitleMatch * 0.2)`
-
-- **VectorSimilarity**: Tính toán bằng hàm `fastDot` (Tích vô hướng).
-- **BM25Score**: Lấy từ kết quả `MATCH() AGAINST()` của MySQL, được chuẩn hóa theo giá trị cao nhất trong tập kết quả.
-- **TitleMatch**: Chấm điểm dựa trên số lượng từ khóa trong câu hỏi xuất hiện trong tiêu đề tài liệu (`d.title`).
-
-### 3. Cơ chế Cross-Subject Penalty (Chống lạc đề)
-Đây là giải pháp độc đáo để xử lý dữ liệu quy mô lớn:
-1. Hệ thống lấy Top 10 kết quả có điểm cao nhất.
-2. Duyệt qua danh sách để tính môn học nào đang chiếm ưu thế (Tổng điểm cao nhất).
-3. Gán ID môn học đó làm **Dominant Subject**.
-4. Các tài liệu khác môn học này sẽ bị trừ thẳng **0.4 điểm**. 
-5. Kết quả: Các tài liệu "lạc đề" sẽ biến mất khỏi danh sách gợi ý của AI.
-
----
-
-## IV. TRIỂN KHAI PHÍA SERVER (API ROUTE)
-
-### 1. Endpoint: `POST /api/chatbot`
-Đây là trung tâm xử lý dữ liệu. Toàn bộ logic RAG được đóng gói tại đây để đảm bảo bảo mật cho API Keys và Logic xử lý.
-
-**Đặc điểm nổi bật:**
-- **Streaming**: Sử dụng `ReadableStream` để truyền dữ liệu về Client theo thời gian thực. Người dùng không phải đợi AI viết xong toàn bộ mới thấy kết quả.
-- **Abort Signal**: Server chủ động kiểm tra `request.signal.aborted`. Nếu Client ngắt kết nối (do người dùng bấm Hủy), Server sẽ lập tức dừng việc đọc dữ liệu từ AI Provider để tiết kiệm Token.
-
-### 2. Endpoint: `POST /api/chatbot/history`
-- Xử lý việc lưu trữ bền vững.
-- Hỗ trợ gộp tin nhắn thông minh: Hệ thống sử dụng dấu phân tách `---MESSAGE_SEP---` để phân tách các câu hỏi/trả lời trong cùng một phiên chat khi lưu vào DB.
-- Hỗ trợ lọc tin nhắn hệ thống (Intro) để đảm bảo lịch sử chỉ chứa nội dung trao đổi thực sự.
+await pool.query(
+  "INSERT INTO document_chunks (document_id, content, embedding) VALUES (?, ?, ?)",
+  [doc.id, chunk, JSON.stringify(vector)]
+)
+```
+*Giải thích:*
+- Hàm `getEmbedding` kết nối tới HuggingFace (Model: `all-MiniLM-L6-v2`).
+- Kết quả là mảng **384 con số** (Vector) được lưu vào Pinecone kèm theo **Metadata** cực kỳ quan trọng:
+  - `subject_id`: Mã môn học (Dùng để lọc "Thiết quân luật").
+  - `title`: Tên tài liệu (Dùng để trích dẫn).
+  - `drive_file_id`, `download_url`: Dùng để xem trước và tải về.
+- **📌 Input**: Một đoạn văn bản (Chunk) dạng String Text. Ví dụ: `"Đạo hàm là tốc độ thay đổi tức thời của hàm số..."`.
+- **📌 Output**: Một mảng Array gồm 384 con số thực (Float) mang giá trị ngữ nghĩa. Mảng này sau đó được mã hóa (JSON.stringify) thành chuỗi như `"[0.012, 0.45, -0.02, ...]"` và `INSERT` thẳng vào cột `embedding` của MySQL.
 
 ---
 
-## V. CÔNG NGHỆ PHÍA FRONTEND (UX/UI DEEP DIVE)
+## 🧠 PHẦN 3: ĐỊNH TUYẾN Ý ĐỊNH (INTENT ROUTING & GIBBERISH DETECTION)
 
-### 1. Quản lý trạng thái và Luồng (Stream Handling)
-- Sử dụng `AbortController` để quản lý vòng đời của yêu cầu fetch.
-- Cung cấp nút **"Stop Generation"** với hiệu ứng viền đỏ nhấp nháy (`animate-ping`) khi AI đang hoạt động.
-- Hỗ trợ phím tắt `Ctrl + C` để hủy nhanh tiến trình, tạo cảm giác chuyên nghiệp như các công cụ lập trình.
+Trước khi tốn tài nguyên gọi LLM, hệ thống phải phân tích xem người dùng đang muốn gì.
+**File chịu trách nhiệm trực tiếp:** `app/api/chatbot/route.ts` (Hàm `classifyIntent`)
 
-### 2. Bộ Render Cú Pháp (AST-based Rendering)
-Tại file `components/chatbot/ChatbotAnswer.tsx`:
-- **Markdown**: Chuyển đổi Text thô thành các thẻ HTML chuẩn.
-- **KaTeX**: Tích hợp `rehype-katex` để render các công thức toán học phức tạp. Hệ thống xử lý được cả các lỗi phổ biến của AI khi sinh LaTeX (như nhầm lẫn dấu backslash trong tiếng Việt).
-- **Huy hiệu số La Mã**: Sử dụng kỹ thuật ghi đè Component (Component Overriding) của `react-markdown` để vẽ các thẻ tiêu đề I, II, III với phong cách tối giản, hiện đại.
+### 3.1 Bộ lọc cứng (Rule-based) & Chặn chuỗi vô nghĩa
+Thay vì luôn gọi AI, hệ thống kiểm tra các quy tắc tĩnh:
+```typescript
+const casualWords = ["haha", "hi", "hello", "chào", "cam on", "thanks", "ok", "bye", "vl"]
+// Chặn từ giao tiếp cơ bản
+if (casualWords.some(word => cleanMsg.includes(word)) && cleanMsg.length < 15) return "CASUAL"
 
-### 3. Interactive Sidebar
-- Hiển thị lịch sử chat từ MySQL.
-- Hỗ trợ xóa từng mục hoặc xóa toàn bộ lịch sử chỉ với 1 click.
-- Tự động cập nhật danh sách lịch sử ngay sau khi người dùng kết thúc một phiên chat mới.
+// Chặn chuỗi vô nghĩa (Gibberish) không chứa nguyên âm hoặc không có dấu cách
+const words = cleanMsg.split(/\s+/)
+if (words.length === 1 && words[0].length > 10 && !hasVowels(words[0])) return "CASUAL"
+if (cleanMsg.length > 15 && !cleanMsg.includes(" ") && !/[0-9]/.test(cleanMsg)) return "CASUAL"
+```
+Nếu rơi vào `CASUAL`, server trả về *ngay lập tức* một câu phản hồi được fix cứng ("Xin lỗi, mình chưa hiểu câu hỏi...") mà không tốn 1 đồng chi phí gọi API.
 
----
+### 3.2 LLM Intent Classifier
+Nếu vượt qua bộ lọc cứng, hệ thống gửi một Prompt siêu chặt chẽ cho AI để phân loại thành `ACADEMIC` (Hỏi kiến thức) hoặc `DISCOVERY` (Hỏi tìm tài liệu/chức năng).
 
-## VI. BẢO MẬT VÀ TỐI ƯU HÓA (PERFORMANCE)
-
-### 1. Bảo mật API
-- Toàn bộ API Key (`POLLINATIONS_API_KEY`, `GEMINI_API_KEY`) được giấu kín ở phía Server.
-- Client chỉ giao tiếp qua Route Handler của Next.js, không bao giờ biết được thông tin về Provider bên thứ ba.
-
-### 2. Tối ưu bộ nhớ (In-memory Caching)
-- Hệ thống duy trì một `answerCache` (Map) để lưu trữ các câu trả lời cho những câu hỏi giống hệt nhau.
-- Cache này giúp phản hồi tức thì và giảm 100% chi phí gọi AI cho các câu hỏi phổ biến.
-
----
-
-## VII. TIÊU CHÍ NGHIỆM THU (ACCEPTANCE CRITERIA)
-
-Một phiên triển khai Chatbot Tutor được coi là thành công khi:
-1. **Tốc độ**: Thời gian bắt đầu thấy những từ đầu tiên (First Byte) không quá 2 giây.
-2. **Độ chính xác**: Khi hỏi về một môn học cụ thể, các tài liệu gợi ý bên dưới phải thuộc đúng môn học đó.
-3. **Tính bền bỉ**: Lịch sử chat phải được lưu đúng múi giờ Việt Nam và hiển thị lại chính xác trong Sidebar.
-4. **Trải nghiệm**: Các công thức toán học và cấu trúc mục lục La Mã phải hiển thị đẹp mắt, không lỗi font.
-5. **Độ tin cậy**: Khi người dùng hỏi linh tinh, chatbot phải từ chối khéo léo thay vì cố gắng suy luận sai lệch.
+*Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 3:*
+- **📌 Input**: Chuỗi tin nhắn nguyên bản của người dùng (String). Ví dụ: `"Cho mình xin tài liệu giải tích"` hoặc `"skjfksdjf"`.
+- **📌 Output**: Trả về DUY NHẤT 1 chuỗi ký tự thuộc 1 trong 3 nhãn:
+  - `"CASUAL"`: Giao tiếp, chào hỏi, hoặc nhập nhằng vô nghĩa (Bị chặn ngay tại Server).
+  - `"DISCOVERY"`: Xin tài nguyên, hỏi về hệ thống.
+  - `"ACADEMIC"`: Hỏi về bài tập, khái niệm chuyên môn.
 
 ---
 
-## VIII. KẾT LUẬN
+## 🔍 PHẦN 4: THUẬT TOÁN TÌM KIẾM VECTOR VÀ THIẾT QUÂN LUẬT (STRICT FILTERING)
 
-Hệ thống Chatbot Tutor hiện tại là sự kết hợp hoàn hảo giữa kỹ thuật **RAG tiên tiến** và tối ưu hóa **vận hành chi phí thấp**. Với thuật toán chấm điểm 3 yếu tố và cơ chế Cross-Subject Penalty, chúng ta đã xây dựng được một "Trợ lý học tập" thực sự tin cậy, bám sát dữ liệu thực tế của đồ án.
+Hệ thống sử dụng cơ chế lọc cứng để ngăn chặn việc tài liệu môn học này "nhảy" sang môn học khác.
 
-Tài liệu này cung cấp đầy đủ cơ sở lý luận và hướng dẫn kỹ thuật để bạn có thể tự tin bảo vệ trước hội đồng về tính sáng tạo cũng như khả năng thực thi thực tế của hệ thống.
+### 4.1 Truy xuất từ Pinecone
+Thay vì quét MySQL, hệ thống gọi trực tiếp API Pinecone:
+```typescript
+const queryResponse = await pineconeIndex.query({
+  vector: queryVector,
+  topK: 25, 
+  includeMetadata: true,
+})
+```
+
+### 4.2 Cơ chế Thiết quân luật (Hard Filter) - "Đúng môn mới nói"
+Đây là thuật toán quan trọng nhất để chống lại hiện tượng AI trả lời "râu ông nọ cắm cằm bà kia" (ví dụ: đang hỏi về Linux nhưng lại lấy kiến thức Trí tuệ nhân tạo ra trả lời).
+
+**Quy trình xử lý gồm 3 bước:**
+
+1.  **Bầu chọn Môn học mục tiêu (Subject Voting):**
+    Hệ thống nhìn vào 25 kết quả vừa lấy từ Pinecone. Nó tính tổng điểm của từng môn học xuất hiện trong đó. Môn học nào có tổng điểm cao nhất sẽ được coi là **"Môn học mục tiêu"** (Target Subject).
+    *Ví dụ:* Trong 25 kết quả, có 20 đoạn thuộc môn "Hệ điều hành" và 5 đoạn thuộc môn "Giải tích". Hệ thống sẽ chốt mục tiêu là môn **Hệ điều hành**.
+
+2.  **Thanh lọc tuyệt đối (The Hard Filter):**
+    Sau khi đã chốt được Môn học mục tiêu, hệ thống thực hiện một lệnh lọc (filter) cực kỳ tàn nhẫn:
+    ```typescript
+    // Xóa sổ mọi tài liệu không khớp mã môn học mục tiêu
+    semanticChunks = scored.filter(c => Number(c.subject_id) === targetSubjectId)
+    ```
+    *Ý nghĩa:* Dù một đoạn văn bản môn "Giải tích" có điểm tương đồng là 0.99 (rất cao), nhưng vì nó không phải môn "Hệ điều hành" nên nó sẽ bị **xóa bỏ 100%**.
+
+3.  **Lấy tinh hoa (Top 5):**
+    Sau khi đã lọc sạch "rác" lạc môn, hệ thống mới lấy ra 5 đoạn văn bản xuất sắc nhất của đúng môn đó để gửi cho AI.
+    ```typescript
+    semanticChunks = semanticChunks.slice(0, 5)
+    ```
+
+**📌 Tại sao phải làm vậy?**
+Trong học tập, các môn học thường có từ khóa trùng nhau (ví dụ: từ "Kernel" có trong cả Hệ điều hành và Đại số tuyến tính). Nếu không có "Thiết quân luật", AI sẽ bị nhầm lẫn giữa hai khái niệm này. Cơ chế này đảm bảo kiến thức luôn nằm trong đúng "vùng an toàn" của môn học đó.
+
+*Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 4:*
+- **📌 Input**: Câu hỏi của người dùng đã được tối ưu hóa (String) và Vector của câu hỏi (Array 384 chiều).
+- **📌 Output**: Một mảng (Array) chứa tối đa 5 đoạn văn bản (Chunks) phù hợp nhất, đã được dọn sạch các kết quả lạc đề. Ví dụ: `[{ id: 1, content: "...", score: 0.82 }, ...]`.
 
 ---
-*Tài liệu được cập nhật ngày: 23/04/2026*
-*Phiên bản: 3.2 (Production RAG Documentation)*
+
+## 🛑 PHẦN 5: LUỒNG STREAM VÀ CƠ CHẾ HỦY TIẾN TRÌNH (ABORT GENERATION)
+
+Chatbot truyền dữ liệu về bằng `ReadableStream`. Điều gì xảy ra nếu User bấm "Hủy" hoặc "Tạo mới"?
+
+Tại `route.ts`, bên trong vòng lặp đọc Stream từ Pollinations AI:
+```typescript
+while (true) {
+  // Kiểm tra nếu client đã ngắt kết nối (bấm Hủy/Ctrl+C)
+  if (request.signal.aborted) {
+    console.log("[api/chatbot] Client aborted connection. Stopping stream.");
+    reader.cancel(); // Lập tức ngắt stream từ phía Server
+    return;
+  }
+  // ... đọc và đẩy chunk về client ...
+}
+```
+Sự kết hợp giữa `AbortController` (Frontend) và `request.signal.aborted` (Backend) giúp tiết kiệm cực lớn tài nguyên CPU và Băng thông mạng.
+
+*Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 5:*
+- **📌 Input**: Mảng 5 đoạn văn bản (từ bước 4), lịch sử chat, và câu hỏi hiện tại. Tất cả được nhồi vào một siêu Prompt (String).
+- **📌 Output**: Một luồng dữ liệu liên tục (`ReadableStream`). Các từ ngữ được AI sinh ra đến đâu sẽ trả thẳng về trình duyệt đến đó, tạo hiệu ứng gõ chữ (Typing effect).
+
+---
+
+## 📑 PHẦN 6: AUTO-GENERATED CITATIONS & METADATA
+
+Đây là "vũ khí" chống trích dẫn ảo. AI được lệnh **KHÔNG** tự viết Mục V. Hệ thống sẽ tự động làm việc này ở tầng code sau khi stream kết thúc.
+
+### 6.1. Quy trình tự động tạo Mục V
+1.  **Quét nội dung**: Code quét toàn bộ bài giải thích của AI (Mục I-IV).
+2.  **Đối soát**: Chỉ những tài liệu nào thực sự được AI nhắc tên trong bài mới được đưa vào danh sách.
+3.  **Nối thêm (Append)**: Hệ thống tự động chèn chuỗi `## V. Tài liệu tham khảo` vào cuối stream.
+
+### 6.2. Trích xuất Metadata
+Hệ thống đính kèm một gói JSON ẩn ở cuối câu trả lời để Frontend hiển thị thẻ tài liệu.
+```typescript
+const metadata = {
+  chatId: body.chatId,
+  documents: Array.from(usedDocsMap.values()).map(d => ({
+    id: d.id,
+    title: d.title,
+    // ... metadata cho Card UI
+  }))
+}
+```
+
+*Tóm tắt luồng Dữ liệu (I/O) của toàn bộ Bước 6:*
+- **📌 Input**: Toàn bộ câu trả lời hoàn chỉnh mà AI vừa sinh ra ở Bước 5 (String).
+- **📌 Output**: Một chuỗi JSON ẩn dính kèm vào cuối câu trả lời (Ví dụ: `\n__METADATA__\n{"documents":[{"title":"Giáo trình..."}]}`). Trình duyệt sẽ đọc chuỗi này để vẽ ra các thẻ (Cards) tài liệu có thể click được.
+
+---
+
+## 💾 PHẦN 7: LƯU TRỮ LỊCH SỬ THEO PHIÊN (SESSION-BASED HISTORY)
+
+Hệ thống không lưu lắt nhắt từng tin nhắn. Trạng thái lịch sử chỉ được lưu lại khi User kết thúc phiên bằng cách bấm nút "Tạo cuộc trò chuyện mới".
+
+Trong `app/api/chatbot/history/route.ts`:
+INSERT INTO chatbot_history (user_id, document_id, question, answer, created_at) 
+VALUES (?, ?, ?, ?, NOW())
+```
+- Lịch sử được gộp lại (Concatenate) từ tất cả các câu hỏi của User và AI.
+- Câu chào mặc định (`intro-message`) được lọc bỏ nghiêm ngặt bằng TypeScript Regex.
+- Thời gian được lưu trữ dưới dạng UTC chuẩn quốc tế. Khi hiển thị ở Frontend, trình duyệt của người dùng sẽ tự động chuyển đổi sang giờ địa phương (Ví dụ: GMT+7 tại Việt Nam) để đảm bảo độ chính xác tuyệt đối bất kể Server được đặt ở đâu.
+
+---
+
+## 📂 PHẦN 8: TỔNG HỢP BỘ TỪ ĐIỂN CÁC FILE (DIRECTORY MAPPING)
+
+- **`scripts/sync-to-mysql.mjs`**: Script ETL đọc PDF, chunking, tạo Vector và lưu DB.
+- **`app/api/chatbot/route.ts`**: "Trái tim" của hệ thống. Chứa Intent Classifier, Hybrid Search 3 yếu tố, Cross-Subject Penalty, và điều phối luồng LLM Stream (có Signal Cancel).
+- **`app/api/chatbot/history/route.ts`**: Quản lý Persistence (Lưu trữ). Xử lý POST (Lưu cả Session) và DELETE (Xóa từng mục hoặc Xóa tất cả).
+- **`app/chatbot/page.tsx`**: Giao diện Client. Chứa `AbortController`, hiệu ứng thay đổi nút Send/Stop, lắng nghe phím tắt `Ctrl+C`, và cơ chế Parsing `__METADATA__`.
+- **`components/chatbot/ChatbotAnswer.tsx`**: Cỗ máy Render Đồ Họa Cú Pháp (AST Renderer). Dùng `react-markdown` và `rehype-katex` để dựng UI La Mã và Toán học siêu chuẩn. Mọi thẻ hiển thị (Cards) tài liệu liên quan đều được Render ở đây.
+
+> Phiên bản RAG hiện tại đã đạt chuẩn Enterprise cấp vi mô: Nhanh, Rẻ, Chống Ảo Giác tuyệt đối, và Tương tác UI cực kỳ chuyên nghiệp.

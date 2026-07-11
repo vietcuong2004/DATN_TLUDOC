@@ -104,7 +104,7 @@ export default function ChatbotPage() {
       e.preventDefault()
       if (input.trim() && !isLoading) {
         const fakeEvent = {
-          preventDefault: () => {},
+          preventDefault: () => { },
         } as React.FormEvent
         handleSendMessage(fakeEvent)
       }
@@ -218,6 +218,7 @@ export default function ChatbotPage() {
     }
   };
 
+  // Gửi câu hỏi lên endpoint
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
@@ -545,35 +546,35 @@ export default function ChatbotPage() {
                       <div className="flex items-center gap-2">
                         <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                           <SheetTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="md:hidden h-10 w-10 text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center shrink-0"
                               title="Mở danh sách gợi ý và lịch sử"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                  <path d="M4 8H20M4 16H20"/>
-                                </svg>
-                              </Button>
-                            </SheetTrigger>
-                            <SheetContent side="left" className="w-[320px] p-4 flex flex-col [&>button]:right-4 [&>button]:top-4">
-                              <SheetHeader className="mb-4 text-left">
-                                <SheetTitle className="font-bold text-lg">Trợ lý học tập TLU</SheetTitle>
-                              </SheetHeader>
-                              <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
-                                <ChatbotSidebar
-                                  dbHistory={dbHistory}
-                                  isLoadingHistory={isLoadingHistory}
-                                  handleDeleteAllHistory={handleDeleteAllHistory}
-                                  handleLoadHistory={handleLoadHistory}
-                                  handleDeleteHistoryItem={handleDeleteHistoryItem}
-                                  handleQuickQuestion={handleQuickQuestion}
-                                  handleNewChat={handleNewChat}
-                                  isCreatingNewChat={isCreatingNewChat}
-                                />
-                              </div>
-                            </SheetContent>
-                          </Sheet>
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <path d="M4 8H20M4 16H20" />
+                              </svg>
+                            </Button>
+                          </SheetTrigger>
+                          <SheetContent side="left" className="w-[320px] p-4 flex flex-col [&>button]:right-4 [&>button]:top-4">
+                            <SheetHeader className="mb-4 text-left">
+                              <SheetTitle className="font-bold text-lg">Trợ lý học tập TLU</SheetTitle>
+                            </SheetHeader>
+                            <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
+                              <ChatbotSidebar
+                                dbHistory={dbHistory}
+                                isLoadingHistory={isLoadingHistory}
+                                handleDeleteAllHistory={handleDeleteAllHistory}
+                                handleLoadHistory={handleLoadHistory}
+                                handleDeleteHistoryItem={handleDeleteHistoryItem}
+                                handleQuickQuestion={handleQuickQuestion}
+                                handleNewChat={handleNewChat}
+                                isCreatingNewChat={isCreatingNewChat}
+                              />
+                            </div>
+                          </SheetContent>
+                        </Sheet>
 
                         {/* Title and Logo */}
                         <div className="flex items-center gap-2">
@@ -600,7 +601,7 @@ export default function ChatbotPage() {
                           title="Tạo cuộc trò chuyện mới"
                         >
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                            <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
                           </svg>
                         </Button>
 
@@ -613,11 +614,11 @@ export default function ChatbotPage() {
                         >
                           {isFullScreen ? (
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4"/>
+                              <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4" />
                             </svg>
                           ) : (
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                             </svg>
                           )}
                         </Button>
